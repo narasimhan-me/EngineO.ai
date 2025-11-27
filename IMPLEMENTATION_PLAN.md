@@ -1,0 +1,721 @@
+# SEOEngine.io – Full Implementation Plan
+
+This document provides a **step-by-step, execution-ready plan** for building the SEOEngine.io SaaS application using a monorepo (Next.js frontend + NestJS backend + Prisma + PostgreSQL + Shopify integration + AI metadata engine).
+
+AI IDEs (Cursor, Antigravity, etc.) should follow these instructions **exactly as written**.  
+Each phase should be implemented in sequence.  
+Each step should produce diffs and await approval before applying.
+
+---
+
+## Tech Stack
+
+- **Frontend:** Next.js 14 (App Router), TypeScript, TailwindCSS
+- **Backend:** NestJS (Node + TypeScript)
+- **Database:** PostgreSQL + Prisma
+- **Cache / Queue (later):** Redis
+- **AI:** OpenAI / Gemini via REST API
+- **E‑commerce:** Shopify Admin API (REST or GraphQL)
+
+---
+
+# PHASE 0 — Monorepo Structure & Tooling
+
+### 0.1. Create Monorepo Structure
+
+Create the directory structure:
+
+```txt
+seoengine/
+  apps/
+    web/        # Next.js 14 app (frontend)
+    api/        # NestJS backend API
+  packages/
+    shared/     # shared types and utility
+  .gitignore
+  package.json
+  tsconfig.base.json
+  README.md
+```
+
+Requirements:
+
+- Use **pnpm workspaces** (preferred) or Yarn workspaces.
+- Configure `"apps/*"` and `"packages/*"` as workspace folders.
+- Create a **root** tsconfig: `tsconfig.base.json` with base compiler options.
+- Ensure Node 20+ is assumed.
+
+---
+
+### 0.2. Initialize Frontend (Next.js 14 + TS + Tailwind)
+
+Inside `apps/web`:
+
+1. Create a new Next.js app configured with:
+   - App Router
+   - TypeScript
+   - TailwindCSS
+   - `/src` directory enabled
+
+2. Required directory structure:
+
+```txt
+apps/web/src/
+  app/
+    (marketing)/
+      page.tsx
+    dashboard/
+      page.tsx
+    projects/
+      page.tsx
+    settings/
+      page.tsx
+    layout.tsx
+  components/
+  lib/
+```
+
+3. Requirements:
+
+- TailwindCSS configured with JIT.
+- Global layout with a simple navigation shell (top nav + optional sidebar).
+- Home page text:  
+  `SEOEngine.io – SEO on Autopilot.`
+- `/dashboard` renders “Dashboard placeholder”.
+- `/projects` renders “Projects placeholder”.
+- `/settings` renders “Settings placeholder”.
+
+---
+
+### 0.3. Initialize Backend (NestJS)
+
+Inside `apps/api`:
+
+1. Create a NestJS project using the official CLI.
+2. Required structure:
+
+```txt
+apps/api/src/
+  app.module.ts
+  main.ts
+  health/
+    health.module.ts
+    health.controller.ts
+  auth/
+  users/
+  projects/
+```
+
+3. Add endpoint:
+
+- `GET /health` → `{ "status": "ok" }`
+
+4. Enable CORS (temporary: allow all origins for development).
+5. Add `.env` support via `@nestjs/config`.
+
+---
+
+### 0.4. Shared Package
+
+Inside `packages/shared`:
+
+- Create `src/index.ts` exporting shared types/interfaces, e.g.:
+
+```ts
+export interface UserDTO {
+  id: string;
+  email: string;
+  name?: string;
+  createdAt: string;
+}
+```
+
+- Configure TS path alias: `@seoengine/shared` so both web and api can import these types.
+
+---
+
+### 0.5. Root Tooling
+
+At repo root:
+
+- Add **ESLint + Prettier** configs shared between apps.
+- Add root scripts in `package.json`:
+
+```json
+{
+  "scripts": {
+    "dev:web": "pnpm --filter web dev",
+    "dev:api": "pnpm --filter api start:dev",
+    "dev": "concurrently "pnpm dev:web" "pnpm dev:api""
+  }
+}
+```
+
+- Install and configure `concurrently`.
+- Ensure `.gitignore` includes standard Node/Next/Nest patterns:
+  - `node_modules/`, `.next/`, `.turbo/`, `dist/`, `.env*`, etc.
+
+---
+
+# PHASE 1 — Auth, Users & Database
+
+### 1.1. Set Up Prisma + PostgreSQL
+
+Inside `apps/api`:
+
+1. Install Prisma and PostgreSQL client.
+2. Add `prisma/schema.prisma`:
+
+```prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects  Project[]
+}
+
+model Project {
+  id            String   @id @default(cuid())
+  user          User     @relation(fields: [userId], references: [id])
+  userId        String
+  name          String
+  domain        String?
+  connectedType String   // 'website' | 'shopify'
+  createdAt     DateTime @default(now())
+}
+```
+
+3. Create `.env` with `DATABASE_URL` for local Postgres.
+4. Run: `npx prisma migrate dev --name init`.
+
+---
+
+### 1.2. Backend Auth Module
+
+Inside `apps/api/src/auth`:
+
+Implement:
+
+#### Endpoints:
+
+- `POST /auth/signup`
+  - Body: `{ email, password, name? }`
+  - Hash password using bcrypt.
+  - Store user in DB.
+
+- `POST /auth/login`
+  - Body: `{ email, password }`
+  - Validate credentials.
+  - Return `{ accessToken, user }`.
+
+#### Supporting pieces:
+
+- `AuthModule`, `AuthService`, `AuthController`.
+- `JwtModule` configured with secret and expiration.
+- `LocalStrategy` + `JwtStrategy` (if using Nest Passport).
+- `JwtAuthGuard` to protect routes.
+
+Create `UsersModule` with:
+
+- `GET /users/me` (JWT-protected) returning `UserDTO`.
+
+---
+
+### 1.3. Frontend Auth Pages
+
+Inside `apps/web/src/app`:
+
+- Create `/login/page.tsx`:
+  - Email + password form.
+  - Calls `POST /auth/login`.
+  - On success:
+    - Store JWT in localStorage as `seoengine_token`.
+    - Redirect to `/dashboard`.
+
+- Create `/signup/page.tsx`:
+  - Email, password, name form.
+  - Calls `POST /auth/signup`.
+  - On success:
+    - Optionally auto-login, then redirect to `/dashboard`.
+
+- Add simple client-side auth hook in `src/lib/auth.ts`:
+  - `getToken()`, `setToken()`, `isAuthenticated()`.
+
+- Implement a basic “guard” layout for dashboard routes:
+  - If not authenticated, redirect to `/login`.
+
+---
+
+### 1.4. Projects Module (Backend + Frontend)
+
+#### Backend (`apps/api/src/projects`):
+
+Create endpoints:
+
+- `GET /projects`
+  - Returns projects for authenticated user.
+
+- `POST /projects`
+  - Body: `{ name, domain, connectedType }`.
+  - Creates new project linked to `userId`.
+
+- `GET /projects/:id`
+  - Returns project by ID (only if belongs to user).
+
+- `DELETE /projects/:id`
+  - Soft delete or hard delete, your choice (MVP: hard delete).
+
+#### Frontend:
+
+- `/projects/page.tsx`:
+  - Fetches `GET /projects` with JWT.
+  - Lists projects in a table or cards.
+  - “New Project” button:
+    - Opens a simple form/modal.
+    - POSTs to `POST /projects`.
+    - Refreshes list.
+
+- `/dashboard/page.tsx`:
+  - Fetches `GET /projects`.
+  - Shows summary:
+    - Number of projects.
+    - Last created project.
+    - Link to `/projects`.
+
+---
+
+# PHASE 2 — Shopify Integration (MVP Skeleton)
+
+### 2.1. ShopifyStore DB Model
+
+Add to `schema.prisma`:
+
+```prisma
+model ShopifyStore {
+  id          String   @id @default(cuid())
+  project     Project  @relation(fields: [projectId], references: [id])
+  projectId   String
+  shopDomain  String   @unique
+  accessToken String
+  scope       String?
+  installedAt DateTime @default(now())
+  uninstalledAt DateTime?
+}
+```
+
+Run `npx prisma migrate dev --name add_shopify_store`.
+
+---
+
+### 2.2. Shopify OAuth Flow (Backend)
+
+Create `shopify` module:
+
+- Config:
+  - `SHOPIFY_API_KEY`
+  - `SHOPIFY_API_SECRET`
+  - `SHOPIFY_APP_URL` (your backend public URL)
+  - `SHOPIFY_SCOPES` (e.g. `read_products,write_products,read_themes` etc.)
+
+Implement:
+
+#### `GET /shopify/install?projectId=...`
+
+- Validates that the authenticated user owns the `projectId`.
+- Generates Shopify OAuth URL with:
+  - client_id
+  - scopes
+  - redirect_uri → `/shopify/callback`
+  - state (random, store it mapped to projectId)
+- Redirects to Shopify.
+
+#### `GET /shopify/callback`
+
+- Validates HMAC from query.
+- Validates `state` (maps back to projectId).
+- Exchanges `code` for access token using Shopify OAuth endpoint.
+- Persists `ShopifyStore` with:
+  - `shopDomain`
+  - `accessToken`
+  - `scope`
+  - `projectId`
+  - `installedAt`
+
+---
+
+### 2.3. Shopify Connect Button (Frontend)
+
+On `/projects/[id]/page.tsx`:
+
+- Fetch project details and ShopifyStore status from a backend endpoint, e.g. `GET /projects/:id/integration-status`.
+
+- If **no ShopifyStore**:
+  - Show button **“Connect Shopify Store”**.
+  - On click:
+    - Call `GET /shopify/install?projectId=...`.
+    - Follow redirect to Shopify.
+
+- If **connected**:
+  - Show `shopDomain` and “Connected” badge.
+
+---
+
+# PHASE 3 — Basic SEO Scanner
+
+### 3.1. CrawlResult Schema
+
+Add to `schema.prisma`:
+
+```prisma
+model CrawlResult {
+  id              String   @id @default(cuid())
+  project         Project  @relation(fields: [projectId], references: [id])
+  projectId       String
+  url             String
+  statusCode      Int
+  title           String?
+  metaDescription String?
+  h1              String?
+  wordCount       Int?
+  loadTimeMs      Int?
+  issues          Json
+  scannedAt       DateTime @default(now())
+}
+```
+
+Run migration.
+
+---
+
+### 3.2. SEO Scan Service (Backend)
+
+Create `seo-scan` module:
+
+#### Endpoint: `POST /seo-scan/start`
+
+- Body: `{ projectId }`.
+- Validates that the project belongs to the authenticated user.
+- Fetches project domain.
+- For MVP, scan only:
+  - `/`
+
+Steps:
+
+1. Build URL (`https://{domain}/`).
+2. Fetch the page (e.g. using `node-fetch` or `axios`).
+3. Measure response time (ms).
+4. Parse HTML (using `cheerio` or similar).
+5. Extract:
+   - `<title>`
+   - `<meta name="description">`
+   - first `<h1>`
+   - basic word count (e.g. text length / 5)
+6. Build `issues` array of strings:
+   - `"MISSING_TITLE"`
+   - `"MISSING_META_DESCRIPTION"`
+   - `"MISSING_H1"`
+   - `"THIN_CONTENT"`
+7. Create `CrawlResult` row.
+
+#### Endpoint: `GET /seo-scan/results?projectId=...`
+
+- Returns list of `CrawlResult` for that project ordered by `scannedAt DESC`.
+
+---
+
+### 3.3. SEO Scan UI
+
+On `/projects/[id]/page.tsx`:
+
+- Add “Run SEO Scan” button.
+  - Calls `POST /seo-scan/start`.
+  - After success, refresh results list.
+
+- Below, show table:
+
+| URL | Status | Title | Issues | Scanned |
+
+- Compute SEO Score per page:
+
+```ts
+const score = Math.max(0, 100 - issues.length * 5);
+```
+
+- Optionally show an average project score.
+
+---
+
+# PHASE 4 — AI Metadata Suggestions
+
+### 4.1. AI Integration (OpenAI or Gemini)
+
+Backend `ai` module:
+
+- Load API key from `.env`.
+- Implement:
+
+```ts
+async function generateMetadata(input: {
+  url: string;
+  currentTitle?: string;
+  currentDescription?: string;
+  pageTextSnippet?: string;
+  targetKeywords?: string[];
+}): Promise<{ title: string; description: string }> {
+  // Call AI provider with a prompt like:
+  // "You are an SEO assistant. Generate an SEO-friendly title (<= 65 chars) and meta description (<= 155 chars) for the following page..."
+}
+```
+
+Keep prompts deterministic and short.
+
+---
+
+### 4.2. Metadata Suggestion Endpoint
+
+`POST /ai/metadata`
+
+Body:
+
+```json
+{
+  "crawlResultId": "string",
+  "targetKeywords": ["optional", "keywords"]
+}
+```
+
+Steps:
+
+- Load `CrawlResult` by ID and project.
+- Compose a text snippet from page info (title, H1, etc.).
+- Call `generateMetadata`.
+- Return:
+
+```json
+{
+  "suggestedTitle": "string",
+  "suggestedDescription": "string"
+}
+```
+
+You may also create a table `MetadataSuggestion` to persist suggestions, but MVP can keep it ephemeral.
+
+---
+
+### 4.3. UI for Metadata Suggestions
+
+In the SEO scan table:
+
+- Add column “Actions” with button **“Suggest Metadata”**.
+
+On click:
+
+- Call `POST /ai/metadata`.
+- Show modal with:
+  - Current title + description.
+  - Suggested title + description.
+  - Buttons: “Copy to clipboard” (MVP) and “Close”.
+
+No application back to CMS yet (that will be done for Shopify in later phases).
+
+---
+
+# PHASE 5 — Shopify Product SEO (Read + AI)
+
+### 5.1. Product Schema
+
+Add to Prisma:
+
+```prisma
+model Product {
+  id             String   @id @default(cuid())
+  project        Project  @relation(fields: [projectId], references: [id])
+  projectId      String
+  shopifyId      String
+  title          String
+  description    String?
+  seoTitle       String?
+  seoDescription String?
+  imageUrls      Json?
+  lastSyncedAt   DateTime @default(now())
+}
+```
+
+Run migration.
+
+---
+
+### 5.2. Shopify Product Sync (Backend)
+
+Endpoint: `POST /shopify/sync-products?projectId=...`
+
+Steps:
+
+- Validate user and project.
+- Find `ShopifyStore` for project.
+- Call Shopify Admin API (REST or GraphQL) to fetch first N products (e.g. 50).
+- For each product:
+  - Extract:
+    - id, title, body_html / description, SEO title/description (if present), image URLs.
+  - Upsert into `Product` table using `shopifyId`.
+
+---
+
+### 5.3. Product List UI
+
+Route: `/projects/[id]/products/page.tsx`
+
+- “Sync Products” button → calls sync endpoint.
+- Table columns:
+  - Product title
+  - Shopify ID
+  - SEO title (if any)
+  - SEO description (if any)
+  - Last synced
+
+---
+
+### 5.4. Product Metadata AI Suggestions
+
+Backend:
+
+`POST /ai/product-metadata`
+
+Body:
+
+```json
+{
+  "productId": "string",
+  "targetKeywords": ["optional"]
+}
+```
+
+- Load `Product` by ID.
+- Use AI to generate suggested SEO title and description based on product title, description, and optional keywords.
+- Return suggestions.
+
+Frontend:
+
+- In product table row, add “Suggest SEO” button.
+- Modal shows suggestions similar to crawl metadata modal.
+
+---
+
+# PHASE 6 — Push AI SEO Updates to Shopify
+
+### 6.1. Shopify Update Endpoint
+
+Backend:
+
+`POST /shopify/update-product-seo`
+
+Body:
+
+```json
+{
+  "productId": "string",
+  "seoTitle": "string",
+  "seoDescription": "string"
+}
+```
+
+Steps:
+
+- Validate user + project.
+- Load Product and related ShopifyStore.
+- Call Shopify Admin API to update product SEO fields (title tag, meta description, or metafields, depending on chosen implementation).
+- On success, update `Product` row in DB with new `seoTitle` and `seoDescription`.
+
+---
+
+### 6.2. Frontend Apply Buttons
+
+In the product SEO suggestion modal:
+
+- Add **“Apply to Shopify”** button.
+- On click:
+  - Calls `/shopify/update-product-seo`.
+  - Shows success or error toast.
+  - Updates the table row with new SEO title/description.
+
+---
+
+# PHASE 7 — Dashboard & Reports
+
+### 7.1. Project Overview API
+
+Backend:
+
+`GET /projects/:id/overview`
+
+Returns:
+
+```json
+{
+  "crawlCount": number,
+  "issueCount": number,
+  "avgSeoScore": number,
+  "productCount": number,
+  "productsWithAppliedSeo": number
+}
+```
+
+Stats are computed from `CrawlResult` and `Product` tables.
+
+---
+
+### 7.2. Dashboard UI
+
+#### `/dashboard/page.tsx`
+
+- Fetch all projects for the user.
+- For each project, fetch `overview`.
+- Show cards/rows:
+
+  - Project name
+  - Avg SEO score
+  - Crawl count
+  - Product count
+  - “View project” button
+
+#### `/projects/[id]/page.tsx`
+
+- Show project-level cards:
+
+  - SEO score
+  - Last scan date
+  - Number of issues
+  - Products synced
+  - Buttons:
+    - “Run SEO Scan”
+    - “View Products”
+
+---
+
+# EXECUTION NOTES FOR AI IDE
+
+1. **Implement one phase at a time.**
+2. **Before coding each phase:**
+   - Generate a step-by-step sub-plan.
+3. **After coding each phase:**
+   - Show Git diffs for human review.
+4. **Do not change tech stack or structure** without explicit instruction.
+5. **Ask for clarification** if a requirement is ambiguous.
+6. Prefer small, incremental commits per feature.
+
+---
+
+END OF IMPLEMENTATION PLAN
