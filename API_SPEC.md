@@ -1,6 +1,6 @@
-# SEOEngine.io – API Specification (MVP)
+# SEOEngine.io – API Specification
 
-This document defines the main REST endpoints exposed by the SEOEngine.io backend (NestJS).  
+This document defines the main REST endpoints exposed by the SEOEngine.io backend (NestJS).
 All endpoints are prefixed with `/api` in production (e.g. `https://api.seoengine.io/api/...`) depending on deployment.
 
 Authentication is JWT-based unless otherwise stated.
@@ -95,7 +95,6 @@ List projects belonging to authenticated user.
     "id": "project-id",
     "name": "My Store SEO",
     "domain": "mystore.com",
-    "connectedType": "shopify",
     "createdAt": "2025-01-01T00:00:00.000Z"
   }
 ]
@@ -110,8 +109,7 @@ List projects belonging to authenticated user.
 ```json
 {
   "name": "My Store SEO",
-  "domain": "mystore.com",
-  "connectedType": "shopify"
+  "domain": "mystore.com"
 }
 ```
 
@@ -149,13 +147,214 @@ Returns aggregated stats:
 
 ---
 
-## 3. Shopify Integration
+### GET `/projects/:id/integration-status` (auth required)
+
+Returns integration status for all platform types:
+
+```json
+{
+  "projectId": "project-id",
+  "projectName": "My Store SEO",
+  "integrations": [
+    {
+      "type": "SHOPIFY",
+      "externalId": "mystore.myshopify.com",
+      "connected": true,
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "config": { "scope": "read_products,write_products" }
+    }
+  ],
+  "shopify": {
+    "connected": true,
+    "shopDomain": "mystore.myshopify.com",
+    "installedAt": "2025-01-01T00:00:00.000Z",
+    "scope": "read_products,write_products"
+  },
+  "woocommerce": { "connected": false },
+  "bigcommerce": { "connected": false },
+  "magento": { "connected": false },
+  "customWebsite": { "connected": false }
+}
+```
+
+---
+
+## 3. Integrations
+
+### GET `/integrations` (auth required)
+
+**Query parameters:**
+
+- `projectId` – ID of project
+
+**Response:**
+
+```json
+{
+  "projectId": "project-id",
+  "integrations": [
+    {
+      "id": "integration-id",
+      "type": "SHOPIFY",
+      "externalId": "mystore.myshopify.com",
+      "hasAccessToken": true,
+      "config": { "scope": "read_products,write_products" },
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "updatedAt": "2025-01-01T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+### GET `/integrations/:type` (auth required)
+
+**Query parameters:**
+
+- `projectId` – ID of project
+
+**Path parameters:**
+
+- `type` – Integration type (SHOPIFY, WOOCOMMERCE, BIGCOMMERCE, MAGENTO, CUSTOM_WEBSITE)
+
+**Response:**
+
+```json
+{
+  "id": "integration-id",
+  "projectId": "project-id",
+  "type": "SHOPIFY",
+  "externalId": "mystore.myshopify.com",
+  "hasAccessToken": true,
+  "config": { "scope": "read_products,write_products" },
+  "createdAt": "2025-01-01T00:00:00.000Z",
+  "updatedAt": "2025-01-01T00:00:00.000Z"
+}
+```
+
+---
+
+### POST `/integrations` (auth required)
+
+Create a new integration.
+
+**Body:**
+
+```json
+{
+  "projectId": "project-id",
+  "type": "WOOCOMMERCE",
+  "externalId": "https://mystore.com",
+  "accessToken": "ck_xxxx",
+  "config": {
+    "consumerSecret": "cs_xxxx",
+    "version": "wc/v3"
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "id": "integration-id",
+  "projectId": "project-id",
+  "type": "WOOCOMMERCE",
+  "externalId": "https://mystore.com",
+  "createdAt": "2025-01-01T00:00:00.000Z"
+}
+```
+
+---
+
+### PUT `/integrations/:type` (auth required)
+
+Update an existing integration.
+
+**Query parameters:**
+
+- `projectId` – ID of project
+
+**Body:**
+
+```json
+{
+  "externalId": "https://newstore.com",
+  "accessToken": "new_token",
+  "config": { "version": "wc/v3" }
+}
+```
+
+---
+
+### DELETE `/integrations/:type` (auth required)
+
+Remove an integration.
+
+**Query parameters:**
+
+- `projectId` – ID of project
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Integration of type WOOCOMMERCE has been removed"
+}
+```
+
+---
+
+### GET `/integrations/types/available`
+
+Get list of all available integration types.
+
+**Response:**
+
+```json
+{
+  "types": [
+    {
+      "value": "SHOPIFY",
+      "label": "Shopify",
+      "description": "Connect your Shopify store for product sync and SEO optimization"
+    },
+    {
+      "value": "WOOCOMMERCE",
+      "label": "WooCommerce",
+      "description": "Connect your WooCommerce store via REST API"
+    },
+    {
+      "value": "BIGCOMMERCE",
+      "label": "BigCommerce",
+      "description": "Connect your BigCommerce store for product management"
+    },
+    {
+      "value": "MAGENTO",
+      "label": "Magento",
+      "description": "Connect your Magento 2 store via REST API"
+    },
+    {
+      "value": "CUSTOM_WEBSITE",
+      "label": "Custom Website",
+      "description": "Connect any website for SEO scanning and analysis"
+    }
+  ]
+}
+```
+
+---
+
+## 4. Shopify Integration
 
 ### GET `/shopify/install` (auth required)
 
 **Query parameters:**
 
-- `projectId` – ID of project to connect.
+- `shop` – Shopify store domain (e.g., mystore.myshopify.com)
+- `projectId` – ID of project to connect
 
 Redirects to Shopify OAuth install URL.
 
@@ -163,8 +362,8 @@ Redirects to Shopify OAuth install URL.
 
 ### GET `/shopify/callback`
 
-OAuth callback from Shopify.  
-Validates HMAC, exchanges `code` for access token, persists `ShopifyStore` and links it to project.  
+OAuth callback from Shopify.
+Validates HMAC, exchanges `code` for access token, creates Integration record and links it to project.
 Returns a simple success page or redirects back to frontend.
 
 ---
@@ -203,7 +402,7 @@ Updates Shopify product SEO fields and local DB.
 
 ---
 
-## 4. SEO Scan
+## 5. SEO Scan
 
 ### POST `/seo-scan/start` (auth required)
 
@@ -254,7 +453,7 @@ Starts a basic SEO scan (initial MVP: home page `/` only).
 
 ---
 
-## 5. AI Metadata
+## 6. AI Metadata
 
 ### POST `/ai/metadata` (auth required)
 

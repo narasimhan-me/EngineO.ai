@@ -1,0 +1,85 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Supported ecommerce platform integration types
+enum IntegrationType {
+  SHOPIFY
+  WOOCOMMERCE
+  BIGCOMMERCE
+  MAGENTO
+  CUSTOM_WEBSITE
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects Project[]
+}
+
+model Project {
+  id           String        @id @default(cuid())
+  user         User          @relation(fields: [userId], references: [id])
+  userId       String
+  name         String
+  domain       String?
+  createdAt    DateTime      @default(now())
+
+  integrations Integration[]
+  crawlResults CrawlResult[]
+  products     Product[]
+}
+
+model Integration {
+  id          String          @id @default(cuid())
+  project     Project         @relation(fields: [projectId], references: [id])
+  projectId   String
+  type        IntegrationType
+  externalId  String?         // shop domain, store ID, account slug, etc.
+  accessToken String?         // shopify token, woo API key, etc.
+  config      Json?           // platform-specific configuration
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([projectId, type]) // One integration per type per project
+}
+
+model Product {
+  id             String   @id @default(cuid())
+  project        Project  @relation(fields: [projectId], references: [id])
+  projectId      String
+  externalId     String   // platform-agnostic ID (was shopifyId)
+  title          String
+  description    String?
+  seoTitle       String?
+  seoDescription String?
+  imageUrls      Json?
+  lastSyncedAt   DateTime @default(now())
+}
+
+model CrawlResult {
+  id              String   @id @default(cuid())
+  project         Project  @relation(fields: [projectId], references: [id])
+  projectId       String
+  url             String
+  statusCode      Int
+  title           String?
+  metaDescription String?
+  h1              String?
+  wordCount       Int?
+  loadTimeMs      Int?
+  issues          Json
+  scannedAt       DateTime @default(now())
+}

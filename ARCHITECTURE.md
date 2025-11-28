@@ -6,7 +6,7 @@ This document describes the **high-level and component-level architecture** for 
 
 ## 1. Overview
 
-SEOEngine.io is an AI-powered SEO automation platform for e‑commerce merchants (initially focused on Shopify). It consists of:
+SEOEngine.io is an AI-powered SEO automation platform for e‑commerce merchants supporting multiple platforms (Shopify, WooCommerce, BigCommerce, Magento, and custom websites). It consists of:
 
 - A **Next.js 14** web application (frontend).
 - A **NestJS** API server (backend).
@@ -14,6 +14,9 @@ SEOEngine.io is an AI-powered SEO automation platform for e‑commerce merchants
 - Optional **Redis** for caching and background job queues.
 - Integrations with:
   - **Shopify Admin API**
+  - **WooCommerce REST API**
+  - **BigCommerce API**
+  - **Magento 2 REST API**
   - **AI providers** (OpenAI, Gemini)
   - **Google Search Console / GA4** (future)
 
@@ -34,8 +37,13 @@ B --> C[API Gateway - NestJS (apps/api)]
 C --> D[(PostgreSQL - Prisma)]
 C --> E[(Redis - cache/queue)]
 C --> F[AI Providers (OpenAI / Gemini)]
-C --> G[Shopify Admin API]
+C --> G[Ecommerce Platforms]
 C --> H[Other Integrations (GSC, GA4 - future)]
+
+G --> G1[Shopify Admin API]
+G --> G2[WooCommerce REST API]
+G --> G3[BigCommerce API]
+G --> G4[Magento 2 REST API]
 ```
 
 ---
@@ -50,6 +58,7 @@ C --> H[Other Integrations (GSC, GA4 - future)]
   - Auth pages (login, signup).
   - User dashboard.
   - Projects management.
+  - Integration management (multi-platform).
   - SEO scan results UI.
   - Product SEO UI.
   - Settings, billing UI (future).
@@ -70,12 +79,33 @@ It communicates with the NestJS API via REST endpoints, using JWT for authentica
 - `AuthModule`
 - `UsersModule`
 - `ProjectsModule`
-- `ShopifyModule`
+- `IntegrationsModule` – Generic integration management
+- `ShopifyModule` – Shopify-specific OAuth and API calls
 - `SeoScanModule`
 - `AiModule`
 - `ReportingModule` (future)
 
 Each module is self-contained with its own controller, service, and optional sub-modules.
+
+### 4.2 Integration Architecture
+
+The system uses a generic `Integration` model to support multiple ecommerce platforms:
+
+```
+IntegrationType enum:
+  - SHOPIFY
+  - WOOCOMMERCE
+  - BIGCOMMERCE
+  - MAGENTO
+  - CUSTOM_WEBSITE
+```
+
+Each platform has:
+- A unique `externalId` (shop domain, store URL, etc.)
+- An `accessToken` for API authentication
+- A `config` JSON object for platform-specific settings
+
+Platform-specific modules (e.g., `ShopifyModule`) handle OAuth flows and API interactions, while the `IntegrationsModule` provides generic CRUD operations.
 
 ---
 
@@ -83,11 +113,11 @@ Each module is self-contained with its own controller, service, and optional sub
 
 Prisma is used as the ORM to interact with PostgreSQL. Core tables:
 
-- `User`
-- `Project`
-- `ShopifyStore`
-- `Product`
-- `CrawlResult`
+- `User` – User accounts
+- `Project` – User projects/workspaces
+- `Integration` – Platform connections (replaces ShopifyStore)
+- `Product` – Synced products from any platform
+- `CrawlResult` – SEO scan results
 - (Optional) `MetadataSuggestion`, `Subscription`, etc.
 
 The database is the canonical source of truth for users, projects, connections, and scan/AI outputs.
@@ -102,7 +132,7 @@ Redis may be used for:
 - Storing rate limit counters.
 - Implementing job queues (e.g. via BullMQ) for:
   - Large SEO scans.
-  - Bulk Shopify product sync.
+  - Bulk product sync (any platform).
   - AI batch operations.
   - Scheduled reports.
 
@@ -121,7 +151,31 @@ Used to:
 - Update product SEO fields or metafields.
 - Optionally inject theme snippets or structured data in themes.
 
-### 7.2 AI Providers
+### 7.2 WooCommerce REST API
+
+Used to:
+
+- Authenticate via Consumer Key/Secret.
+- Fetch products from WordPress/WooCommerce stores.
+- Update product data and SEO fields.
+
+### 7.3 BigCommerce API
+
+Used to:
+
+- Authenticate via API credentials.
+- Fetch products and categories.
+- Update product SEO metadata.
+
+### 7.4 Magento 2 REST API
+
+Used to:
+
+- Authenticate via OAuth or API tokens.
+- Fetch products and categories.
+- Update product attributes and SEO data.
+
+### 7.5 AI Providers
 
 The `AiModule` abstracts the AI provider, e.g.:
 
@@ -145,10 +199,11 @@ Switching providers should be achievable by configuration.
 - **Token storage (MVP):** LocalStorage (upgradeable to httpOnly cookies).
 - **Password hashing:** bcrypt.
 - **Scopes:** Per-user project ownership enforced at API level.
-- **Shopify security:**
-  - HMAC verification during OAuth callback.
-  - Store tokens securely in DB.
-  - Validate `state` parameter to prevent CSRF.
+- **Platform security:**
+  - Shopify: HMAC verification during OAuth callback, secure token storage.
+  - WooCommerce: Consumer key/secret stored securely.
+  - BigCommerce/Magento: API credentials stored securely.
+  - Validate `state` parameter to prevent CSRF in OAuth flows.
 
 ---
 
@@ -165,7 +220,7 @@ Each environment has its own:
 - `DATABASE_URL`
 - `REDIS_URL`
 - API keys for AI providers.
-- Shopify app credentials (separate app in Shopify partners for production).
+- Platform app credentials (separate apps for production).
 
 ---
 
@@ -191,6 +246,7 @@ Later:
 - DB should run on managed Postgres (Neon, RDS, Supabase).
 - Long-running operations moved to queues and workers (Redis + BullMQ).
 - SEO scans can be throttled and chunked to avoid rate limits and timeouts.
+- Platform API calls are rate-limited and should implement retry logic.
 
 ---
 
