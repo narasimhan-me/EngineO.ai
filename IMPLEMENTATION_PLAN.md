@@ -15,7 +15,7 @@ Each step should produce diffs and await approval before applying.
 - **Database:** PostgreSQL + Prisma
 - **Cache / Queue (later):** Redis
 - **AI:** OpenAI / Gemini via REST API
-- **E‑commerce:** Shopify Admin API (REST or GraphQL)
+- **E-commerce:** Shopify Admin API (REST or GraphQL)
 
 ---
 
@@ -38,26 +38,23 @@ seoengine/
   README.md
 ```
 
-Requirements:
-
-- Use **pnpm workspaces** (preferred) or Yarn workspaces.
-- Configure `"apps/*"` and `"packages/*"` as workspace folders.
-- Create a **root** tsconfig: `tsconfig.base.json` with base compiler options.
+**Requirements:**
+- Use pnpm workspaces (preferred) or Yarn workspaces.
+- Configure "apps/*" and "packages/*" as workspace folders.
+- Create a root tsconfig: `tsconfig.base.json` with base compiler options.
 - Ensure Node 20+ is assumed.
-
----
 
 ### 0.2. Initialize Frontend (Next.js 14 + TS + Tailwind)
 
 Inside `apps/web`:
 
-1. Create a new Next.js app configured with:
-   - App Router
-   - TypeScript
-   - TailwindCSS
-   - `/src` directory enabled
+Create a new Next.js app configured with:
+- App Router
+- TypeScript
+- TailwindCSS
+- `/src` directory enabled
 
-2. Required directory structure:
+**Required directory structure:**
 
 ```txt
 apps/web/src/
@@ -75,24 +72,21 @@ apps/web/src/
   lib/
 ```
 
-3. Requirements:
-
+**Requirements:**
 - TailwindCSS configured with JIT.
 - Global layout with a simple navigation shell (top nav + optional sidebar).
-- Home page text:  
-  `SEOEngine.io – SEO on Autopilot.`
-- `/dashboard` renders “Dashboard placeholder”.
-- `/projects` renders “Projects placeholder”.
-- `/settings` renders “Settings placeholder”.
-
----
+- Home page text: `SEOEngine.io – SEO on Autopilot.`
+- `/dashboard` renders "Dashboard placeholder".
+- `/projects` renders "Projects placeholder".
+- `/settings` renders "Settings placeholder".
 
 ### 0.3. Initialize Backend (NestJS)
 
 Inside `apps/api`:
 
-1. Create a NestJS project using the official CLI.
-2. Required structure:
+Create a NestJS project using the official CLI.
+
+**Required structure:**
 
 ```txt
 apps/api/src/
@@ -106,22 +100,19 @@ apps/api/src/
   projects/
 ```
 
-3. Add endpoint:
-
+**Add endpoint:**
 - `GET /health` → `{ "status": "ok" }`
 
-4. Enable CORS (temporary: allow all origins for development).
-5. Add `.env` support via `@nestjs/config`.
-
----
+**Enable CORS** (temporary: allow all origins for development).  
+**Add .env support** via `@nestjs/config`.
 
 ### 0.4. Shared Package
 
 Inside `packages/shared`:
 
-- Create `src/index.ts` exporting shared types/interfaces, e.g.:
+Create `src/index.ts` exporting shared types/interfaces, e.g.:
 
-```ts
+```typescript
 export interface UserDTO {
   id: string;
   email: string;
@@ -130,9 +121,7 @@ export interface UserDTO {
 }
 ```
 
-- Configure TS path alias: `@seoengine/shared` so both web and api can import these types.
-
----
+Configure TS path alias: `@seoengine/shared` so both web and api can import these types.
 
 ### 0.5. Root Tooling
 
@@ -146,7 +135,7 @@ At repo root:
   "scripts": {
     "dev:web": "pnpm --filter web dev",
     "dev:api": "pnpm --filter api start:dev",
-    "dev": "concurrently "pnpm dev:web" "pnpm dev:api""
+    "dev": "concurrently \"pnpm dev:web\" \"pnpm dev:api\""
   }
 }
 ```
@@ -201,93 +190,79 @@ model Project {
 3. Create `.env` with `DATABASE_URL` for local Postgres.
 4. Run: `npx prisma migrate dev --name init`.
 
----
-
 ### 1.2. Backend Auth Module
 
 Inside `apps/api/src/auth`:
 
-Implement:
+**Implement:**
 
-#### Endpoints:
-
+**Endpoints:**
 - `POST /auth/signup`
   - Body: `{ email, password, name? }`
   - Hash password using bcrypt.
   - Store user in DB.
-
 - `POST /auth/login`
   - Body: `{ email, password }`
   - Validate credentials.
   - Return `{ accessToken, user }`.
 
-#### Supporting pieces:
-
+**Supporting pieces:**
 - `AuthModule`, `AuthService`, `AuthController`.
 - `JwtModule` configured with secret and expiration.
 - `LocalStrategy` + `JwtStrategy` (if using Nest Passport).
 - `JwtAuthGuard` to protect routes.
 
-Create `UsersModule` with:
-
+**Create UsersModule with:**
 - `GET /users/me` (JWT-protected) returning `UserDTO`.
-
----
 
 ### 1.3. Frontend Auth Pages
 
 Inside `apps/web/src/app`:
 
-- Create `/login/page.tsx`:
-  - Email + password form.
-  - Calls `POST /auth/login`.
-  - On success:
-    - Store JWT in localStorage as `seoengine_token`.
-    - Redirect to `/dashboard`.
+**Create `/login/page.tsx`:**
+- Email + password form.
+- Calls `POST /auth/login`.
+- On success:
+  - Store JWT in localStorage as `seoengine_token`.
+  - Redirect to `/dashboard`.
 
-- Create `/signup/page.tsx`:
-  - Email, password, name form.
-  - Calls `POST /auth/signup`.
-  - On success:
-    - Optionally auto-login, then redirect to `/dashboard`.
+**Create `/signup/page.tsx`:**
+- Email, password, name form.
+- Calls `POST /auth/signup`.
+- On success:
+  - Optionally auto-login, then redirect to `/dashboard`.
 
-- Add simple client-side auth hook in `src/lib/auth.ts`:
-  - `getToken()`, `setToken()`, `isAuthenticated()`.
+**Add simple client-side auth hook in `src/lib/auth.ts`:**
+- `getToken()`, `setToken()`, `isAuthenticated()`.
 
-- Implement a basic “guard” layout for dashboard routes:
-  - If not authenticated, redirect to `/login`.
-
----
+**Implement a basic "guard" layout for dashboard routes:**
+- If not authenticated, redirect to `/login`.
 
 ### 1.4. Projects Module (Backend + Frontend)
 
-#### Backend (`apps/api/src/projects`):
+**Backend (`apps/api/src/projects`):**
 
 Create endpoints:
 
 - `GET /projects`
   - Returns projects for authenticated user.
-
 - `POST /projects`
   - Body: `{ name, domain, connectedType }`.
   - Creates new project linked to `userId`.
-
 - `GET /projects/:id`
   - Returns project by ID (only if belongs to user).
-
 - `DELETE /projects/:id`
   - Soft delete or hard delete, your choice (MVP: hard delete).
 
-#### Frontend:
+**Frontend:**
 
 - `/projects/page.tsx`:
   - Fetches `GET /projects` with JWT.
   - Lists projects in a table or cards.
-  - “New Project” button:
+  - "New Project" button:
     - Opens a simple form/modal.
     - POSTs to `POST /projects`.
     - Refreshes list.
-
 - `/dashboard/page.tsx`:
   - Fetches `GET /projects`.
   - Shows summary:
@@ -318,58 +293,50 @@ model ShopifyStore {
 
 Run `npx prisma migrate dev --name add_shopify_store`.
 
----
-
 ### 2.2. Shopify OAuth Flow (Backend)
 
 Create `shopify` module:
 
-- Config:
-  - `SHOPIFY_API_KEY`
-  - `SHOPIFY_API_SECRET`
-  - `SHOPIFY_APP_URL` (your backend public URL)
-  - `SHOPIFY_SCOPES` (e.g. `read_products,write_products,read_themes` etc.)
+**Config:**
+- `SHOPIFY_API_KEY`
+- `SHOPIFY_API_SECRET`
+- `SHOPIFY_APP_URL` (your backend public URL)
+- `SHOPIFY_SCOPES` (e.g. `read_products,write_products,read_themes` etc.)
 
-Implement:
+**Implement:**
 
-#### `GET /shopify/install?projectId=...`
+- `GET /shopify/install?projectId=...`
+  - Validates that the authenticated user owns the `projectId`.
+  - Generates Shopify OAuth URL with:
+    - `client_id`
+    - `scopes`
+    - `redirect_uri` → `/shopify/callback`
+    - `state` (random, store it mapped to `projectId`)
+  - Redirects to Shopify.
 
-- Validates that the authenticated user owns the `projectId`.
-- Generates Shopify OAuth URL with:
-  - client_id
-  - scopes
-  - redirect_uri → `/shopify/callback`
-  - state (random, store it mapped to projectId)
-- Redirects to Shopify.
-
-#### `GET /shopify/callback`
-
-- Validates HMAC from query.
-- Validates `state` (maps back to projectId).
-- Exchanges `code` for access token using Shopify OAuth endpoint.
-- Persists `ShopifyStore` with:
-  - `shopDomain`
-  - `accessToken`
-  - `scope`
-  - `projectId`
-  - `installedAt`
-
----
+- `GET /shopify/callback`
+  - Validates HMAC from query.
+  - Validates `state` (maps back to `projectId`).
+  - Exchanges code for access token using Shopify OAuth endpoint.
+  - Persists `ShopifyStore` with:
+    - `shopDomain`
+    - `accessToken`
+    - `scope`
+    - `projectId`
+    - `installedAt`
 
 ### 2.3. Shopify Connect Button (Frontend)
 
 On `/projects/[id]/page.tsx`:
 
-- Fetch project details and ShopifyStore status from a backend endpoint, e.g. `GET /projects/:id/integration-status`.
-
-- If **no ShopifyStore**:
-  - Show button **“Connect Shopify Store”**.
+- Fetch project details and `ShopifyStore` status from a backend endpoint, e.g. `GET /projects/:id/integration-status`.
+- If no `ShopifyStore`:
+  - Show button "Connect Shopify Store".
   - On click:
     - Call `GET /shopify/install?projectId=...`.
     - Follow redirect to Shopify.
-
-- If **connected**:
-  - Show `shopDomain` and “Connected” badge.
+- If connected:
+  - Show `shopDomain` and "Connected" badge.
 
 ---
 
@@ -398,22 +365,17 @@ model CrawlResult {
 
 Run migration.
 
----
-
 ### 3.2. SEO Scan Service (Backend)
 
 Create `seo-scan` module:
 
-#### Endpoint: `POST /seo-scan/start`
-
+**Endpoint:** `POST /seo-scan/start`
 - Body: `{ projectId }`.
 - Validates that the project belongs to the authenticated user.
 - Fetches project domain.
-- For MVP, scan only:
-  - `/`
+- For MVP, scan only: `/`
 
-Steps:
-
+**Steps:**
 1. Build URL (`https://{domain}/`).
 2. Fetch the page (e.g. using `node-fetch` or `axios`).
 3. Measure response time (ms).
@@ -423,37 +385,29 @@ Steps:
    - `<meta name="description">`
    - first `<h1>`
    - basic word count (e.g. text length / 5)
-6. Build `issues` array of strings:
+6. Build issues array of strings:
    - `"MISSING_TITLE"`
    - `"MISSING_META_DESCRIPTION"`
    - `"MISSING_H1"`
    - `"THIN_CONTENT"`
 7. Create `CrawlResult` row.
 
-#### Endpoint: `GET /seo-scan/results?projectId=...`
-
+**Endpoint:** `GET /seo-scan/results?projectId=...`
 - Returns list of `CrawlResult` for that project ordered by `scannedAt DESC`.
-
----
 
 ### 3.3. SEO Scan UI
 
 On `/projects/[id]/page.tsx`:
 
-- Add “Run SEO Scan” button.
-  - Calls `POST /seo-scan/start`.
-  - After success, refresh results list.
-
+- Add "Run SEO Scan" button.
+- Calls `POST /seo-scan/start`.
+- After success, refresh results list.
 - Below, show table:
-
-| URL | Status | Title | Issues | Scanned |
-
+  - | URL | Status | Title | Issues | Scanned |
 - Compute SEO Score per page:
-
-```ts
-const score = Math.max(0, 100 - issues.length * 5);
-```
-
+  ```typescript
+  const score = Math.max(0, 100 - issues.length * 5);
+  ```
 - Optionally show an average project score.
 
 ---
@@ -462,12 +416,11 @@ const score = Math.max(0, 100 - issues.length * 5);
 
 ### 4.1. AI Integration (OpenAI or Gemini)
 
-Backend `ai` module:
-
+**Backend `ai` module:**
 - Load API key from `.env`.
 - Implement:
 
-```ts
+```typescript
 async function generateMetadata(input: {
   url: string;
   currentTitle?: string;
@@ -482,13 +435,11 @@ async function generateMetadata(input: {
 
 Keep prompts deterministic and short.
 
----
-
 ### 4.2. Metadata Suggestion Endpoint
 
 `POST /ai/metadata`
 
-Body:
+**Body:**
 
 ```json
 {
@@ -497,12 +448,11 @@ Body:
 }
 ```
 
-Steps:
-
-- Load `CrawlResult` by ID and project.
-- Compose a text snippet from page info (title, H1, etc.).
-- Call `generateMetadata`.
-- Return:
+**Steps:**
+1. Load `CrawlResult` by ID and project.
+2. Compose a text snippet from page info (title, H1, etc.).
+3. Call `generateMetadata`.
+4. Return:
 
 ```json
 {
@@ -513,21 +463,17 @@ Steps:
 
 You may also create a table `MetadataSuggestion` to persist suggestions, but MVP can keep it ephemeral.
 
----
-
 ### 4.3. UI for Metadata Suggestions
 
 In the SEO scan table:
 
-- Add column “Actions” with button **“Suggest Metadata”**.
-
-On click:
-
-- Call `POST /ai/metadata`.
-- Show modal with:
-  - Current title + description.
-  - Suggested title + description.
-  - Buttons: “Copy to clipboard” (MVP) and “Close”.
+- Add column "Actions" with button "Suggest Metadata".
+- On click:
+  - Call `POST /ai/metadata`.
+  - Show modal with:
+    - Current title + description.
+    - Suggested title + description.
+    - Buttons: "Copy to clipboard" (MVP) and "Close".
 
 No application back to CMS yet (that will be done for Shopify in later phases).
 
@@ -556,29 +502,25 @@ model Product {
 
 Run migration.
 
----
-
 ### 5.2. Shopify Product Sync (Backend)
 
-Endpoint: `POST /shopify/sync-products?projectId=...`
+**Endpoint:** `POST /shopify/sync-products?projectId=...`
 
-Steps:
+**Steps:**
 
-- Validate user and project.
-- Find `ShopifyStore` for project.
-- Call Shopify Admin API (REST or GraphQL) to fetch first N products (e.g. 50).
-- For each product:
-  - Extract:
-    - id, title, body_html / description, SEO title/description (if present), image URLs.
-  - Upsert into `Product` table using `shopifyId`.
-
----
+1. Validate user and project.
+2. Find `ShopifyStore` for project.
+3. Call Shopify Admin API (REST or GraphQL) to fetch first N products (e.g. 50).
+4. For each product:
+   - Extract:
+     - `id`, `title`, `body_html` / `description`, SEO title/description (if present), image URLs.
+   - Upsert into `Product` table using `shopifyId`.
 
 ### 5.3. Product List UI
 
-Route: `/projects/[id]/products/page.tsx`
+**Route:** `/projects/[id]/products/page.tsx`
 
-- “Sync Products” button → calls sync endpoint.
+- "Sync Products" button → calls sync endpoint.
 - Table columns:
   - Product title
   - Shopify ID
@@ -586,15 +528,13 @@ Route: `/projects/[id]/products/page.tsx`
   - SEO description (if any)
   - Last synced
 
----
-
 ### 5.4. Product Metadata AI Suggestions
 
-Backend:
+**Backend:**
 
 `POST /ai/product-metadata`
 
-Body:
+**Body:**
 
 ```json
 {
@@ -607,9 +547,9 @@ Body:
 - Use AI to generate suggested SEO title and description based on product title, description, and optional keywords.
 - Return suggestions.
 
-Frontend:
+**Frontend:**
 
-- In product table row, add “Suggest SEO” button.
+- In product table row, add "Suggest SEO" button.
 - Modal shows suggestions similar to crawl metadata modal.
 
 ---
@@ -618,11 +558,11 @@ Frontend:
 
 ### 6.1. Shopify Update Endpoint
 
-Backend:
+**Backend:**
 
 `POST /shopify/update-product-seo`
 
-Body:
+**Body:**
 
 ```json
 {
@@ -632,20 +572,17 @@ Body:
 }
 ```
 
-Steps:
-
-- Validate user + project.
-- Load Product and related ShopifyStore.
-- Call Shopify Admin API to update product SEO fields (title tag, meta description, or metafields, depending on chosen implementation).
-- On success, update `Product` row in DB with new `seoTitle` and `seoDescription`.
-
----
+**Steps:**
+1. Validate user + project.
+2. Load `Product` and related `ShopifyStore`.
+3. Call Shopify Admin API to update product SEO fields (title tag, meta description, or metafields, depending on chosen implementation).
+4. On success, update `Product` row in DB with new `seoTitle` and `seoDescription`.
 
 ### 6.2. Frontend Apply Buttons
 
 In the product SEO suggestion modal:
 
-- Add **“Apply to Shopify”** button.
+- Add "Apply to Shopify" button.
 - On click:
   - Calls `/shopify/update-product-seo`.
   - Shows success or error toast.
@@ -657,11 +594,11 @@ In the product SEO suggestion modal:
 
 ### 7.1. Project Overview API
 
-Backend:
+**Backend:**
 
 `GET /projects/:id/overview`
 
-Returns:
+**Returns:**
 
 ```json
 {
@@ -675,46 +612,326 @@ Returns:
 
 Stats are computed from `CrawlResult` and `Product` tables.
 
----
-
 ### 7.2. Dashboard UI
 
-#### `/dashboard/page.tsx`
-
+**`/dashboard/page.tsx`**
 - Fetch all projects for the user.
-- For each project, fetch `overview`.
+- For each project, fetch overview.
 - Show cards/rows:
-
   - Project name
   - Avg SEO score
   - Crawl count
   - Product count
-  - “View project” button
+  - "View project" button
 
-#### `/projects/[id]/page.tsx`
-
+**`/projects/[id]/page.tsx`**
 - Show project-level cards:
-
   - SEO score
   - Last scan date
   - Number of issues
   - Products synced
-  - Buttons:
-    - “Run SEO Scan”
-    - “View Products”
+- Buttons:
+  - "Run SEO Scan"
+  - "View Products"
+
+---
+
+# PHASE 8 — Two-Factor Authentication (2FA)
+
+### 8.1. Overview
+
+**Goal:** Add optional Two-Factor Authentication (2FA) for users using TOTP (e.g. Google Authenticator, 1Password, Authy).
+
+**Key points:**
+
+- 2FA is optional but recommended.
+- If a user has 2FA enabled, login becomes a two-step flow:
+  1. Verify email/password.
+  2. Verify 6-digit TOTP code.
+- Backend: NestJS (auth + 2FA module).
+- Frontend: Next.js (settings screen + 2FA login step).
+- DB: extend User model to store TOTP secret and flag.
+
+### 8.2. Database Schema Changes (Prisma)
+
+Update the User model in `apps/api/prisma/schema.prisma`:
+
+```prisma
+model User {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  password          String
+  name              String?
+  twoFactorEnabled  Boolean  @default(false)
+  twoFactorSecret   String?  // Base32-encoded TOTP secret
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  projects          Project[]
+}
+```
+
+**Then:**
+1. Create a new migration, e.g.:
+   ```
+   npx prisma migrate dev --name add_two_factor_auth
+   ```
+2. Regenerate Prisma client.
+
+### 8.3. Backend — 2FA Module (NestJS)
+
+Create a new module in `apps/api/src/two-factor-auth`:
+- `two-factor-auth.module.ts`
+- `two-factor-auth.service.ts`
+- `two-factor-auth.controller.ts`
+
+**Use libraries (or equivalents):**
+- `speakeasy` for TOTP generation/verification.
+- `qrcode` for QR code PNG/base64.
+
+#### 8.3.1. Service responsibilities
+
+In `TwoFactorAuthService`:
+- Generate a TOTP secret for a user.
+- Build otpauth URL:
+  ```
+  otpauth://totp/SEOEngine.io:{email}?secret={secret}&issuer=SEOEngine.io
+  ```
+- Generate a QR code as a base64 PNG string.
+- Verify a submitted TOTP code.
+- Enable/disable 2FA on the user.
+
+#### 8.3.2. Endpoints
+
+All endpoints below (except the 2FA verify during login) require the user to be authenticated (JWT).
+
+**(A) POST /2fa/setup-init**
+
+**Purpose:** Begin 2FA setup (not enabled yet).
+
+**Input:** none (uses current authenticated user).
+
+**Steps:**
+1. Generate TOTP secret (if user doesn't already have one).
+2. Save `twoFactorSecret` in DB (but keep `twoFactorEnabled = false`).
+3. Generate otpauth URL.
+4. Generate QR code (base64 PNG).
+
+**Response:**
+
+```json
+{
+  "otpauthUrl": "otpauth://totp/SEOEngine.io:user@example.com?secret=ABC123&issuer=SEOEngine.io",
+  "qrCodeDataUrl": "data:image/png;base64,iVBORw0KGgoAAA..."
+}
+```
+
+**(B) POST /2fa/enable**
+
+**Purpose:** Confirm 2FA setup by verifying one TOTP code.
+
+**Body:**
+
+```json
+{
+  "code": "123456"
+}
+```
+
+**Steps:**
+1. Load user, read `twoFactorSecret`.
+2. Verify TOTP with `speakeasy.totp.verify(...)`.
+3. If valid:
+   - Set `twoFactorEnabled = true`.
+4. If invalid: return 400 with error.
+
+**Response (on success):**
+
+```json
+{
+  "success": true
+}
+```
+
+**(C) POST /2fa/disable**
+
+**Purpose:** Disable 2FA (user must be authenticated).
+
+**Optional body:** `{ "code": "123456" }` for extra safety (optional).
+
+**Steps:**
+1. Verify user identity (and optionally TOTP).
+2. Set `twoFactorEnabled = false`.
+3. Optionally clear `twoFactorSecret`.
+
+**Response:**
+
+```json
+{
+  "success": true
+}
+```
+
+### 8.4. Backend — Update Auth Flow (NestJS)
+
+#### 8.4.1. Login endpoint behaviour change
+
+In `AuthController` / `AuthService` for `POST /auth/login`:
+
+**Current behavior (MVP):**
+- Validate email/password → return JWT.
+
+**New behavior with 2FA:**
+1. Validate email/password.
+2. If `twoFactorEnabled === false`:
+   - Return JWT as before:
+     ```json
+     {
+       "accessToken": "jwt...",
+       "user": { ... }
+     }
+     ```
+3. If `twoFactorEnabled === true`:
+   - DO NOT return the final JWT yet.
+   - Instead return a temporary token and a flag:
+     ```json
+     {
+       "requires2FA": true,
+       "tempToken": "some-signed-token-or-jwt-for-2fa-step",
+       "user": { "id": "...", "email": "..." }
+     }
+     ```
+
+The `tempToken` should:
+- Be short-lived.
+- Only allow access to the 2FA verification endpoint.
+
+#### 8.4.2. New endpoint: POST /auth/2fa/verify
+
+**Body:**
+
+```json
+{
+  "tempToken": "string",
+  "code": "123456"
+}
+```
+
+**Steps:**
+1. Verify `tempToken`.
+2. Load user and `twoFactorSecret`.
+3. Verify TOTP code with `speakeasy`.
+4. If valid: return final JWT (normal `accessToken`) and user:
+   ```json
+   {
+     "accessToken": "final-jwt-token",
+     "user": { "id": "...", "email": "..." }
+   }
+   ```
+
+### 8.5. Frontend — Settings UI for 2FA (Next.js)
+
+Create a Security / Account Settings page, e.g.:
+`apps/web/src/app/settings/security/page.tsx`
+
+#### 8.5.1. Security page features
+
+**Show:**
+- Whether 2FA is currently enabled/disabled (from `/users/me`).
+
+**If disabled:**
+- Button: "Enable 2FA"
+  - Calls `POST /2fa/setup-init`.
+  - Shows the QR code image (`qrCodeDataUrl`).
+  - Prompts user to:
+    1. Scan QR code with authenticator app.
+    2. Enter 6-digit code.
+  - Submits code to `POST /2fa/enable`.
+
+**If enabled:**
+- Show "2FA is enabled".
+- Button: "Disable 2FA" → `POST /2fa/disable` (optionally with code confirmation).
+
+### 8.6. Frontend — Updated Login Flow
+
+Assuming the login UI is in:
+`apps/web/src/app/login/page.tsx`
+
+#### 8.6.1. Step 1 — Email + Password
+
+On submit call `POST /auth/login`.
+
+**Behaviors:**
+- If response has `accessToken`:
+  - Normal login (store JWT, redirect to `/dashboard`).
+- If response has `requires2FA: true` and `tempToken`:
+  - DO NOT store `accessToken` yet.
+  - Store `tempToken` in memory (state) or temporary storage.
+  - Navigate to `/2fa` page for the user to enter code.
+
+#### 8.6.2. Step 2 — 2FA Page
+
+Create a new page:
+`apps/web/src/app/2fa/page.tsx`
+
+**Features:**
+- Simple form:
+  - Input: 6-digit TOTP code.
+  - Hidden or internal: `tempToken` from previous step.
+- On submit:
+  - Call `POST /auth/2fa/verify` with `{ tempToken, code }`.
+  - If successful:
+    - Receive final `accessToken`.
+    - Store token (e.g. localStorage, or cookie if you later upgrade).
+    - Redirect to `/dashboard`.
+  - If failure:
+    - Show error message (e.g., "Invalid or expired code").
+
+### 8.7. Security & UX Considerations
+
+- Use short expiry for `tempToken` (e.g. 5–10 minutes).
+- Consider rate limiting login + 2FA endpoints.
+- Make error messages generic:
+  - Instead of "Wrong code", consider "Invalid credentials or code" to avoid leaking info.
+- Consider backup codes as a future enhancement phase.
+
+### 8.8. Testing Checklist
+
+**Backend**
+- [ ] Migration applies successfully.
+- [ ] TOTP secret generation works and is stored.
+- [ ] `/2fa/setup-init` returns valid otpauth URL and QR code.
+- [ ] `/2fa/enable`:
+  - [ ] Accepts valid code.
+  - [ ] Rejects invalid code.
+- [ ] `/2fa/disable` changes flags correctly.
+- [ ] `/auth/login`:
+  - [ ] Normal login when 2FA disabled.
+  - [ ] `requires2FA: true` and `tempToken` when enabled.
+- [ ] `/auth/2fa/verify`:
+  - [ ] Rejects invalid or expired `tempToken`.
+  - [ ] Rejects invalid TOTP code.
+  - [ ] Returns final JWT when valid.
+
+**Frontend**
+- [ ] User can enable 2FA from settings page.
+- [ ] QR displays correctly and can be scanned by Google Authenticator.
+- [ ] After enabling, login requires 2FA.
+- [ ] Incorrect 2FA code shows an error.
+- [ ] Correct code logs user in and redirects.
 
 ---
 
 # EXECUTION NOTES FOR AI IDE
 
-1. **Implement one phase at a time.**
-2. **Before coding each phase:**
-   - Generate a step-by-step sub-plan.
-3. **After coding each phase:**
-   - Show Git diffs for human review.
-4. **Do not change tech stack or structure** without explicit instruction.
-5. **Ask for clarification** if a requirement is ambiguous.
-6. Prefer small, incremental commits per feature.
+- Implement one phase at a time.
+- Before coding each phase:
+  - Generate a step-by-step sub-plan.
+- After coding each phase:
+  - Show Git diffs for human review.
+- Do not change tech stack or structure without explicit instruction.
+- Ask for clarification if a requirement is ambiguous.
+- Prefer small, incremental commits per feature.
 
 ---
 

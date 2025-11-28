@@ -81,3 +81,21 @@ export const integrationsApi = {
       method: 'DELETE',
     }),
 };
+
+export const seoScanApi = {
+  start: (projectId: string) =>
+    fetchWithAuth('/seo-scan/start', {
+      method: 'POST',
+      body: JSON.stringify({ projectId }),
+    }),
+
+  results: (projectId: string) => fetchWithAuth(`/seo-scan/results?projectId=${projectId}`),
+};
+
+export const aiApi = {
+  suggestMetadata: (crawlResultId: string, targetKeywords?: string[]) =>
+    fetchWithAuth('/ai/metadata', {
+      method: 'POST',
+      body: JSON.stringify({ crawlResultId, targetKeywords }),
+    }),
+};

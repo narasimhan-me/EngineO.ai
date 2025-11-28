@@ -8,32 +8,48 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { ShopifyService } from './shopify.service';
+import { JwtService } from '@nestjs/jwt';
 
 @Controller('shopify')
 export class ShopifyController {
-  constructor(private readonly shopifyService: ShopifyService) {}
+  constructor(
+    private readonly shopifyService: ShopifyService,
+    private readonly jwtService: JwtService,
+  ) {}
 
   /**
-   * GET /shopify/install?shop=example.myshopify.com&projectId=xxx
+   * GET /shopify/install?shop=example.myshopify.com&projectId=xxx&token=jwt
    * Initiates Shopify OAuth flow
+   * Note: Token is passed via query param since this is a browser redirect
    */
   @Get('install')
   async install(
     @Query('shop') shop: string,
     @Query('projectId') projectId: string,
+    @Query('token') token: string,
     @Res() res: Response,
   ) {
     if (!shop || !projectId) {
       throw new BadRequestException('Missing shop or projectId parameter');
     }
 
-    // TODO: Add authentication check here when auth is integrated
-    // For now, we'll skip user validation
-    // const userId = req.user.id;
-    // const isOwner = await this.shopifyService.validateProjectOwnership(projectId, userId);
-    // if (!isOwner) {
-    //   throw new UnauthorizedException('You do not own this project');
-    // }
+    if (!token) {
+      throw new UnauthorizedException('Authentication token required');
+    }
+
+    // Manually validate JWT since we're receiving it via query param
+    let userId: string;
+    try {
+      const payload = this.jwtService.verify(token);
+      userId = payload.sub;
+    } catch {
+      throw new UnauthorizedException('Invalid or expired token');
+    }
+
+    const isOwner = await this.shopifyService.validateProjectOwnership(projectId, userId);
+    if (!isOwner) {
+      throw new UnauthorizedException('You do not own this project');
+    }
 
     const installUrl = this.shopifyService.generateInstallUrl(shop, projectId);
     return res.redirect(installUrl);

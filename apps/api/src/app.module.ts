@@ -6,6 +6,8 @@ import { UsersModule } from './users/users.module';
 import { ShopifyModule } from './shopify/shopify.module';
 import { ProjectsModule } from './projects/projects.module';
 import { IntegrationsModule } from './integrations/integrations.module';
+import { SeoScanModule } from './seo-scan/seo-scan.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import { IntegrationsModule } from './integrations/integrations.module';
     ShopifyModule,
     ProjectsModule,
     IntegrationsModule,
+    SeoScanModule,
+    AiModule,
   ],
   controllers: [],
   providers: [],
