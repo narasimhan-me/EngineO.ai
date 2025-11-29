@@ -2,6 +2,36 @@ import { getToken } from './auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+/**
+ * Build a user-friendly error message from an API response
+ */
+function buildErrorMessage(response: Response, body: unknown): string {
+  // Try to extract message from JSON body
+  if (body && typeof body === 'object') {
+    const json = body as Record<string, unknown>;
+    if (typeof json.message === 'string' && json.message) {
+      return json.message;
+    }
+    if (typeof json.error === 'string' && json.error) {
+      return json.error;
+    }
+  }
+
+  // Fall back to status-based friendly messages
+  const status = response.status;
+  if (status === 401 || status === 403) {
+    return 'Unauthorized. Please log in again.';
+  }
+  if (status === 404) {
+    return 'Not found. Please check the URL or try again.';
+  }
+  if (status >= 500) {
+    return 'Something went wrong on our side. Please try again.';
+  }
+
+  return response.statusText || 'Request failed. Please try again.';
+}
+
 async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
   const token = getToken();
   const headers: HeadersInit = {
@@ -19,8 +49,8 @@ async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+    const body = await response.json().catch(() => null);
+    throw new Error(buildErrorMessage(response, body));
   }
 
   return response.json();
@@ -42,8 +72,8 @@ async function fetchWithoutAuth(endpoint: string, options: RequestInit = {}) {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: response.statusText }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+    const body = await response.json().catch(() => null);
+    throw new Error(buildErrorMessage(response, body));
   }
 
   return response.json();
