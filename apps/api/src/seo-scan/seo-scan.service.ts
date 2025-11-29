@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { IntegrationType } from '@prisma/client';
 import * as cheerio from 'cheerio';
 
 export interface ScanResult {
@@ -21,9 +22,12 @@ export class SeoScanService {
    * Start a SEO scan for a project's domain
    */
   async startScan(projectId: string, userId: string) {
-    // Validate project ownership
+    // Validate project ownership and get integrations
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },
+      include: {
+        integrations: true,
+      },
     });
 
     if (!project) {
@@ -34,12 +38,29 @@ export class SeoScanService {
       throw new ForbiddenException('You do not have access to this project');
     }
 
-    if (!project.domain) {
-      throw new NotFoundException('Project has no domain configured');
+    // Determine which domain to scan
+    // Priority: 1. Connected Shopify store, 2. Project domain
+    let domain: string | null = null;
+
+    const shopifyIntegration = project.integrations.find(
+      (i) => i.type === IntegrationType.SHOPIFY,
+    );
+
+    if (shopifyIntegration?.externalId) {
+      // Use Shopify store domain
+      domain = shopifyIntegration.externalId;
+    } else if (project.domain) {
+      domain = project.domain;
+    }
+
+    if (!domain) {
+      throw new NotFoundException(
+        'No domain configured. Connect a Shopify store or set a project domain.',
+      );
     }
 
     // For MVP, scan only the homepage
-    const url = `https://${project.domain}/`;
+    const url = `https://${domain}/`;
     const scanResult = await this.scanPage(url);
 
     // Store the crawl result

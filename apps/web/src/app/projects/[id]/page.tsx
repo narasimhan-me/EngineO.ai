@@ -96,6 +96,7 @@ export default function ProjectDetailPage() {
   const fetchIntegrationStatus = useCallback(async () => {
     try {
       setLoading(true);
+      setError(''); // Clear any previous errors
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
       const token = getToken();
 
@@ -113,7 +114,8 @@ export default function ProjectDetailPage() {
       }
 
       if (!response.ok) {
-        throw new Error('Failed to fetch integration status');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to fetch integration status');
       }
 
       const data = await response.json();

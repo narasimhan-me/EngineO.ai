@@ -18,7 +18,7 @@ export class AiController {
 
   @Post('metadata')
   async suggestMetadata(@Request() req: any, @Body() dto: MetadataDto) {
-    const userId = req.user.userId;
+    const userId = req.user.id;
 
     // Load crawl result and verify ownership
     const crawlResult = await this.prisma.crawlResult.findUnique({

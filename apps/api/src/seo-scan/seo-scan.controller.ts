@@ -25,7 +25,7 @@ export class SeoScanController {
    */
   @Post('start')
   async startScan(@Request() req: any, @Body() dto: StartScanDto) {
-    return this.seoScanService.startScan(dto.projectId, req.user.userId);
+    return this.seoScanService.startScan(dto.projectId, req.user.id);
   }
 
   /**
@@ -34,6 +34,6 @@ export class SeoScanController {
    */
   @Get('results')
   async getResults(@Request() req: any, @Query('projectId') projectId: string) {
-    return this.seoScanService.getResults(projectId, req.user.userId);
+    return this.seoScanService.getResults(projectId, req.user.id);
   }
 }
