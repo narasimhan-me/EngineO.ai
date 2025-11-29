@@ -206,4 +206,110 @@ export class SeoScanService {
     // Start with 100, subtract 10 points per issue, minimum 0
     return Math.max(0, 100 - issues.length * 10);
   }
+
+  /**
+   * Scan a single product page by product ID
+   */
+  async scanProductPage(productId: string, userId: string) {
+    // Load product with project and integrations
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      include: {
+        project: {
+          include: {
+            integrations: true,
+          },
+        },
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    if (product.project.userId !== userId) {
+      throw new ForbiddenException('You do not have access to this product');
+    }
+
+    // Get Shopify integration for the project
+    const shopifyIntegration = product.project.integrations.find(
+      (i) => i.type === IntegrationType.SHOPIFY,
+    );
+
+    if (!shopifyIntegration || !shopifyIntegration.externalId || !shopifyIntegration.accessToken) {
+      throw new NotFoundException('No Shopify integration found for this project');
+    }
+
+    const shopDomain = shopifyIntegration.externalId;
+    const accessToken = shopifyIntegration.accessToken;
+
+    // Fetch the product from Shopify to get its handle
+    const shopifyProduct = await this.fetchShopifyProductHandle(
+      shopDomain,
+      accessToken,
+      product.externalId,
+    );
+
+    if (!shopifyProduct || !shopifyProduct.handle) {
+      throw new NotFoundException('Could not find product handle from Shopify');
+    }
+
+    // Build the public product URL
+    const productUrl = `https://${shopDomain}/products/${shopifyProduct.handle}`;
+
+    // Scan the product page
+    const scanResult = await this.scanPage(productUrl);
+
+    // Store the crawl result
+    const crawlResult = await this.prisma.crawlResult.create({
+      data: {
+        projectId: product.projectId,
+        url: scanResult.url,
+        statusCode: scanResult.statusCode,
+        title: scanResult.title,
+        metaDescription: scanResult.metaDescription,
+        h1: scanResult.h1,
+        wordCount: scanResult.wordCount,
+        loadTimeMs: scanResult.loadTimeMs,
+        issues: scanResult.issues,
+      },
+    });
+
+    return {
+      ...crawlResult,
+      score: this.calculateScore(scanResult.issues),
+    };
+  }
+
+  /**
+   * Fetch a single product from Shopify to get its handle
+   */
+  private async fetchShopifyProductHandle(
+    shopDomain: string,
+    accessToken: string,
+    productId: string,
+  ): Promise<{ handle: string } | null> {
+    const url = `https://${shopDomain}/admin/api/2023-10/products/${productId}.json`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'X-Shopify-Access-Token': accessToken,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        console.error('Shopify API error fetching product:', await response.text());
+        return null;
+      }
+
+      const data = (await response.json()) as { product: { handle: string } };
+      return data.product || null;
+    } catch (error) {
+      console.error('Error fetching Shopify product:', error);
+      return null;
+    }
+  }
 }

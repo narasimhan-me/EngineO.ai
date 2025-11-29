@@ -317,24 +317,36 @@ Before implementing any code in this phase, create and configure the actual Shop
 
 Once steps 2.0.1–2.0.5 are complete, proceed with the backend and frontend integration steps below.
 
-### 2.1. ShopifyStore DB Model
+### 2.1. Integration DB Model (Shopify + others)
 
-Add to `schema.prisma`:
+Add to `apps/api/prisma/schema.prisma`:
 
 ```prisma
-model ShopifyStore {
-  id          String   @id @default(cuid())
-  project     Project  @relation(fields: [projectId], references: [id])
+// Supported ecommerce platform integration types
+enum IntegrationType {
+  SHOPIFY
+  WOOCOMMERCE
+  BIGCOMMERCE
+  MAGENTO
+  CUSTOM_WEBSITE
+}
+
+model Integration {
+  id          String          @id @default(cuid())
+  project     Project         @relation(fields: [projectId], references: [id])
   projectId   String
-  shopDomain  String   @unique
-  accessToken String
-  scope       String?
-  installedAt DateTime @default(now())
-  uninstalledAt DateTime?
+  type        IntegrationType
+  externalId  String?         // shop domain, store ID, account slug, etc.
+  accessToken String?         // Shopify token, Woo API key, etc.
+  config      Json?           // platform-specific configuration
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([projectId, type]) // One integration per type per project
 }
 ```
 
-Run `npx prisma migrate dev --name add_shopify_store`.
+Run `npx prisma migrate dev --name add_integration_model`.
 
 ### 2.2. Shopify OAuth Flow (Backend)
 
@@ -361,12 +373,12 @@ Create `shopify` module:
   - Validates HMAC from query.
   - Validates `state` (maps back to `projectId`).
   - Exchanges code for access token using Shopify OAuth endpoint.
-  - Persists `ShopifyStore` with:
-    - `shopDomain`
+  - Persists an `Integration` row with:
+    - `type = SHOPIFY`
+    - `externalId = shopDomain` (e.g. `mystore.myshopify.com`)
     - `accessToken`
-    - `scope`
-    - `projectId`
-    - `installedAt`
+    - `config.scope`
+    - `config.installedAt`
 
 ### 2.3. Shopify Connect Button (Frontend)
 
@@ -533,7 +545,7 @@ model Product {
   id             String   @id @default(cuid())
   project        Project  @relation(fields: [projectId], references: [id])
   projectId      String
-  shopifyId      String
+  externalId     String   // platform-agnostic ID (Shopify product ID, etc.)
   title          String
   description    String?
   seoTitle       String?
@@ -552,12 +564,12 @@ Run migration.
 **Steps:**
 
 1. Validate user and project.
-2. Find `ShopifyStore` for project.
+2. Find the project's Shopify integration (`Integration` where `type = SHOPIFY`).
 3. Call Shopify Admin API (REST or GraphQL) to fetch first N products (e.g. 50).
 4. For each product:
    - Extract:
      - `id`, `title`, `body_html` / `description`, SEO title/description (if present), image URLs.
-   - Upsert into `Product` table using `shopifyId`.
+   - Upsert into `Product` table using `externalId` (for Shopify this is the product ID).
 
 ### 5.3. Product List UI
 
@@ -617,7 +629,7 @@ Run migration.
 
 **Steps:**
 1. Validate user + project.
-2. Load `Product` and related `ShopifyStore`.
+2. Load `Product` and the project's Shopify integration (`Integration` where `type = SHOPIFY`).
 3. Call Shopify Admin API to update product SEO fields (title tag, meta description, or metafields, depending on chosen implementation).
 4. On success, update `Product` row in DB with new `seoTitle` and `seoDescription`.
 

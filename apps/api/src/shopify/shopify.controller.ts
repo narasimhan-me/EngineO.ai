@@ -1,14 +1,18 @@
 import {
   Controller,
   Get,
+  Post,
   Query,
   Res,
+  UseGuards,
+  Request,
   UnauthorizedException,
   BadRequestException,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { ShopifyService } from './shopify.service';
 import { JwtService } from '@nestjs/jwt';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('shopify')
 export class ShopifyController {
@@ -93,5 +97,18 @@ export class ShopifyController {
     // Redirect to frontend with success
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     return res.redirect(`${frontendUrl}/projects/${projectId}?shopify=connected`);
+  }
+
+  /**
+   * POST /shopify/sync-products?projectId=...
+   * Sync products from Shopify store to local database
+   */
+  @Post('sync-products')
+  @UseGuards(JwtAuthGuard)
+  async syncProducts(@Request() req: any, @Query('projectId') projectId: string) {
+    if (!projectId) {
+      throw new BadRequestException('Missing projectId parameter');
+    }
+    return this.shopifyService.syncProducts(projectId, req.user.id);
   }
 }

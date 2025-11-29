@@ -159,4 +159,143 @@ export class ShopifyService {
     });
     return !!project;
   }
+
+  /**
+   * Sync products from Shopify store to local database
+   */
+  async syncProducts(projectId: string, userId: string): Promise<{
+    projectId: string;
+    synced: number;
+    created: number;
+    updated: number;
+  }> {
+    // Validate ownership
+    const isOwner = await this.validateProjectOwnership(projectId, userId);
+    if (!isOwner) {
+      throw new BadRequestException('You do not have access to this project');
+    }
+
+    // Get Shopify integration
+    const integration = await this.getShopifyIntegration(projectId);
+    if (!integration || !integration.accessToken || !integration.externalId) {
+      throw new BadRequestException('No Shopify integration found for this project');
+    }
+
+    const shopDomain = integration.externalId;
+    const accessToken = integration.accessToken;
+
+    // Fetch products from Shopify Admin API
+    const products = await this.fetchShopifyProducts(shopDomain, accessToken);
+
+    let created = 0;
+    let updated = 0;
+
+    // Upsert each product
+    for (const product of products) {
+      const externalId = String(product.id);
+      const existingProduct = await this.prisma.product.findFirst({
+        where: {
+          projectId,
+          externalId,
+        },
+      });
+
+      const productData = {
+        title: product.title,
+        description: product.body_html || null,
+        seoTitle: product.metafields_global_title_tag || null,
+        seoDescription: product.metafields_global_description_tag || null,
+        imageUrls: product.images?.map((img: { src: string }) => img.src) || [],
+        lastSyncedAt: new Date(),
+      };
+
+      if (existingProduct) {
+        await this.prisma.product.update({
+          where: { id: existingProduct.id },
+          data: productData,
+        });
+        updated++;
+      } else {
+        await this.prisma.product.create({
+          data: {
+            projectId,
+            externalId,
+            ...productData,
+          },
+        });
+        created++;
+      }
+    }
+
+    return {
+      projectId,
+      synced: products.length,
+      created,
+      updated,
+    };
+  }
+
+  /**
+   * Fetch products from Shopify Admin REST API
+   */
+  private async fetchShopifyProducts(
+    shopDomain: string,
+    accessToken: string,
+  ): Promise<ShopifyProduct[]> {
+    const url = `https://${shopDomain}/admin/api/2023-10/products.json?limit=50`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-Shopify-Access-Token': accessToken,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Shopify API error:', errorText);
+      throw new BadRequestException('Failed to fetch products from Shopify');
+    }
+
+    const data = (await response.json()) as { products: ShopifyProduct[] };
+    return data.products || [];
+  }
+
+  /**
+   * Fetch a single product from Shopify to get its handle
+   */
+  async fetchShopifyProduct(
+    shopDomain: string,
+    accessToken: string,
+    productId: string,
+  ): Promise<ShopifyProduct | null> {
+    const url = `https://${shopDomain}/admin/api/2023-10/products/${productId}.json`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-Shopify-Access-Token': accessToken,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      console.error('Shopify API error fetching product:', await response.text());
+      return null;
+    }
+
+    const data = (await response.json()) as { product: ShopifyProduct };
+    return data.product || null;
+  }
+}
+
+interface ShopifyProduct {
+  id: number;
+  title: string;
+  body_html?: string;
+  handle?: string;
+  metafields_global_title_tag?: string;
+  metafields_global_description_tag?: string;
+  images?: Array<{ src: string }>;
 }

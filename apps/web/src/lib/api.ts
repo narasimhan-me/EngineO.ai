@@ -90,6 +90,12 @@ export const seoScanApi = {
     }),
 
   results: (projectId: string) => fetchWithAuth(`/seo-scan/results?projectId=${projectId}`),
+
+  scanProduct: (productId: string) =>
+    fetchWithAuth('/seo-scan/product', {
+      method: 'POST',
+      body: JSON.stringify({ productId }),
+    }),
 };
 
 export const aiApi = {
@@ -97,5 +103,22 @@ export const aiApi = {
     fetchWithAuth('/ai/metadata', {
       method: 'POST',
       body: JSON.stringify({ crawlResultId, targetKeywords }),
+    }),
+
+  suggestProductMetadata: (productId: string, targetKeywords?: string[]) =>
+    fetchWithAuth('/ai/product-metadata', {
+      method: 'POST',
+      body: JSON.stringify({ productId, targetKeywords }),
+    }),
+};
+
+export const productsApi = {
+  list: (projectId: string) => fetchWithAuth(`/projects/${projectId}/products`),
+};
+
+export const shopifyApi = {
+  syncProducts: (projectId: string) =>
+    fetchWithAuth(`/shopify/sync-products?projectId=${projectId}`, {
+      method: 'POST',
     }),
 };

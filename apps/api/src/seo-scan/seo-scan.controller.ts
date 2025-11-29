@@ -14,6 +14,10 @@ interface StartScanDto {
   projectId: string;
 }
 
+interface ProductScanDto {
+  productId: string;
+}
+
 @Controller('seo-scan')
 @UseGuards(JwtAuthGuard)
 export class SeoScanController {
@@ -35,5 +39,14 @@ export class SeoScanController {
   @Get('results')
   async getResults(@Request() req: any, @Query('projectId') projectId: string) {
     return this.seoScanService.getResults(projectId, req.user.id);
+  }
+
+  /**
+   * POST /seo-scan/product
+   * Scan a single product page
+   */
+  @Post('product')
+  async scanProduct(@Request() req: any, @Body() dto: ProductScanDto) {
+    return this.seoScanService.scanProductPage(dto.productId, req.user.id);
   }
 }

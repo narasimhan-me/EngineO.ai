@@ -18,12 +18,13 @@ interface MetadataOutput {
 @Injectable()
 export class AiService {
   private readonly apiKey: string;
-  private readonly provider: 'openai' | 'anthropic';
+  private readonly provider: 'openai' | 'anthropic' | 'gemini';
 
   constructor(private configService: ConfigService) {
     this.apiKey = this.configService.get<string>('AI_API_KEY') || '';
     this.provider =
-      (this.configService.get<string>('AI_PROVIDER') as 'openai' | 'anthropic') || 'openai';
+      (this.configService.get<string>('AI_PROVIDER') as 'openai' | 'anthropic' | 'gemini') ||
+      'openai';
   }
 
   async generateMetadata(input: MetadataInput): Promise<MetadataOutput> {
@@ -31,6 +32,9 @@ export class AiService {
 
     if (this.provider === 'anthropic') {
       return this.callAnthropic(prompt);
+    }
+    if (this.provider === 'gemini') {
+      return this.callGemini(prompt);
     }
     return this.callOpenAI(prompt);
   }
@@ -128,6 +132,53 @@ Respond in JSON format only:
       return this.parseJsonResponse(content);
     } catch (error) {
       console.error('Anthropic API error:', error);
+      return this.getFallbackMetadata();
+    }
+  }
+
+  private async callGemini(prompt: string): Promise<MetadataOutput> {
+    if (!this.apiKey) {
+      return this.getFallbackMetadata();
+    }
+
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: prompt }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 200,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('Gemini API error:', await response.text());
+        return this.getFallbackMetadata();
+      }
+
+      const data = (await response.json()) as {
+        candidates?: Array<{
+          content?: {
+            parts?: Array<{ text?: string }>;
+          };
+        }>;
+      };
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+      return this.parseJsonResponse(content);
+    } catch (error) {
+      console.error('Gemini API error:', error);
       return this.getFallbackMetadata();
     }
   }
