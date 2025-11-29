@@ -1305,7 +1305,9 @@ Each page should explain what will go there later (helps keep UX consistent whil
 
 # PHASE 10 — Admin Console, Billing & Subscription Management
 
-**Goal:** Add SaaS admin capabilities and connect to Stripe for subscription/billing.
+**Current status:** Implemented as an **internal billing system** with a `Subscription` model and admin console. Stripe integration (real checkout sessions, customer portal, and webhook‑driven subscription updates) is planned as a follow‑up enhancement (Phase 10B) and is currently stubbed with TODOs in the billing service.
+
+**Goal:** Add SaaS admin capabilities and subscription management, with Stripe integration planned for a later sub‑phase.
 
 ### 10.1. User Roles
 
@@ -1332,7 +1334,7 @@ model User {
 - Update JWT payload to include role.
 - Implement an `AdminGuard` in NestJS that enforces `role === ADMIN` on `/admin/*` routes.
 
-### 10.2. Subscriptions & Plans (Stripe)
+### 10.2. Subscriptions & Plans (Internal Billing + Stripe Later)
 
 **Prisma:**
 
@@ -1353,13 +1355,25 @@ model Subscription {
 
 Add subscription relation to User if desired.
 
-**Backend:**
+**Backend (current implementation):**
+
+- Implement internal subscription management:
+  - `Subscription` rows created/updated directly by the API (no external payment processing yet).
+  - Endpoints:
+    - `GET /billing/plans` → returns available plans from in‑code config.
+    - `GET /billing/subscription` (or equivalent) → returns the current user’s subscription or a default “free” state.
+    - `POST /billing/subscribe` → switches the user to a new plan (DB only, no Stripe charge).
+    - `POST /billing/cancel` → marks the subscription as canceled.
+    - `POST /billing/webhook` → currently a stub that logs incoming events and includes TODOs for future Stripe integration.
+
+**Backend (planned Phase 10B – Stripe integration):**
 
 - Integrate with Stripe Billing:
-  - `/billing/create-checkout-session`
-  - `/billing/create-portal-session`
-  - Webhook endpoint: `POST /webhooks/stripe`
-  - Update Subscription based on events:
+  - Add endpoints:
+    - `/billing/create-checkout-session`
+    - `/billing/create-portal-session`
+    - Webhook endpoint: `POST /webhooks/stripe`
+  - Verify Stripe signatures and update `Subscription` based on events:
     - `customer.subscription.created`
     - `customer.subscription.updated`
     - `customer.subscription.deleted`.

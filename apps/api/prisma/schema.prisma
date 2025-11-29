@@ -9,6 +9,12 @@ datasource db {
   provider = "postgresql"
 }
 
+// User roles for access control
+enum UserRole {
+  USER
+  ADMIN
+}
+
 // Supported ecommerce platform integration types
 enum IntegrationType {
   SHOPIFY
@@ -23,12 +29,14 @@ model User {
   email            String   @unique
   password         String
   name             String?
+  role             UserRole @default(USER)
   twoFactorEnabled Boolean  @default(false)
   twoFactorSecret  String?  // Base32-encoded TOTP secret
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  projects Project[]
+  projects     Project[]
+  subscription Subscription?
 }
 
 model Project {
@@ -84,4 +92,18 @@ model CrawlResult {
   loadTimeMs      Int?
   issues          Json
   scannedAt       DateTime @default(now())
+}
+
+model Subscription {
+  id                   String    @id @default(cuid())
+  user                 User      @relation(fields: [userId], references: [id])
+  userId               String    @unique // One subscription per user
+  plan                 String    // e.g., "free", "starter", "pro", "enterprise"
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  status               String    @default("active") // active, canceled, past_due, etc.
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 }

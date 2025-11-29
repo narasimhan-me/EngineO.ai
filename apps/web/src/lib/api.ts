@@ -220,3 +220,56 @@ export const twoFactorAuthApi = {
       body: JSON.stringify({ tempToken, code }),
     }),
 };
+
+/**
+ * Billing API - for managing subscriptions
+ */
+export const billingApi = {
+  /** Get available subscription plans */
+  getPlans: () => fetchWithAuth('/billing/plans'),
+
+  /** Get current user's subscription */
+  getSubscription: () => fetchWithAuth('/billing/subscription'),
+
+  /** Subscribe to a plan */
+  subscribe: (planId: string) =>
+    fetchWithAuth('/billing/subscribe', {
+      method: 'POST',
+      body: JSON.stringify({ planId }),
+    }),
+
+  /** Cancel subscription */
+  cancel: () =>
+    fetchWithAuth('/billing/cancel', {
+      method: 'POST',
+    }),
+};
+
+/**
+ * Admin API - for admin-only operations
+ */
+export const adminApi = {
+  /** Get admin dashboard statistics */
+  getStats: () => fetchWithAuth('/admin/stats'),
+
+  /** Get all users with pagination */
+  getUsers: (page = 1, limit = 20) =>
+    fetchWithAuth(`/admin/users?page=${page}&limit=${limit}`),
+
+  /** Get a single user by ID */
+  getUser: (userId: string) => fetchWithAuth(`/admin/users/${userId}`),
+
+  /** Update user role */
+  updateUserRole: (userId: string, role: 'USER' | 'ADMIN') =>
+    fetchWithAuth(`/admin/users/${userId}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ role }),
+    }),
+
+  /** Update user's subscription (admin override) */
+  updateUserSubscription: (userId: string, planId: string) =>
+    fetchWithAuth(`/admin/users/${userId}/subscription`, {
+      method: 'PUT',
+      body: JSON.stringify({ planId }),
+    }),
+};

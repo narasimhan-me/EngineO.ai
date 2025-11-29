@@ -328,11 +328,33 @@ export default function ProductsPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {product.externalId}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                        {product.seoTitle || <span className="text-gray-400 italic">Not set</span>}
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {product.seoTitle ? (
+                          <div className="max-w-[200px]">
+                            <span
+                              className="block truncate cursor-help"
+                              title={product.seoTitle}
+                            >
+                              {product.seoTitle}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 italic">Not set</span>
+                        )}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                        {product.seoDescription || <span className="text-gray-400 italic">Not set</span>}
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {product.seoDescription ? (
+                          <div className="max-w-[250px]">
+                            <span
+                              className="block truncate cursor-help"
+                              title={product.seoDescription}
+                            >
+                              {product.seoDescription}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 italic">Not set</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(product.lastSyncedAt).toLocaleDateString()}

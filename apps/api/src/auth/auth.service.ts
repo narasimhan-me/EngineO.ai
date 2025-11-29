@@ -7,6 +7,7 @@ import * as speakeasy from 'speakeasy';
 export interface JwtPayload {
   sub: string;
   email: string;
+  role: string;
   twoFactor?: boolean; // true for temp tokens during 2FA flow
 }
 
@@ -27,6 +28,7 @@ export interface NormalLoginResponse {
     id: string;
     email: string;
     name: string | null;
+    role: string;
     twoFactorEnabled: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -100,6 +102,7 @@ export class AuthService {
       const tempPayload: JwtPayload = {
         sub: user.id,
         email: user.email,
+        role: user.role,
         twoFactor: true, // Mark this as a temp 2FA token
       };
 
@@ -120,6 +123,7 @@ export class AuthService {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
+      role: user.role,
     };
 
     return {
@@ -178,6 +182,7 @@ export class AuthService {
     const finalPayload: JwtPayload = {
       sub: user.id,
       email: user.email,
+      role: user.role,
     };
 
     const { password: _, twoFactorSecret: __, ...userWithoutSensitive } = user;

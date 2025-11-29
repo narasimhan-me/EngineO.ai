@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { projectsApi, usersApi } from '@/lib/api';
-import { isAuthenticated, removeToken, getToken } from '@/lib/auth';
+import { isAuthenticated, removeToken } from '@/lib/auth';
 
 interface Project {
   id: string;

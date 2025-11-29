@@ -10,6 +10,8 @@ import { IntegrationsModule } from './integrations/integrations.module';
 import { SeoScanModule } from './seo-scan/seo-scan.module';
 import { AiModule } from './ai/ai.module';
 import { TwoFactorAuthModule } from './two-factor-auth/two-factor-auth.module';
+import { BillingModule } from './billing/billing.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -27,6 +29,8 @@ import { TwoFactorAuthModule } from './two-factor-auth/two-factor-auth.module';
     SeoScanModule,
     AiModule,
     TwoFactorAuthModule,
+    BillingModule,
+    AdminModule,
   ],
   controllers: [],
   providers: [],

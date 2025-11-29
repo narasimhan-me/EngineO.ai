@@ -1,18 +1,40 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { isAuthenticated, removeToken } from '@/lib/auth';
+import { usersApi } from '@/lib/api';
 import { useEffect, useState } from 'react';
+
+interface User {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+}
 
 export default function TopNav() {
   const router = useRouter();
   const [authenticated, setAuthenticated] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     setMounted(true);
-    setAuthenticated(isAuthenticated());
+    const isAuth = isAuthenticated();
+    setAuthenticated(isAuth);
+
+    // Fetch user data to check role
+    if (isAuth) {
+      usersApi.me().then((userData: User) => {
+        setUser(userData);
+      }).catch(() => {
+        // If fetch fails, clear auth state
+        removeToken();
+        setAuthenticated(false);
+      });
+    }
   }, []);
 
   const handleSignOut = () => {
@@ -29,9 +51,15 @@ export default function TopNav() {
             <div className="flex">
               <Link
                 href="/projects"
-                className="flex items-center px-2 py-2 text-xl font-bold text-blue-600"
+                className="flex items-center px-2 py-2"
               >
-                SEOEngine.io
+                <Image
+                  src="/logo/A_digital_vector_graphic_displays_the_logo_for_SEO.png"
+                  alt="SEOEngine.io"
+                  width={160}
+                  height={40}
+                  priority
+                />
               </Link>
             </div>
           </div>
@@ -47,9 +75,15 @@ export default function TopNav() {
           <div className="flex">
             <Link
               href="/projects"
-              className="flex items-center px-2 py-2 text-xl font-bold text-blue-600"
+              className="flex items-center px-2 py-2"
             >
-              SEOEngine.io
+              <Image
+                src="/logo/A_digital_vector_graphic_displays_the_logo_for_SEO.png"
+                alt="SEOEngine.io"
+                width={160}
+                height={40}
+                priority
+              />
             </Link>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
               <Link
@@ -64,6 +98,14 @@ export default function TopNav() {
               >
                 Settings
               </Link>
+              {user?.role === 'ADMIN' && (
+                <Link
+                  href="/admin"
+                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-purple-700 hover:text-purple-900"
+                >
+                  Admin
+                </Link>
+              )}
             </div>
           </div>
           <div className="flex items-center space-x-4">
