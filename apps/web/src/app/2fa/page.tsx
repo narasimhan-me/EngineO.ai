@@ -49,8 +49,8 @@ export default function TwoFactorPage() {
       // Store the final access token
       setToken(response.accessToken);
 
-      // Redirect to dashboard
-      router.push('/dashboard');
+      // Redirect to projects
+      router.push('/projects');
     } catch (err: any) {
       setError(err.message || 'Invalid or expired code. Please try again.');
     } finally {

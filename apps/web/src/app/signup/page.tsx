@@ -38,7 +38,7 @@ export default function SignupPage() {
       // Auto login after signup
       const loginResponse = await authApi.login({ email, password });
       setToken(loginResponse.accessToken);
-      router.push('/dashboard');
+      router.push('/projects');
     } catch (err: any) {
       setError(err.message || 'Signup failed. Please try again.');
     } finally {

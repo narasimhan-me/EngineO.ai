@@ -35,7 +35,7 @@ export default function LoginPage() {
 
       // Normal login (no 2FA)
       setToken(response.accessToken);
-      router.push('/dashboard');
+      router.push('/projects');
     } catch (err: any) {
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
