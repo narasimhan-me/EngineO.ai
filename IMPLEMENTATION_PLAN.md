@@ -843,7 +843,7 @@ In the product SEO suggestion modal:
 {
   "crawlCount": number,
   "issueCount": number,
-  "avgSeoScore": number,
+  "avgSeoScore": number | null,
   "productCount": number,
   "productsWithAppliedSeo": number
 }
@@ -1181,5 +1181,593 @@ Create a new page:
 - Prefer small, incremental commits per feature.
 
 ---
+
+# PHASE 9 — UX & Navigation Redesign + Error Handling
+
+**Goal:** Redesign the app UX so it can scale to all planned features, and implement friendly, consistent error handling.
+
+### 9.1. New Global & Project Layouts
+
+**Frontend (`apps/web`)**
+
+**Top-level App Layout**
+
+`src/app/layout.tsx` should:
+- Render a top navigation bar for logged-in users.
+- Wrap all authenticated routes with a consistent shell.
+- For marketing routes (e.g. `(marketing)`), use a lighter layout without side nav.
+
+**Top Nav (Global)**
+
+Create `components/layout/TopNav.tsx`:
+
+- **Left:**
+  - Logo + text "SEOEngine.io" → links to `/projects`.
+  - Project switcher (dropdown with:
+    - Current project name
+    - Search projects (calls `GET /projects`)
+    - "Create new project"
+  )
+- **Right:**
+  - Help / Docs link.
+  - Admin link (if `user.role === 'ADMIN'`) → `/admin`.
+  - User avatar menu:
+    - Profile
+    - Billing & Subscription
+    - Sign out
+
+After login, redirect to `/projects` (project list) instead of `/dashboard`.
+
+**Project Workspace & Side Nav**
+
+Add a layout: `src/app/projects/[id]/layout.tsx`:
+- Uses the TopNav from above.
+- Adds a left side nav with project-level sections:
+  - Overview → `/projects/[id]/overview`
+  - Issues & Fixes → `/projects/[id]/issues`
+  - Products → `/projects/[id]/products`
+  - Content → `/projects/[id]/content`
+  - Performance → `/projects/[id]/performance`
+  - Keywords → `/projects/[id]/keywords`
+  - Competitors → `/projects/[id]/competitors`
+  - Backlinks → `/projects/[id]/backlinks`
+  - Automation → `/projects/[id]/automation`
+  - Local SEO → `/projects/[id]/local`
+  - Settings → `/projects/[id]/settings`
+
+Existing functionality should be mapped to:
+- Current project detail view → `/projects/[id]/overview`
+- Existing SEO scan UI → integrated into Overview + Issues.
+- Products page → `/projects/[id]/products`.
+
+**Placeholder Routes for Future Features**
+
+Create minimal placeholder pages (with simple text + description) for:
+- `/projects/[id]/issues`
+- `/projects/[id]/content`
+- `/projects/[id]/performance`
+- `/projects/[id]/keywords`
+- `/projects/[id]/competitors`
+- `/projects/[id]/backlinks`
+- `/projects/[id]/automation`
+- `/projects/[id]/local`
+
+Each page should explain what will go there later (helps keep UX consistent while features are WIP).
+
+### 9.2. Friendly Error Handling
+
+**Frontend:**
+
+**Global Error Boundary / Error UI**
+
+- Implement `error.tsx` files in key routes (app root and project layouts).
+- Create a reusable component like `components/ui/FriendlyError.tsx` that:
+  - Shows a human + playful message like:
+    - "Oops, our SEO robot tripped over a cable. Please try again in a few seconds."
+  - Includes:
+    - "Retry" button (retries the last action when possible).
+    - Optional "Go back" and "Go to Dashboard" buttons.
+
+**API Error Handling in Hooks**
+
+- Consolidate fetch logic into a small client utility (`lib/api.ts`).
+- For errors (4xx/5xx), show:
+  - Toast message with friendly text.
+  - Use standard phrasing across the app.
+
+**Backend:**
+
+**NestJS Global Exception Filter**
+
+- Implement a global filter (e.g. `AllExceptionsFilter`) that:
+  - Logs internal errors with stack traces (for you).
+  - Returns structured JSON to the client:
+    ```json
+    {
+      "error": "Internal server error",
+      "code": "INTERNAL_ERROR",
+      "requestId": "..."
+    }
+    ```
+  - DO NOT leak sensitive info in production.
+
+**Validation Errors**
+
+- Use NestJS `ValidationPipe` with DTOs and send clean messages.
+
+---
+
+# PHASE 10 — Admin Console, Billing & Subscription Management
+
+**Goal:** Add SaaS admin capabilities and connect to Stripe for subscription/billing.
+
+### 10.1. User Roles
+
+**Prisma:**
+
+```prisma
+enum UserRole {
+  USER
+  ADMIN
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      UserRole @default(USER)
+  // ... existing fields
+  projects  Project[]
+}
+```
+
+- Migrate: `npx prisma migrate dev --name add_user_role`.
+- Update JWT payload to include role.
+- Implement an `AdminGuard` in NestJS that enforces `role === ADMIN` on `/admin/*` routes.
+
+### 10.2. Subscriptions & Plans (Stripe)
+
+**Prisma:**
+
+```prisma
+model Subscription {
+  id                   String   @id @default(cuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id])
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  plan                 String
+  status               String   // "active", "trialing", "canceled", etc.
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+```
+
+Add subscription relation to User if desired.
+
+**Backend:**
+
+- Integrate with Stripe Billing:
+  - `/billing/create-checkout-session`
+  - `/billing/create-portal-session`
+  - Webhook endpoint: `POST /webhooks/stripe`
+  - Update Subscription based on events:
+    - `customer.subscription.created`
+    - `customer.subscription.updated`
+    - `customer.subscription.deleted`.
+
+**Plan Configuration (code, not DB at first):**
+
+`apps/api/src/billing/plans.ts`:
+
+```typescript
+export const PLANS = {
+  starter: {
+    name: 'Starter',
+    maxProjects: 3,
+    maxProducts: 500,
+    aiTokensPerMonth: 200_000,
+    features: {
+      shopify: true,
+      advancedAutomation: false,
+      competitiveIntelligence: false,
+    },
+  },
+  pro: { ... },
+  agency: { ... },
+};
+```
+
+### 10.3. Admin APIs
+
+- `GET /admin/overview` → overall metrics.
+- `GET /admin/users` → list users.
+- `GET /admin/projects` → list projects.
+- `GET /admin/subscriptions` → list subscriptions.
+
+Protected with admin guard.
+
+### 10.4. Admin UI
+
+**Routes:**
+
+- `/admin/layout.tsx` with its own side nav:
+  - Overview → `/admin/overview`
+  - Users → `/admin/users`
+  - Projects → `/admin/projects`
+  - Subscriptions → `/admin/subscriptions`
+  - Usage (placeholder)
+  - System Health (placeholder)
+
+**Screens:**
+
+- Overview: simple metrics cards.
+- Users: table listing user info, link to their projects.
+- Projects: table listing projects & owner.
+- Subscriptions: table listing plan, status, next billing date.
+
+**User (non-admin) Billing UI:**
+
+- `/settings/billing` or `/billing`:
+  - Show current plan, status, next billing date.
+  - Button to "Manage subscription" (opens Stripe portal).
+
+---
+
+# PHASE 11 — Cloud Infrastructure & Production Deployment (Render + Vercel + Neon + Cloudflare + S3)
+
+**Goal:** Deploy SEOEngine.io as a production-grade SaaS using:
+- Neon for Postgres
+- Render for the NestJS API
+- Vercel for the Next.js frontend
+- Cloudflare for DNS/SSL
+- AWS S3 for DB backups
+- Shopify app configured with production URLs
+
+### 11.1. Neon (Production DB)
+
+- Create a Neon project for production.
+- Create a prod database and choose region near your main users (e.g. `us-east-1`).
+- Get the `DATABASE_URL` connection string.
+- In your local repo, create `.env.production` for API with:
+  ```
+  DATABASE_URL=postgres://...
+  ```
+- Run migrations against Neon from your local machine (once):
+  ```
+  cd apps/api
+  npx prisma migrate deploy
+  ```
+
+### 11.2. Render – Backend (NestJS API)
+
+**Create a new Render Web Service:**
+
+- Connect to your GitHub repo.
+- Root: repo root.
+- Build command:
+  ```
+  pnpm install
+  pnpm --filter api build
+  ```
+- Start command:
+  ```
+  pnpm --filter api start:prod
+  ```
+
+**Environment Variables in Render:**
+
+```
+NODE_ENV=production
+DATABASE_URL=<Neon prod URL>
+JWT_SECRET=...
+SHOPIFY_API_KEY=...
+SHOPIFY_API_SECRET=...
+SHOPIFY_SCOPES=read_products,write_products
+SHOPIFY_APP_URL=https://api.seoengine.io (once you set custom domain)
+STRIPE_SECRET_KEY=...
+STRIPE_WEBHOOK_SECRET=...
+OPENAI_API_KEY / GEMINI_API_KEY etc.
+Any other secrets.
+```
+
+**Custom Domain:**
+
+- In Render, add a custom domain: `api.seoengine.io`.
+- Render will give you a CNAME to point to from Cloudflare.
+
+### 11.3. Vercel – Frontend (Next.js 14)
+
+**Create a new Vercel project:**
+
+- Connect to the same GitHub repo.
+- Set project root to `apps/web` or keep root and set the correct build command.
+
+**Build & Output:**
+
+- Build command:
+  ```
+  pnpm install
+  pnpm --filter web build
+  ```
+- Output: `.next`
+
+**Environment Variables:**
+
+```
+NEXT_PUBLIC_API_URL=https://api.seoengine.io
+Public keys if needed (e.g., public Stripe key).
+```
+
+**Domain:**
+
+- Map `app.seoengine.io` → this Vercel project.
+
+### 11.4. Cloudflare – DNS & SSL
+
+- Point your domain's nameservers to Cloudflare.
+- In Cloudflare DNS:
+  - CNAME `app` → Vercel provided domain.
+  - CNAME `api` → Render provided domain (for `api.seoengine.io`).
+  - A or CNAME for `seoengine.io` → your marketing site (could also be Vercel).
+- SSL:
+  - Use "Full (strict)" mode for HTTPS.
+  - Add basic WAF rules:
+    - Rate limit obvious abusive patterns.
+    - Optionally protect `/admin` routes by country/IP for extra security.
+
+### 11.5. AWS S3 – Periodic DB Backups
+
+Even though Neon manages backups, we'll also create our own periodic logical dumps to S3.
+
+- Create an AWS S3 bucket, e.g. `seoengine-db-backups-prod`.
+- Create an AWS IAM user with:
+  - Programmatic access.
+  - Permissions to `s3:PutObject` on that bucket.
+- Store credentials as env vars in Render (for a separate Cron Job or Worker):
+  ```
+  AWS_ACCESS_KEY_ID
+  AWS_SECRET_ACCESS_KEY
+  AWS_REGION
+  S3_BACKUP_BUCKET=seoengine-db-backups-prod
+  ```
+- Create a small backup script in `apps/api/scripts/backup-db.ts` that:
+  - Runs `pg_dump` against `DATABASE_URL`.
+  - Streams the result to S3 (gzip).
+  - File naming: `db-backup-YYYY-MM-DDTHH-mm-ss.sql.gz`.
+- Create a Render Cron Job or Background Worker:
+  - Schedule: once per day or every 6–12 hours.
+  - Command:
+    ```
+    pnpm install
+    pnpm --filter api exec ts-node src/scripts/backup-db.ts
+    ```
+  - Ensure `pg_dump` is available (Render has Postgres CLI in most images; if not, include a container).
+
+### 11.6. Shopify App (Production)
+
+**In Shopify Partner Dashboard:**
+
+- Set App URL → `https://api.seoengine.io/shopify/app-home` (or wherever you land merchants).
+- Redirect URI → `https://api.seoengine.io/shopify/callback`.
+- Ensure scopes match your backend config.
+- Use production API key/secret in Render env vars.
+
+**Test:**
+
+- Install the app into a production dev store.
+- Run through:
+  - OAuth flow.
+  - Product sync.
+  - SEO updates.
+
+### 11.7. Monitoring & Go-Live
+
+- Add uptime monitoring (e.g. UptimeRobot) for:
+  - `https://app.seoengine.io`
+  - `https://api.seoengine.io/health`
+- Enable basic logging & alerts (Render + Vercel dashboards).
+- Soft launch with test users.
+- Once stable, launch publicly:
+  - Marketing site updated.
+  - Shopify App listing updated.
+
+---
+
+# PHASE 12 — Advanced AI SEO Automation (Feature Set A)
+
+(This is the same concept I outlined earlier as "Advanced SEO Automation Engine", now explicitly tied to your A list.)
+
+**Goal:** Implement:
+- Auto-fix technical SEO issues
+- Auto-optimize metadata at scale
+- Bulk image alt text & compression
+- Internal linking suggestions
+- Schema markup engine
+- 1-click redirect manager
+
+(I'll keep this abbreviated since you already saw the earlier breakdown; you can paste the previous detailed Phase 9 Automation plan here and label it Phase 12.)
+
+**Key components (high level):**
+
+- `UrlIssue` & `RedirectRule` models
+- Enhanced crawler to detect:
+  - Missing alt tags
+  - Broken links
+  - Missing schema
+- AI endpoints for:
+  - Generating alt text
+  - Generating schema JSON-LD
+  - Internal link suggestions
+- UI:
+  - Issues tab with filters and "Apply fix" actions
+  - Redirect manager UI
+
+---
+
+# PHASE 13 — Content Intelligence & AI Generation (Feature Set B)
+
+As described earlier:
+
+- **Models:** `Keyword`, `ContentAsset`, `BrandSettings`
+- **AI:**
+  - Keyword clustering
+  - Blog/landing/product content generators
+  - Content scoring endpoint
+- **UI:** "Content" & "Keywords" tabs with:
+  - Keyword lists
+  - Content editor with AI suggestions
+
+---
+
+# PHASE 14 — SEO Performance Monitoring (Feature Set D)
+
+- **Models:** `PageMetric`, `KeywordRank`
+- **Integrations:**
+  - Google Search Console
+  - Analytics (GA4)
+- **UI:** "Performance" tab with charts and trend lines.
+
+---
+
+# PHASE 15 — Competitive Intelligence & Backlink Tools (Feature Sets E & F)
+
+- **Models:** `Competitor`, `Backlink`
+- **AI:**
+  - Gap analysis report
+  - Outreach email generator
+- **UI:**
+  - "Competitors" & "Backlinks" tabs.
+
+---
+
+# PHASE 16 — Local SEO Features (Feature Set G)
+
+- **Models:** `Location`
+- **AI:**
+  - Local keyword suggestions
+  - Local landing page templates
+- **UI:**
+  - "Local" tab with locations and local content ideas.
+
+---
+
+# PHASE 17 — Automation, Workflow & Social Media Integration (Feature Set H + Social)
+
+**Goal:** Add scheduling, reporting, tasks, chatbot, and social media auto-posting (Facebook, Instagram, LinkedIn).
+
+### 17.1. Automation & Tasks
+
+**Models (as previously proposed):**
+
+```prisma
+model AutomationRule {
+  id          String   @id @default(cuid())
+  project     Project  @relation(fields: [projectId], references: [id])
+  projectId   String
+  name        String
+  type        String   // "scheduled_scan", "weekly_report", "auto_apply_seo", "social_post"
+  config      Json
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Task {
+  id          String   @id @default(cuid())
+  project     Project  @relation(fields: [projectId], references: [id])
+  projectId   String
+  title       String
+  description String?
+  status      String   // "open", "in_progress", "done"
+  assignedTo  String?
+  dueDate     DateTime?
+  createdAt   DateTime @default(now())
+}
+```
+
+**Backend:**
+
+- Scheduler (cron/worker) that runs:
+  - Regular SEO scans.
+  - Weekly summary emails.
+  - Auto-apply low-risk metadata fixes.
+
+### 17.2. Social Media Integrations
+
+**Models:**
+
+```prisma
+enum SocialProvider {
+  FACEBOOK
+  INSTAGRAM
+  LINKEDIN
+}
+
+model SocialAccount {
+  id           String         @id @default(cuid())
+  project      Project        @relation(fields: [projectId], references: [id])
+  projectId    String
+  provider     SocialProvider
+  accessToken  String
+  refreshToken String?
+  accountId    String?        // page or profile ID
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+```
+
+**Backend Integration:**
+
+- OAuth flows for:
+  - LinkedIn (Share on company page).
+  - Facebook + Instagram via Meta Graph API (pages & Instagram Business accounts).
+- Auto-posting use case (from your bullets):
+  - When a new product is launched/imported from Shopify (Phase 5 sync), or when product SEO is updated:
+    - Create a "post candidate" record (e.g., in `ContentAsset` with type `social_post`).
+    - If an `AutomationRule` is set for social posting:
+      - AI generates a short caption & optional hashtags.
+      - Backend publishes to:
+        - Facebook Page (product promo post).
+        - Instagram (image + caption).
+        - Optionally LinkedIn.
+  - Provide controls:
+    - "Auto-post immediately" vs "Review before posting".
+- Endpoints:
+  - `POST /social/connect/:provider` → initiates OAuth.
+  - `POST /social/disconnect/:provider`.
+  - `POST /social/test-post` (for debugging).
+  - `POST /automation/social-product-post` (internal usage by automation jobs).
+
+**Frontend:**
+
+- In project Settings → new tab "Social & Sharing":
+  - Connect/disconnect buttons for LinkedIn, Facebook, Instagram.
+  - Show which accounts are linked.
+- In Automation tab:
+  - Rule builder: "When new product synced → Generate + publish social post to Facebook & Instagram."
+- In Products list:
+  - Optional "Post to social" button per product (manual trigger).
+
+### 17.3. AI SEO Assistant Chatbot
+
+- **Backend endpoint:** `POST /ai/assistant`:
+  - Input: `projectId`, `message`.
+  - Uses project data (issues, products, metrics) to answer.
+- **Frontend:**
+  - Chat UI in the project Overview or "Assistant" panel.
+  - Focus on answering "what should I do next?" and "summarize my SEO health this week".
+
+### 17.4. Automated Reporting
+
+- Weekly email report per project:
+  - Summary of:
+    - SEO score changes
+    - Issues resolved / new issues
+    - Top pages/products changes
+    - Social posts published (if enabled)
+  - Configured via `AutomationRule`.
+
 
 END OF IMPLEMENTATION PLAN

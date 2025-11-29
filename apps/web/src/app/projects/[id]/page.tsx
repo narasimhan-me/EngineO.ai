@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { isAuthenticated, removeToken, getToken } from '@/lib/auth';
-import { seoScanApi, aiApi } from '@/lib/api';
+import { seoScanApi, aiApi, projectsApi } from '@/lib/api';
 
 interface IntegrationStatus {
   projectId: string;
@@ -71,6 +71,14 @@ interface MetadataSuggestion {
   };
 }
 
+interface ProjectOverview {
+  crawlCount: number;
+  issueCount: number;
+  avgSeoScore: number | null;
+  productCount: number;
+  productsWithAppliedSeo: number;
+}
+
 export default function ProjectDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -92,6 +100,9 @@ export default function ProjectDetailPage() {
   const [currentSuggestion, setCurrentSuggestion] = useState<MetadataSuggestion | null>(null);
   const [loadingSuggestion, setLoadingSuggestion] = useState(false);
   const [suggestingId, setSuggestingId] = useState<string | null>(null);
+
+  // Project overview state
+  const [overview, setOverview] = useState<ProjectOverview | null>(null);
 
   const fetchIntegrationStatus = useCallback(async () => {
     try {
@@ -140,6 +151,15 @@ export default function ProjectDetailPage() {
     }
   }, [projectId]);
 
+  const fetchOverview = useCallback(async () => {
+    try {
+      const data = await projectsApi.overview(projectId);
+      setOverview(data);
+    } catch (err: unknown) {
+      console.error('Error fetching project overview:', err);
+    }
+  }, [projectId]);
+
   useEffect(() => {
     if (!isAuthenticated()) {
       router.push('/login');
@@ -148,13 +168,14 @@ export default function ProjectDetailPage() {
 
     fetchIntegrationStatus();
     fetchScanResults();
+    fetchOverview();
 
     // Check if we just returned from Shopify OAuth
     if (searchParams.get('shopify') === 'connected') {
       setSuccessMessage('Successfully connected to Shopify!');
       setTimeout(() => setSuccessMessage(''), 5000);
     }
-  }, [projectId, searchParams, router, fetchIntegrationStatus, fetchScanResults]);
+  }, [projectId, searchParams, router, fetchIntegrationStatus, fetchScanResults, fetchOverview]);
 
   const handleConnectShopify = () => {
     if (!shopDomain) {
@@ -181,6 +202,7 @@ export default function ProjectDetailPage() {
       setSuccessMessage('SEO scan completed!');
       setTimeout(() => setSuccessMessage(''), 3000);
       await fetchScanResults();
+      await fetchOverview(); // Refresh overview stats after scan
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to run SEO scan');
     } finally {
@@ -297,6 +319,69 @@ export default function ProjectDetailPage() {
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">{status.projectName}</h1>
           <p className="text-gray-600">Project ID: {status.projectId}</p>
+        </div>
+
+        {/* Project Overview Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white shadow rounded-lg p-4">
+            <h3 className="text-sm font-medium text-gray-500">SEO Score</h3>
+            <p className={`mt-1 text-2xl font-bold ${
+              overview?.avgSeoScore !== null && overview?.avgSeoScore !== undefined
+                ? overview.avgSeoScore >= 80
+                  ? 'text-green-600'
+                  : overview.avgSeoScore >= 50
+                    ? 'text-yellow-600'
+                    : 'text-red-600'
+                : 'text-gray-400'
+            }`}>
+              {overview?.avgSeoScore !== null && overview?.avgSeoScore !== undefined
+                ? overview.avgSeoScore
+                : '--'}
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              {overview?.avgSeoScore !== null && overview?.avgSeoScore !== undefined
+                ? 'Average score'
+                : 'Run scans to see'}
+            </p>
+          </div>
+
+          <div className="bg-white shadow rounded-lg p-4">
+            <h3 className="text-sm font-medium text-gray-500">Last Scan</h3>
+            <p className="mt-1 text-2xl font-bold text-gray-900">
+              {scanResults.length > 0
+                ? new Date(scanResults[0].scannedAt).toLocaleDateString()
+                : '--'}
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              {scanResults.length > 0
+                ? `${overview?.crawlCount ?? 0} total scans`
+                : 'No scans yet'}
+            </p>
+          </div>
+
+          <div className="bg-white shadow rounded-lg p-4">
+            <h3 className="text-sm font-medium text-gray-500">Issues Found</h3>
+            <p className={`mt-1 text-2xl font-bold ${
+              overview?.issueCount === 0 ? 'text-green-600' : 'text-red-600'
+            }`}>
+              {overview?.issueCount ?? 0}
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              {overview?.issueCount === 0 ? 'No issues' : 'Across all scans'}
+            </p>
+          </div>
+
+          <div className="bg-white shadow rounded-lg p-4">
+            <h3 className="text-sm font-medium text-gray-500">Products</h3>
+            <p className="mt-1 text-2xl font-bold text-gray-900">
+              {overview?.productCount ?? 0}
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              {overview?.productsWithAppliedSeo
+                ? `${overview.productsWithAppliedSeo} with SEO`
+                : 'Synced from store'}
+            </p>
+          </div>
         </div>
 
         {/* SEO Scanner Section */}

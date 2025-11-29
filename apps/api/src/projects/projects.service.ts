@@ -204,4 +204,72 @@ export class ProjectsService {
     return !!project;
   }
 
+  /**
+   * Get project overview stats for dashboard
+   */
+  async getProjectOverview(projectId: string, userId: string): Promise<{
+    crawlCount: number;
+    issueCount: number;
+    avgSeoScore: number | null;
+    productCount: number;
+    productsWithAppliedSeo: number;
+  }> {
+    // Validate project ownership
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    if (project.userId !== userId) {
+      throw new ForbiddenException('You do not have access to this project');
+    }
+
+    // Get crawl results for issue count and avg score calculation
+    const crawlResults = await this.prisma.crawlResult.findMany({
+      where: { projectId },
+      select: { issues: true },
+    });
+
+    const crawlCount = crawlResults.length;
+
+    // Calculate issue count and average SEO score
+    let issueCount = 0;
+    let totalScore = 0;
+
+    for (const result of crawlResults) {
+      const issues = result.issues as string[];
+      issueCount += issues.length;
+      // Reuse the exact score formula from SeoScanService.calculateScore
+      totalScore += Math.max(0, 100 - issues.length * 10);
+    }
+
+    const avgSeoScore = crawlCount > 0 ? Math.round(totalScore / crawlCount) : null;
+
+    // Get product counts
+    const productCount = await this.prisma.product.count({
+      where: { projectId },
+    });
+
+    const productsWithAppliedSeo = await this.prisma.product.count({
+      where: {
+        projectId,
+        OR: [
+          { seoTitle: { not: null } },
+          { seoDescription: { not: null } },
+        ],
+      },
+    });
+
+    return {
+      crawlCount,
+      issueCount,
+      avgSeoScore,
+      productCount,
+      productsWithAppliedSeo,
+    };
+  }
+
 }

@@ -65,4 +65,13 @@ export class ProjectsController {
   async getIntegrationStatus(@Request() req: any, @Param('id') projectId: string) {
     return this.projectsService.getIntegrationStatus(projectId, req.user.id);
   }
+
+  /**
+   * GET /projects/:id/overview
+   * Returns project overview stats for dashboard
+   */
+  @Get(':id/overview')
+  async getProjectOverview(@Request() req: any, @Param('id') projectId: string) {
+    return this.projectsService.getProjectOverview(projectId, req.user.id);
+  }
 }

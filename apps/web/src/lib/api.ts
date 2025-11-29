@@ -49,6 +49,8 @@ export const projectsApi = {
 
   get: (id: string) => fetchWithAuth(`/projects/${id}`),
 
+  overview: (id: string) => fetchWithAuth(`/projects/${id}/overview`),
+
   create: (data: { name: string; domain: string }) =>
     fetchWithAuth('/projects', {
       method: 'POST',
