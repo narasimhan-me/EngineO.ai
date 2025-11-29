@@ -274,6 +274,49 @@ Create endpoints:
 
 # PHASE 2 — Shopify Integration (MVP Skeleton)
 
+### 2.0. Shopify App Setup in Shopify
+
+Before implementing any code in this phase, create and configure the actual Shopify app in the Shopify Partner dashboard so that OAuth and API calls from SEOEngine.io can succeed.
+
+**2.0.1. Create Partner account and test store**
+- Go to `https://partners.shopify.com` and sign up (or log in) as a Shopify Partner.
+- In the Partner dashboard, create at least one **development store** that you will use for testing the SEOEngine app.
+
+**2.0.2. Create a public app**
+- In the Partner dashboard, navigate to **Apps → Create app**.
+- Choose **Public app** (listed on the Shopify App Store in the future) and give it a name such as `SEOEngine – AI SEO`.
+- Set the app’s **App URL / Primary URL** temporarily to your backend base URL (for local dev you can use a tunneling service like `ngrok` or `cloudflared`, e.g. `https://<random>.ngrok.io`).
+
+**2.0.3. Configure redirect URLs**
+- In the app settings, add the allowed redirect URL that the NestJS backend will handle for OAuth:
+  - `https://<backend-base-url>/shopify/callback`
+- Make sure **App URL** and **Allowed redirection URL(s)** in Shopify always match the values used in the backend config:
+  - `SHOPIFY_APP_URL` → backend base URL (e.g. `https://<random>.ngrok.io`)
+  - OAuth callback path → `/shopify/callback`
+
+**2.0.4. Get API credentials and scopes**
+- In the app’s **Configuration / API credentials** section, obtain:
+  - `API key` (client ID)
+  - `API secret key`
+- Decide initial scopes based on this plan (minimum for MVP product SEO):
+  - `read_products`
+  - `write_products`
+  - Optionally: `read_themes`, `write_themes` if you later manipulate theme SEO or templates.
+- Add these to the backend environment:
+  - `SHOPIFY_API_KEY=<your-api-key>`
+  - `SHOPIFY_API_SECRET=<your-api-secret>`
+  - `SHOPIFY_SCOPES=read_products,write_products,read_themes,write_themes` (as needed)
+  - `SHOPIFY_APP_URL=https://<backend-base-url>`
+
+**2.0.5. Enable app for your development store**
+- From the app detail page in the Partner dashboard, click **Test your app** and install it on your development store.
+- During development you will primarily:
+  - Start the NestJS API server.
+  - Expose it via tunnel (if running locally).
+  - Trigger OAuth from SEOEngine (`/shopify/install`) to install/authorize the app on the test store.
+
+Once steps 2.0.1–2.0.5 are complete, proceed with the backend and frontend integration steps below.
+
 ### 2.1. ShopifyStore DB Model
 
 Add to `schema.prisma`:
