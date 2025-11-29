@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { projectsApi, usersApi } from '@/lib/api';
-import { isAuthenticated, removeToken } from '@/lib/auth';
+import { isAuthenticated, removeToken, getToken } from '@/lib/auth';
 
 interface Project {
   id: string;
@@ -88,11 +88,6 @@ export default function DashboardPage() {
     fetchData();
   }, [router]);
 
-  const handleLogout = () => {
-    removeToken();
-    router.push('/login');
-  };
-
   // Calculate aggregate stats
   const totalProjects = projects.length;
   const projectsWithScans = Object.values(overviews).filter(o => o.crawlCount > 0).length;
@@ -127,160 +122,139 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-900">SEOEngine.io</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">
-              {user?.name || user?.email}
-            </span>
-            <button
-              onClick={handleLogout}
-              className="text-sm text-red-600 hover:text-red-800"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold text-gray-900">
+          Welcome back{user?.name ? `, ${user.name}` : ''}!
+        </h2>
+        <p className="mt-1 text-gray-600">
+          Here&apos;s an overview of your SEO projects.
+        </p>
+      </div>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900">
-            Welcome back{user?.name ? `, ${user.name}` : ''}!
-          </h2>
-          <p className="mt-1 text-gray-600">
-            Here&apos;s an overview of your SEO projects.
+      {error && (
+        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          {error}
+        </div>
+      )}
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-sm font-medium text-gray-500">Total Projects</h3>
+          <p className="mt-2 text-3xl font-bold text-gray-900">{totalProjects}</p>
+          <p className="mt-1 text-sm text-gray-500">
+            {projectsWithScans} with scans
           </p>
         </div>
-
-        {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-            {error}
-          </div>
-        )}
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-sm font-medium text-gray-500">Total Projects</h3>
-            <p className="mt-2 text-3xl font-bold text-gray-900">{totalProjects}</p>
-            <p className="mt-1 text-sm text-gray-500">
-              {projectsWithScans} with scans
-            </p>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-sm font-medium text-gray-500">Active Integrations</h3>
-            <p className="mt-2 text-3xl font-bold text-gray-900">--</p>
-            <p className="mt-1 text-sm text-gray-500">Coming soon</p>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-sm font-medium text-gray-500">Avg SEO Score</h3>
-            <p className={`mt-2 text-3xl font-bold ${getScoreColor(avgSeoScore)}`}>
-              {avgSeoScore !== null ? avgSeoScore : '--'}
-            </p>
-            <p className="mt-1 text-sm text-gray-500">
-              {avgSeoScore !== null ? 'Across all projects' : 'Run scans to see'}
-            </p>
-          </div>
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-sm font-medium text-gray-500">Active Integrations</h3>
+          <p className="mt-2 text-3xl font-bold text-gray-900">--</p>
+          <p className="mt-1 text-sm text-gray-500">Coming soon</p>
         </div>
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-sm font-medium text-gray-500">Avg SEO Score</h3>
+          <p className={`mt-2 text-3xl font-bold ${getScoreColor(avgSeoScore)}`}>
+            {avgSeoScore !== null ? avgSeoScore : '--'}
+          </p>
+          <p className="mt-1 text-sm text-gray-500">
+            {avgSeoScore !== null ? 'Across all projects' : 'Run scans to see'}
+          </p>
+        </div>
+      </div>
 
-        {/* Projects Section */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-            <h3 className="text-lg font-medium text-gray-900">Your Projects</h3>
-            <Link
-              href="/projects"
-              className="text-sm text-blue-600 hover:text-blue-800"
-            >
-              View all →
-            </Link>
-          </div>
-          <div className="p-6">
-            {projects.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-gray-500 mb-4">No projects yet. Create your first project to get started.</p>
-                <Link
-                  href="/projects"
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-                >
-                  Create Project
-                </Link>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-2 text-xs font-medium text-gray-500 uppercase">Project</th>
-                      <th className="text-center py-3 px-2 text-xs font-medium text-gray-500 uppercase">SEO Score</th>
-                      <th className="text-center py-3 px-2 text-xs font-medium text-gray-500 uppercase">Scans</th>
-                      <th className="text-center py-3 px-2 text-xs font-medium text-gray-500 uppercase">Products</th>
-                      <th className="text-right py-3 px-2 text-xs font-medium text-gray-500 uppercase">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {projects.slice(0, 5).map((project) => {
-                      const overview = overviews[project.id];
-                      return (
-                        <tr key={project.id} className="hover:bg-gray-50">
-                          <td className="py-4 px-2">
-                            <Link href={`/projects/${project.id}`} className="block">
-                              <p className="text-sm font-medium text-gray-900">{project.name}</p>
-                              <p className="text-sm text-gray-500">{project.domain || 'No domain'}</p>
-                            </Link>
-                          </td>
-                          <td className="py-4 px-2 text-center">
+      {/* Projects Section */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+          <h3 className="text-lg font-medium text-gray-900">Your Projects</h3>
+          <Link
+            href="/projects"
+            className="text-sm text-blue-600 hover:text-blue-800"
+          >
+            View all →
+          </Link>
+        </div>
+        <div className="p-6">
+          {projects.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500 mb-4">No projects yet. Create your first project to get started.</p>
+              <Link
+                href="/projects"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+              >
+                Create Project
+              </Link>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-2 text-xs font-medium text-gray-500 uppercase">Project</th>
+                    <th className="text-center py-3 px-2 text-xs font-medium text-gray-500 uppercase">SEO Score</th>
+                    <th className="text-center py-3 px-2 text-xs font-medium text-gray-500 uppercase">Scans</th>
+                    <th className="text-center py-3 px-2 text-xs font-medium text-gray-500 uppercase">Products</th>
+                    <th className="text-right py-3 px-2 text-xs font-medium text-gray-500 uppercase">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {projects.slice(0, 5).map((project) => {
+                    const overview = overviews[project.id];
+                    return (
+                      <tr key={project.id} className="hover:bg-gray-50">
+                        <td className="py-4 px-2">
+                          <Link href={`/projects/${project.id}`} className="block">
+                            <p className="text-sm font-medium text-gray-900">{project.name}</p>
+                            <p className="text-sm text-gray-500">{project.domain || 'No domain'}</p>
+                          </Link>
+                        </td>
+                        <td className="py-4 px-2 text-center">
+                          {overview ? (
+                            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded ${getScoreBgColor(overview.avgSeoScore)}`}>
+                              {overview.avgSeoScore !== null ? overview.avgSeoScore : '--'}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-sm">--</span>
+                          )}
+                        </td>
+                        <td className="py-4 px-2 text-center">
+                          <span className="text-sm text-gray-600">
+                            {overview?.crawlCount ?? 0}
+                          </span>
+                        </td>
+                        <td className="py-4 px-2 text-center">
+                          <span className="text-sm text-gray-600">
                             {overview ? (
-                              <span className={`inline-flex px-2 py-1 text-xs font-medium rounded ${getScoreBgColor(overview.avgSeoScore)}`}>
-                                {overview.avgSeoScore !== null ? overview.avgSeoScore : '--'}
-                              </span>
+                              <>
+                                {overview.productCount}
+                                {overview.productsWithAppliedSeo > 0 && (
+                                  <span className="text-green-600 ml-1">
+                                    ({overview.productsWithAppliedSeo} SEO)
+                                  </span>
+                                )}
+                              </>
                             ) : (
-                              <span className="text-gray-400 text-sm">--</span>
+                              '0'
                             )}
-                          </td>
-                          <td className="py-4 px-2 text-center">
-                            <span className="text-sm text-gray-600">
-                              {overview?.crawlCount ?? 0}
-                            </span>
-                          </td>
-                          <td className="py-4 px-2 text-center">
-                            <span className="text-sm text-gray-600">
-                              {overview ? (
-                                <>
-                                  {overview.productCount}
-                                  {overview.productsWithAppliedSeo > 0 && (
-                                    <span className="text-green-600 ml-1">
-                                      ({overview.productsWithAppliedSeo} SEO)
-                                    </span>
-                                  )}
-                                </>
-                              ) : (
-                                '0'
-                              )}
-                            </span>
-                          </td>
-                          <td className="py-4 px-2 text-right">
-                            <Link
-                              href={`/projects/${project.id}`}
-                              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                            >
-                              View →
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+                          </span>
+                        </td>
+                        <td className="py-4 px-2 text-right">
+                          <Link
+                            href={`/projects/${project.id}`}
+                            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                          >
+                            View →
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      </main>
+      </div>
     </div>
   );
 }

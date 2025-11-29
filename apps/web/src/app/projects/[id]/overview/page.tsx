@@ -264,19 +264,15 @@ export default function ProjectOverviewPage() {
 
   if (error && !status) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <header className="bg-white shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <Link href="/projects" className="text-blue-600 hover:text-blue-800">
-              ← Back to Projects
-            </Link>
-          </div>
-        </header>
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-            {error || 'Project not found'}
-          </div>
-        </main>
+      <div>
+        <div className="mb-4 text-sm">
+          <Link href="/projects" className="text-blue-600 hover:text-blue-800">
+            ← Back to Projects
+          </Link>
+        </div>
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          {error || 'Project not found'}
+        </div>
       </div>
     );
   }
@@ -284,42 +280,23 @@ export default function ProjectOverviewPage() {
   if (!status) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="text-xl font-bold text-gray-900">
-              SEOEngine.io
-            </Link>
-            <span className="text-gray-400">/</span>
-            <Link href="/projects" className="text-gray-600 hover:text-gray-900">
-              Projects
-            </Link>
-            <span className="text-gray-400">/</span>
-            <span className="text-gray-900">{status.projectName}</span>
-          </div>
+    <div>
+      {successMessage && (
+        <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
+          {successMessage}
         </div>
-      </header>
+      )}
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {successMessage && (
-          <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
-            {successMessage}
-          </div>
-        )}
-
-        {error && (
-          <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-            {error}
-          </div>
-        )}
-
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">{status.projectName}</h1>
-          <p className="text-gray-600">Project ID: {status.projectId}</p>
+      {error && (
+        <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+          {error}
         </div>
+      )}
+
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">{status.projectName}</h1>
+        <p className="text-gray-600">Project ID: {status.projectId}</p>
+      </div>
 
         {/* Project Overview Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -636,8 +613,7 @@ export default function ProjectOverviewPage() {
               <p className="text-sm text-gray-600">Any website via sitemap crawling</p>
             </div>
           </div>
-        </div>
-      </main>
+      </div>
 
       {/* AI Metadata Suggestion Modal */}
       {showSuggestionModal && currentSuggestion && (

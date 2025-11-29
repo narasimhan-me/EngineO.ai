@@ -201,149 +201,132 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="text-xl font-bold text-gray-900">
-              SEOEngine.io
-            </Link>
-            <span className="text-gray-400">/</span>
-            <Link href="/projects" className="text-gray-600 hover:text-gray-900">
-              Projects
-            </Link>
-            <span className="text-gray-400">/</span>
-            <Link href={`/projects/${projectId}`} className="text-gray-600 hover:text-gray-900">
-              {projectInfo?.projectName || 'Project'}
-            </Link>
-            <span className="text-gray-400">/</span>
-            <span className="text-gray-900">Products</span>
-          </div>
+    <div>
+      <div className="mb-4 text-sm">
+        <Link href={`/projects/${projectId}/overview`} className="text-blue-600 hover:text-blue-800">
+          ← Back to Overview
+        </Link>
+      </div>
+
+      {successMessage && (
+        <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
+          {successMessage}
         </div>
-      </header>
+      )}
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {successMessage && (
-          <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
-            {successMessage}
-          </div>
-        )}
-
-        {error && (
-          <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-            {error}
-          </div>
-        )}
-
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Products</h1>
-            <p className="text-gray-600">
-              {projectInfo?.shopify.connected
-                ? `Connected to ${projectInfo.shopify.shopDomain}`
-                : 'Sync products from your connected Shopify store'}
-            </p>
-          </div>
-          <button
-            onClick={handleSyncProducts}
-            disabled={syncing || !projectInfo?.shopify.connected}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {syncing ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Syncing...
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Sync Products
-              </>
-            )}
-          </button>
+      {error && (
+        <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+          {error}
         </div>
+      )}
 
-        {/* Products Table */}
-        <div className="bg-white shadow rounded-lg overflow-hidden">
-          {products.length === 0 ? (
-            <div className="text-center py-12">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+      <div className="mb-8 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Products</h1>
+          <p className="text-gray-600">
+            {projectInfo?.shopify.connected
+              ? `Connected to ${projectInfo.shopify.shopDomain}`
+              : 'Sync products from your connected Shopify store'}
+          </p>
+        </div>
+        <button
+          onClick={handleSyncProducts}
+          disabled={syncing || !projectInfo?.shopify.connected}
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {syncing ? (
+            <>
+              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No products</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                {projectInfo?.shopify.connected
-                  ? 'Click "Sync Products" to import products from your Shopify store.'
-                  : 'Connect a Shopify store first, then sync products.'}
-              </p>
-              {!projectInfo?.shopify.connected && (
-                <div className="mt-4">
-                  <Link
-                    href={`/projects/${projectId}`}
-                    className="text-blue-600 hover:text-blue-800"
-                  >
-                    Go to project settings to connect Shopify
-                  </Link>
-                </div>
-              )}
-            </div>
+              Syncing...
+            </>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Product
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Shopify ID
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      SEO Title
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      SEO Description
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Last Synced
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {products.map((product) => (
-                    <tr key={product.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          {product.imageUrls && product.imageUrls.length > 0 ? (
-                            <img
-                              src={product.imageUrls[0]}
-                              alt={product.title}
-                              className="h-10 w-10 rounded object-cover mr-3"
-                            />
-                          ) : (
-                            <div className="h-10 w-10 rounded bg-gray-200 mr-3 flex items-center justify-center">
-                              <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                            </div>
-                          )}
-                          <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
-                            {product.title}
+            <>
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Sync Products
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Products Table */}
+      <div className="bg-white shadow rounded-lg overflow-hidden">
+        {products.length === 0 ? (
+          <div className="text-center py-12">
+            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No products</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {projectInfo?.shopify.connected
+                ? 'Click "Sync Products" to import products from your Shopify store.'
+                : 'Connect a Shopify store first, then sync products.'}
+            </p>
+            {!projectInfo?.shopify.connected && (
+              <div className="mt-4">
+                <Link
+                  href={`/projects/${projectId}`}
+                  className="text-blue-600 hover:text-blue-800"
+                >
+                  Go to project settings to connect Shopify
+                </Link>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Product
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Shopify ID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    SEO Title
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    SEO Description
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Last Synced
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {products.map((product) => (
+                  <tr key={product.id}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        {product.imageUrls && product.imageUrls.length > 0 ? (
+                          <img
+                            src={product.imageUrls[0]}
+                            alt={product.title}
+                            className="h-10 w-10 rounded object-cover mr-3"
+                          />
+                        ) : (
+                          <div className="h-10 w-10 rounded bg-gray-200 mr-3 flex items-center justify-center">
+                            <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
                           </div>
+                        )}
+                        <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
+                          {product.title}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {product.externalId}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {product.externalId}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
                         {product.seoTitle || <span className="text-gray-400 italic">Not set</span>}
@@ -408,8 +391,7 @@ export default function ProductsPage() {
               </table>
             </div>
           )}
-        </div>
-      </main>
+      </div>
 
       {/* AI Metadata Suggestion Modal */}
       {showSuggestionModal && currentSuggestion && (
