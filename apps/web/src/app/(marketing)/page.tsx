@@ -1,6 +1,19 @@
+'use client';
+
 import Link from 'next/link';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { isAuthenticated } from '@/lib/auth';
 
 export default function HomePage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isAuthenticated()) {
+      router.push('/projects');
+    }
+  }, [router]);
+
   return (
     <div>
       {/* Hero Section */}

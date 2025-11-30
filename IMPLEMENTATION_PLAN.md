@@ -313,6 +313,85 @@ No backend changes required for this phase besides ensuring:
 - SEO meta setup
 - Public signup funnel connected to `/signup`
 
+### 0.5.9. Marketing Content (Copy, Features, Pricing, Contact)
+
+**Goal:** Replace placeholder text with real, conversion-focused marketing content for all public pages.
+
+#### 0.5.9.1. Messaging Foundations
+
+- Define 1–2 primary personas (e.g. "Shopify store owner", "SEO agency lead").
+- Write:
+  - One-sentence product positioning
+  - 3–5 key value props
+  - 3 major pains SEOEngine.io solves
+- Store this in a simple markdown file:
+  - `apps/web/src/marketing/messaging.md` (for future reuse in product, docs, ads).
+
+#### 0.5.9.2. Home / Landing Page Content
+
+Update `(marketing)/page.tsx` to use finalized copy:
+
+- **Hero:**
+  - Headline (benefit-driven, ≤ 12 words)
+  - Subheadline
+  - Primary CTA text ("Start free") + secondary CTA ("Book a demo" placeholder)
+- **Sections:**
+  - "Who it's for" (2–3 audience types)
+  - 3–4 feature blocks with short descriptions
+  - Shopify focus section (how it helps stores)
+  - Social proof placeholders (logos/testimonials)
+  - Final "Ready to get started?" CTA tied to `/signup`
+
+#### 0.5.9.3. Features Page Content
+
+Update `(marketing)/features/page.tsx`:
+
+- Group features under the same buckets as the product roadmap:
+  - AI SEO Automation
+  - Content Intelligence
+  - Shopify SEO
+  - Monitoring & Reporting
+  - Competitive & Backlink Intelligence
+  - Local SEO & Automations
+- For each bucket add:
+  - Title
+  - 2–3 bullet points
+  - Short "Why it matters" paragraph.
+
+#### 0.5.9.4. Pricing Page Content
+
+Update `(marketing)/pricing/page.tsx`:
+
+- Align plans with backend PLANS config (Starter, Pro, Agency).
+- For each plan:
+  - 1-line summary ("For solo stores getting started", etc.)
+  - Price placeholder (can be "TBD" until Stripe live).
+  - 5–7 bullets (limits, AI usage, priority features).
+- Add FAQ section (4–6 common questions):
+  - "Can I cancel anytime?"
+  - "Do you work with agencies?"
+  - "Do you support multiple stores?" etc.
+
+#### 0.5.9.5. Contact Page Content
+
+Update `(marketing)/contact/page.tsx`:
+
+- Short intro ("Need help, or want a demo?").
+- Form labels: Name, Work email, Website/Store URL, Message.
+- Add static info:
+  - Support email (e.g. support@seoengine.io)
+  - Expected response time (e.g. "within 1 business day").
+
+#### 0.5.9.6. SEO Meta & OG Content
+
+For all marketing routes (`/`, `/features`, `/pricing`, `/contact`):
+
+- Set metadata in the page files:
+  - `title`
+  - `description`
+  - `openGraph` image (use your logo/hero image).
+- Make sure copy is keyword-aware:
+  - e.g. "AI SEO for Shopify", "eCommerce SEO automation", etc.
 ---
 # PHASE 1 — Auth, Users & Database
 

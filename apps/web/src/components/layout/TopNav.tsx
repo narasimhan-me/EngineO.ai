@@ -54,7 +54,7 @@ export default function TopNav() {
                 className="flex items-center px-2 py-2"
               >
                 <Image
-                  src="/logo/A_digital_vector_graphic_displays_the_logo_for_SEO.png"
+                  src="/logo/SEOEngine_logo.png"
                   alt="SEOEngine.io"
                   width={160}
                   height={40}
@@ -78,7 +78,7 @@ export default function TopNav() {
               className="flex items-center px-2 py-2"
             >
               <Image
-                src="/logo/A_digital_vector_graphic_displays_the_logo_for_SEO.png"
+                src="/logo/SEOEngine_logo.png"
                 alt="SEOEngine.io"
                 width={160}
                 height={40}

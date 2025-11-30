@@ -8,8 +8,8 @@ export const metadata: Metadata = {
   title: 'SEOEngine.io - SEO on Autopilot',
   description: 'Automated SEO optimization for websites and Shopify stores',
   icons: {
-    icon: '/logo/A_digital_vector_graphic_displays_the_logo_for_SEO.png',
-    apple: '/logo/A_digital_vector_graphic_displays_the_logo_for_SEO.png',
+    icon: '/logo/SEOEngine_logo.png',
+    apple: '/logo/SEOEngine_logo.png',
   },
 };
 

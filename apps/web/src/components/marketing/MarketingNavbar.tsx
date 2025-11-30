@@ -10,10 +10,10 @@ export default function MarketingNavbar() {
           <div className="flex items-center">
             <Link href="/" className="flex items-center">
               <Image
-                src="/logo/A_digital_vector_graphic_displays_the_logo_for_SEO.png"
+                src="/logo/SEOEngine_logo.png"
                 alt="SEOEngine.io"
-                width={140}
-                height={35}
+                width={160}
+                height={40}
                 priority
               />
             </Link>
