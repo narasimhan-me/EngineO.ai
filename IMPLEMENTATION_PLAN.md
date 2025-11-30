@@ -3098,86 +3098,741 @@ model BlogSchedule {
 
 ---
 
-# PHASE 22 — Subscription Limits & Fair Usage Enforcement
 
-**Goal:** Implement pricing that prevents AI abuse. This is a product-led pricing strategy used by real SaaS companies.
+# PHASE 23 — AI Competitor Intelligence Dashboard
 
-### 22.1. Proposed Plan Tiers
+**Goal:** Turn competitive research into a first-class, data-backed feature that shows merchants where they can win: which competitors to watch, which keywords they’re losing, and which pages to build next.
 
-- **⭐ Starter — $19/mo**
-  - For new stores.
-  - 3 projects
-  - 500 products
-  - AI tokens: 250k/month
-  - 10 automations/day
-  - Blog scheduler: 2 posts/week
-  - Social auto-posting: ON
-  - Monitoring: Every 12 hours
+This phase deepens and extends the earlier competitive intelligence models from Phase 15.
 
-- **⭐ Pro — $59/mo**
-  - For growing stores
-  - 10 projects
-  - 5,000 products
-  - AI tokens: 2M/month
-  - 100 automations/day
-  - Blog scheduler: 1 post/day
-  - Social auto-posting: 3 networks
-  - Monitoring: Every hour
-  - Competitor analysis
-  - Schema automation
+### 23.1. Data Model Extensions (Prisma)
 
-- **⭐ Agency — $199/mo**
-  - For agencies & large catalog stores
-  - Unlimited projects
-  - Up to 50,000 products
-  - AI tokens: 10M/month
-  - Unlimited automations/day
-  - Blog scheduler: unlimited
-  - White-label reporting
+Build on the existing `Competitor` model introduced in Phase 15.
 
-- **⭐ Enterprise — Custom**
-  - For high-usage customers.
-  - Unlimited everything
-  - Dedicated compute
-  - SLA, premium support
-  - Custom integrations
+Update `schema.prisma` (if not already present or to extend):
 
-### 22.2. Usage Metrics Tracked Per Project
+```prisma
+model Competitor {
+  id          String                 @id @default(cuid())
+  project     Project                @relation(fields: [projectId], references: [id])
+  projectId   String
+  domain      String
+  label       String?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
 
-**Track:**
-- AI tokens used
-- Shopify API calls
-- Store events processed
-- Automation tasks executed
-- Blog posts generated
-- Social posts published
-- Products synced
-- Projects used
+  snapshots   CompetitorSnapshot[]
+}
 
-### 22.3. Hard Limits
+model CompetitorSnapshot {
+  id            String      @id @default(cuid())
+  competitor    Competitor  @relation(fields: [competitorId], references: [id])
+  competitorId  String
+  takenAt       DateTime    @default(now())
+  estTraffic    Int?
+  estRevenue    Float?
+  topKeywords   Json?       // aggregated keyword stats
+  topPages      Json?       // URLs + metrics
+}
+```
 
-When limit reached:
-- Return `429 OVER_LIMIT`
-- Show upgrade modal:
-  - "You've hit your plan limit"
-  - Highlight the relevant plan
+Run migration:
 
-### 22.4. Soft Limits (Warning Zones)
+```bash
+npx prisma migrate dev --name competitor_intel_models
+```
 
-At 80% usage:
-- Email alert
-- Dashboard banner
-- "Upgrade recommended" pop-up
+### 23.2. Competitor Discovery & Input
 
-### 22.5. Abuse Prevention (AI Protection)
+**Backend:**
 
-To avoid AI cost disasters:
-- Global per-user rate limits
-- Maximum tokens per request:
-  - e.g., No prompt > 4k tokens on Starter
-- AI batch jobs must require queues
-- Long blog posts count against AI token quota
-- Social posting limited per-day on low plans
+- Endpoint: `POST /projects/:id/competitors`
+  - Body: `{ domain: string, label?: string }`
+  - Validates ownership.
+- Endpoint: `GET /projects/:id/competitors`
+  - Returns list of competitors for the project.
+
+Optionally:
+- Endpoint: `POST /projects/:id/competitors/discover`
+  - Uses AI + search to suggest 3–5 competitors based on:
+    - project domain
+    - existing keywords (if available)
+    - Shopify category
+
+### 23.3. Competitor Snapshot Service
+
+Create module: `apps/api/src/competitor-intel`:
+
+- `competitor-intel.module.ts`
+- `competitor-intel.service.ts`
+- `competitor-intel.controller.ts`
+
+**Service responsibilities:**
+
+- Given a competitor domain:
+  - Query external SEO APIs (or internal crawler when added later) for:
+    - Estimated organic traffic
+    - Top keywords (+ positions, volume)
+    - Top ranking pages (URL, title, est traffic)
+  - Use AI to:
+    - cluster keywords by theme
+    - guess revenue segments (low confidence but directional)
+  - Save a `CompetitorSnapshot` record.
+
+**Endpoints:**
+
+- `POST /competitors/:id/snapshot`
+  - Triggers a snapshot for a single competitor.
+- `POST /projects/:id/competitors/snapshot-all`
+  - Triggers snapshots for all competitors for that project (queued job in future).
+
+### 23.4. AI Competitor Report Generation
+
+Add an AI endpoint:
+
+- `POST /ai/competitor-report`
+
+**Body:**
+
+```json
+{
+  "projectId": "string"
+}
+```
+
+**Steps:**
+
+1. Load project competitors + latest snapshots.
+2. Load project’s own SEO metrics from:
+   - Crawl results
+   - Product SEO data
+3. Ask AI to generate:
+   - “Where you’re behind”
+   - “Quick wins”
+   - “Long-term content strategy”
+   - “Product / category gaps to fill”
+
+Return:
+
+```json
+{
+  "summary": "High-level findings",
+  "opportunities": [
+    {
+      "title": "Own 'eco-friendly yoga mats'",
+      "impact": "high",
+      "difficulty": "medium",
+      "recommendations": ["Create a category page...", "Publish 2 blogs on..."]
+    }
+  ],
+  "recommendedContentIdeas": [...],
+  "recommendedProductIdeas": [...]
+}
+```
+
+### 23.5. Competitors UI (`/projects/[id]/competitors`)
+
+Enhance the existing Competitors tab:
+
+- Table of competitors:
+  - Domain
+  - Label
+  - Last snapshot
+  - Est. traffic
+  - Est. visibility vs your site
+- Snapshot detail view:
+  - List of top competitor keywords vs your ranking (if known)
+  - Top pages with quick "View in SERP" link
+- “AI Competitor Report” button:
+  - Calls `/ai/competitor-report`
+  - Shows an insight panel with:
+    - Key findings
+    - Recommended actions
+    - Links to:
+      - Create new content assets (Phase 13)
+      - Create tasks/automations (Phase 17)
 
 
-END OF IMPLEMENTATION PLAN
+---
+
+# PHASE 24 — AI SEO Opportunity Engine
+
+**Goal:** Build an “AI growth brain” that surfaces the highest-impact actions for each project and turns your existing data into a prioritized to-do list.
+
+### 24.1. SEO Opportunity Model
+
+Add to `schema.prisma`:
+
+```prisma
+model SeoOpportunity {
+  id          String   @id @default(cuid())
+  project     Project  @relation(fields: [projectId], references: [id])
+  projectId   String
+  type        String   // "content", "product_seo", "technical", "internal_linking", etc.
+  title       String
+  description String
+  priority    String   // "low", "medium", "high", "urgent"
+  impactScore Int      // 1–100, estimated impact
+  effortScore Int      // 1–100, estimated effort
+  source      String?  // e.g., "competitor_intel", "crawl", "ai_insight"
+  status      String   @default("open") // "open", "in_progress", "done", "dismissed"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+```
+
+Run migration:
+
+```bash
+npx prisma migrate dev --name seo_opportunity_model
+```
+
+### 24.2. Opportunity Generation Engine
+
+Backend module: `apps/api/src/seo-opportunities`
+
+Sources of signals:
+
+- Crawl results (Phase 3)
+- AI metadata suggestions (Phase 4)
+- Products & their SEO status (Phase 5–6)
+- Competitor intel (Phase 23)
+- Performance metrics (Phase 14, in future)
+
+**Service:**
+
+- `SeoOpportunitiesService.generateForProject(projectId: string)`:
+  - Fetches relevant data.
+  - Calls an AI model with:
+    - issues
+    - competitor gaps
+    - rankings
+    - product catalog shape
+  - AI returns a prioritized list of opportunities.
+  - Upserts records in `SeoOpportunity` table.
+
+**Endpoint:**
+
+- `POST /projects/:id/seo-opportunities/generate`
+  - Auth: JWT + ownership
+  - Triggers generation and returns latest list.
+
+- `GET /projects/:id/seo-opportunities`
+  - Query parameters: `status`, `type`, `sort=impactScore` etc.
+
+- `PATCH /seo-opportunities/:id`
+  - Update status (`done`, `dismissed`, etc.)
+
+### 24.3. UI — “Opportunities” Panel
+
+Integrate into:
+
+- Project Overview page
+- Issues tab or new “Opportunities” sub-tab
+
+Features:
+
+- List of opportunities with:
+  - Type badge (Content / Product SEO / Technical / etc.)
+  - Impact vs Effort (displayed as a 2D indicator or text like “High impact · Low effort”)
+- Filters:
+  - By type
+  - By priority
+  - By status
+- Actions:
+  - “Mark as done”
+  - “Create Task” (Phase 17 Task model)
+  - “Auto-fix” (where possible, e.g., metadata)
+
+Use this as the “home feed” of what to do next.
+
+---
+
+# PHASE 25 — AI Technical SEO Template Optimizer
+
+**Goal:** Move beyond diagnostics and give merchants AI-assisted recommendations for theme-level fixes to performance and technical SEO issues.
+
+> **Important:** For MVP, do NOT directly modify theme code automatically. Instead, generate actionable diffs/instructions developers can apply manually or via a safe review step.
+
+### 25.1. Technical Theme Scan
+
+Create a module: `apps/api/src/theme-audit`
+
+**Inputs:**
+
+- Storefront URLs (home, popular collections, product pages)
+- Shopify theme metadata (via Shopify API if available)
+
+**Service tasks:**
+
+- Fetch page HTML + performance timings (LCP, TTFB approximations).
+- Detect:
+  - render-blocking scripts
+  - heavy JavaScript bundles
+  - unused CSS patterns
+  - unoptimized images
+  - missing preload/preconnect hints
+
+Store summary into a new model:
+
+```prisma
+model ThemeAudit {
+  id          String   @id @default(cuid())
+  project     Project  @relation(fields: [projectId], references: [id])
+  projectId   String
+  themeName   String?
+  shopDomain  String?
+  findings    Json     // structured list of issues
+  createdAt   DateTime @default(now())
+}
+```
+
+### 25.2. AI Theme Optimization Suggestions
+
+AI endpoint:
+
+- `POST /ai/theme-optimizer`
+
+**Body:**
+
+```json
+{
+  "projectId": "string",
+  "themeAuditId": "string"
+}
+```
+
+**Steps:**
+
+1. Load `ThemeAudit` findings.
+2. Ask AI to generate:
+   - Summary of main technical bottlenecks
+   - Recommended Liquid/JS/CSS changes (at a snippet level)
+   - Priority ordering
+
+Return:
+
+```json
+{
+  "summary": "...",
+  "recommendations": [
+    {
+      "title": "Defer non-critical JS",
+      "description": "...",
+      "codeExamples": [
+        {
+          "before": "<script src=\"/app.js\"></script>",
+          "after": "<script src=\"/app.js\" defer></script>"
+        }
+      ],
+      "impact": "high"
+    }
+  ]
+}
+```
+
+### 25.3. UI — Technical SEO Panel
+
+Add a new section under:
+- `/projects/[id]/issues` or `/projects/[id]/performance`
+
+Features:
+
+- Run Theme Audit button.
+- List of technical issues grouped by type.
+- For each item:
+  - AI-generated explanation in plain English.
+  - Code suggestion snippet.
+  - “Copy code” button.
+
+Future:
+- Approve-and-apply flow that integrates with Shopify theme API and a safe staging workflow.
+
+---
+
+# PHASE 26 — AI Conversion Rate Optimization (CRO) Engine
+
+**Goal:** Use AI to analyze product and landing pages for conversion potential, not just SEO, and propose concrete improvements.
+
+### 26.1. CRO Analysis Endpoint
+
+Backend module: `apps/api/src/cro`
+
+**Endpoint:** `POST /cro/analyze-page`
+
+**Body:**
+
+```json
+{
+  "projectId": "string",
+  "url": "https://...",
+  "type": "product" | "collection" | "landing"
+}
+```
+
+**Steps:**
+
+1. Fetch page HTML and basic metrics.
+2. Extract:
+   - Headlines
+   - Product info (price, variants, reviews)
+   - CTAs
+   - Trust elements
+3. Send to AI:
+
+Prompt includes best practices for CRO in eCommerce.
+
+**Response:**
+
+```json
+{
+  "summary": "Overall CRO assessment",
+  "score": 0-100,
+  "issues": [
+    {
+      "type": "cta_visibility",
+      "severity": "high",
+      "description": "Primary CTA is below the fold...",
+      "suggestedChange": "Move 'Add to Cart' above the fold..."
+    }
+  ],
+  "copySuggestions": {
+    "headline": "New headline suggestion",
+    "subheadline": "New subheadline",
+    "bulletPoints": [...]
+  },
+  "layoutSuggestions": [...]
+}
+```
+
+### 26.2. Product CRO Review UI
+
+On `/projects/[id]/products`:
+
+- Add “CRO Review” action for each product.
+- Modal shows:
+  - CRO score
+  - Top 3 improvements
+  - Suggested hero copy
+  - Suggested benefit bullets
+- Allow user to:
+  - Copy suggestions
+  - Create a Task (Phase 17) from any issue.
+
+---
+
+# PHASE 27 — A/B Testing Framework (UX + AI Variant Generator)
+
+**Goal:** Let merchants test AI-suggested variants of titles, descriptions, and hero sections, while keeping technical implementation lightweight.
+
+### 27.1. Data Model
+
+Add:
+
+```prisma
+model AbTest {
+  id          String   @id @default(cuid())
+  project     Project  @relation(fields: [projectId], references: [id])
+  projectId   String
+  targetType  String   // "product_page", "landing_page"
+  targetId    String   // externalId or URL
+  name        String
+  status      String   @default("draft") // "draft", "running", "completed"
+  variantA    Json     // baseline content
+  variantB    Json     // AI-generated content
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+```
+
+(Tracking conversions may integrate with GA4 or Shopify analytics later.)
+
+### 27.2. Variant Generation
+
+AI endpoint:
+
+- `POST /ai/abtest/generate-variant`
+
+**Body:**
+
+```json
+{
+  "projectId": "string",
+  "targetType": "product_page",
+  "targetId": "product-id-or-url"
+}
+```
+
+**Steps:**
+
+1. Fetch existing title, hero, copy.
+2. Ask AI for:
+   - Variant B (alternate headline, bullets, description) optimized for conversions.
+
+### 27.3. UI for A/B Experiments
+
+In product detail or content pages:
+
+- Button: “Create A/B Test”
+- Workflow:
+  1. Show baseline content (Variant A).
+  2. Generate Variant B via AI.
+  3. Allow merchant to edit Variant B.
+  4. Show instructions on how to manually implement variants in Shopify (MVP).
+  5. Save test as `draft` with both variants stored.
+
+Later phases can integrate automatically with storefront rendering and analytics.
+
+---
+
+# PHASE 28 — AI Review Mining & SEO Enrichment
+
+**Goal:** Turn reviews into SEO and conversion assets.
+
+### 28.1. Data Model (Optional Cache)
+
+```prisma
+model ProductReviewSummary {
+  id          String   @id @default(cuid())
+  project     Project  @relation(fields: [projectId], references: [id])
+  projectId   String
+  productId   String
+  source      String   // "shopify", "judge.me", etc.
+  summary     String
+  pros        Json     // list of pros
+  cons        Json     // list of cons
+  themes      Json     // grouped insights
+  keywords    Json     // SEO-relevant terms
+  createdAt   DateTime @default(now())
+}
+```
+
+### 28.2. Review Ingestion
+
+- Integrate with Shopify product reviews API or third-party review app APIs where possible (Judge.me, Loox – future).
+- Fetch latest N reviews per product.
+- Store a raw snapshot or feed them directly into AI.
+
+### 28.3. AI Review Mining Endpoint
+
+`POST /ai/reviews/summarize-product`
+
+**Body:**
+
+```json
+{
+  "projectId": "string",
+  "productId": "string"
+}
+```
+
+**Response:**
+
+```json
+{
+  "summary": "What customers love and hate",
+  "pros": ["Comfortable", "Durable"],
+  "cons": ["Runs small"],
+  "seoKeywords": ["sustainable yoga mat", "non-slip", "eco-friendly"],
+  "copySuggestions": {
+    "description": "AI-suggested description using real language from reviews",
+    "headline": "Loved for its grip and eco-friendly materials"
+  }
+}
+```
+
+### 28.4. UI Integration
+
+On `/projects/[id]/products`:
+
+- Add “Review Insights” action.
+- Show:
+  - Summary
+  - Pros/cons
+  - SEO keyword suggestions
+  - Button “Apply to Description” (Phase 6 integration to push to Shopify).
+
+---
+
+# PHASE 29 — Multi-Marketplace SEO (Amazon, Etsy, Later Walmart)
+
+**Goal:** Help merchants optimize product SEO across Shopify and major marketplaces from one place.
+
+### 29.1. Integration Model Extensions
+
+Extend `IntegrationType` enum:
+
+```prisma
+enum IntegrationType {
+  SHOPIFY
+  AMAZON
+  ETSY
+  // future: WALMART, EBAY, etc.
+}
+```
+
+Use the existing `Integration` model:
+
+- For Amazon:
+  - `externalId` → Amazon Seller ID or store ID
+  - `config` → auth tokens, marketplace region
+- For Etsy:
+  - `externalId` → Shop ID
+
+Run migration:
+
+```bash
+npx prisma migrate dev --name add_marketplace_integration_types
+```
+
+### 29.2. Marketplace Connection Flows
+
+Backend modules (future):
+
+- `amazon-integration`
+- `etsy-integration`
+
+Each should support:
+
+- OAuth / API credential storage
+- Basic account info fetch
+- Listing retrieval
+
+### 29.3. Cross-Channel Product Mapping
+
+Reuse `Product` model:
+
+- `source` field (IntegrationType) differentiates Shopify vs Amazon vs Etsy.
+
+Add helper:
+
+- Endpoint: `GET /projects/:id/products/marketplaces`
+  - Returns list of products with mapping:
+    - Shopify product
+    - Amazon listing (if any)
+    - Etsy listing (if any)
+
+### 29.4. Marketplace SEO Suggestions (MVP)
+
+AI endpoints:
+
+- `POST /ai/marketplace/amazon-metadata`
+- `POST /ai/marketplace/etsy-metadata`
+
+**Inputs:**
+- product data (title, description, specs)
+- marketplace-specific rules (character limits, bullet style)
+
+**Outputs:**
+- Amazon:
+  - optimized title
+  - 5 bullets
+  - backend keywords
+- Etsy:
+  - title
+  - tags
+  - description
+
+UI:
+
+- New tab on product detail: “Marketplace SEO”
+- Future: push changes via marketplace APIs.
+
+---
+
+# PHASE 30 — AI Video & Social Content Engine
+
+**Goal:** Deepen social + content automation with short-form video scripts, captions, and campaign bundles, building on Phase 17’s social integrations.
+
+### 30.1. Data Model: SocialContentAsset
+
+```prisma
+model SocialContentAsset {
+  id          String   @id @default(cuid())
+  project     Project  @relation(fields: [projectId], references: [id])
+  projectId   String
+  type        String   // "instagram_post", "tiktok_script", "reel", "youtube_description"
+  source      String   // "product_launch", "blog_post", "promo", "manual"
+  payload     Json     // structured fields (caption, script, hashtags, etc.)
+  status      String   @default("draft") // "draft", "scheduled", "published"
+  scheduledAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+```
+
+### 30.2. AI Social & Video Script Generator
+
+Endpoint:
+
+- `POST /ai/social/generate`
+
+**Body:**
+
+```json
+{
+  "projectId": "string",
+  "contextType": "product" | "blog" | "promo",
+  "contextId": "string",
+  "channels": ["instagram", "tiktok", "facebook", "linkedin"]
+}
+```
+
+**Response:**
+
+```json
+{
+  "assets": [
+    {
+      "type": "tiktok_script",
+      "script": "Hook, problem, solution, CTA...",
+      "durationSec": 30,
+      "cta": "Shop now at..."
+    },
+    {
+      "type": "instagram_post",
+      "caption": "...",
+      "hashtags": ["#shopify", "#ecofriendly"],
+      "cta": "Link in bio."
+    }
+  ]
+}
+```
+
+Save as `SocialContentAsset` records.
+
+### 30.3. Scheduling & Publishing (Build on Phase 17)
+
+- Reuse `AutomationRule` and task workers.
+- Allow user to:
+  - Manually schedule posts.
+  - Use rules like:
+    - “When new product added → generate social bundle and suggest schedule.”
+- For each connected social account (Phase 17):
+  - Provide UI:
+    - “Publish now”
+    - “Schedule”
+    - “Edit before posting”
+
+### 30.4. UI: Social Content Studio
+
+New route:
+
+- `/projects/[id]/social`
+
+Features:
+
+- Calendar view of scheduled posts.
+- List of drafted AI-generated posts.
+- Filters by channel.
+- Editor:
+  - Allow user to tweak captions/scripts.
+  - Show tokens used vs plan limits (Phases 10C & 22).
+
+---
+
+These Phases 23–30 extend your IMPLEMENTATION_PLAN.md and keep your roadmap cohesive:
+
+- Phases 12–17: Core feature sets (automation, content, performance, competitors, local, social).
+- Phases 18–22: Security, subscription management, monitoring, fairness & limits.
+- Phases 23–30: **Differentiation layer** — deep competitor intel, opportunity engine, CRO, technical AI support, marketplaces, and advanced social/video content.
