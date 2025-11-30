@@ -22,8 +22,11 @@ SEOEngine.io is an AI-powered SEO automation platform for e‑commerce merchants
 
 Deployment targets:
 
-- **Frontend:** Vercel (or similar)
-- **Backend + DB:** AWS / Render / Fly.io
+- **Frontend:** Vercel (Next.js app)
+- **Backend API:** NestJS on Render (web service)
+- **Background workers:** NestJS worker app on Render
+- **Database:** Neon (managed PostgreSQL)
+- **Redis (cache/queue):** Managed Redis (Render or Upstash)
 
 ---
 
@@ -33,12 +36,20 @@ Deployment targets:
 graph TD
 
 A[Browser / Client] --> B[Next.js 14 Frontend (apps/web)]
-B --> C[API Gateway - NestJS (apps/api)]
-C --> D[(PostgreSQL - Prisma)]
-C --> E[(Redis - cache/queue)]
+B --> C[API Gateway - NestJS HTTP (apps/api)]
+
+C --> D[(PostgreSQL - Neon via Prisma)]
+C --> E[(Redis - Cache & Queues)]
 C --> F[AI Providers (OpenAI / Gemini)]
 C --> G[Ecommerce Platforms]
 C --> H[Other Integrations (GSC, GA4 - future)]
+
+%% Background worker service consumes jobs from Redis queues
+E --> W[NestJS Worker Service (apps/api worker runtime)]
+W --> D
+W --> F
+W --> G
+W --> H
 
 G --> G1[Shopify Admin API]
 G --> G2[WooCommerce REST API]
@@ -124,19 +135,148 @@ The database is the canonical source of truth for users, projects, connections, 
 
 ---
 
-## 6. Caching & Background Jobs (Redis)
+## 6. Caching & Background Jobs (Redis + Workers)
 
-Redis may be used for:
+Redis is used both as a **cache** and as the **backing store for BullMQ job queues**. Long-running or high-volume work is pushed to queues and processed by a separate NestJS worker service so that the HTTP API remains fast and scalable.
 
-- Caching frequently-used project data.
-- Storing rate limit counters.
-- Implementing job queues (e.g. via BullMQ) for:
-  - Large SEO scans.
-  - Bulk product sync (any platform).
-  - AI batch operations.
-  - Scheduled reports.
+### 6.1 Redis Deployment
 
-In the MVP, Redis is optional; operations can be synchronous as long as input sizes are small.
+- **Service:** Managed Redis (Render Redis or Upstash Redis)
+- **Usage:**
+  - BullMQ job queues (primary usage)
+  - Short-lived cache entries (optional, e.g., integration status, small lookups)
+- **Environment variables (shared by API & worker):**
+  - `REDIS_URL` – connection string used by BullMQ
+  - Optional: `REDIS_TLS` / `REDIS_USERNAME` / `REDIS_PASSWORD` depending on provider
+
+### 6.2 Queue Taxonomy
+
+We standardize queue names by domain. Example queues:
+
+- `seo:page-crawl`
+  - **Jobs:** Crawl a single URL, parse HTML, compute SEO signals, persist `CrawlResult`.
+  - **Producers:** `SeoScanModule` in the API.
+  - **Consumers:** `SeoScanProcessor` in the worker.
+
+- `seo:project-scan`
+  - **Jobs:** Orchestrate a multi-URL scan for a project (queue multiple `seo:page-crawl` jobs).
+  - **Producers:** API endpoints or scheduled automations.
+  - **Consumers:** `SeoProjectScanProcessor` in the worker.
+
+- `shopify:product-sync`
+  - **Jobs:** Pull a page of products from Shopify and upsert into `Product`.
+  - **Producers:** `/shopify/sync-products` endpoint, scheduled sync rules.
+  - **Consumers:** `ShopifySyncProcessor`.
+
+- `ai:metadata`
+  - **Jobs:** Generate SEO titles/descriptions for pages or products in bulk.
+  - **Producers:** `AiModule` (batch endpoints, automations).
+  - **Consumers:** `AiMetadataProcessor` (calls OpenAI/Gemini and writes results to DB).
+
+- `ai:content`
+  - **Jobs:** Generate long-form content (blogs, landing pages, social posts).
+  - **Producers:** Content automation, scheduled blog engine, social posting rules.
+  - **Consumers:** `AiContentProcessor`.
+
+- `reporting:weekly`
+  - **Jobs:** Build and email weekly project reports (SEO score changes, issues, product SEO updates).
+  - **Producers:** Cron/automation service.
+  - **Consumers:** `ReportingProcessor`.
+
+- `automation:rules`
+  - **Jobs:** Evaluate automation rules for a project (e.g., "if new product added then queue AI SEO + social posts").
+  - **Producers:** Change detectors (webhooks, scheduled checks).
+  - **Consumers:** `AutomationRulesProcessor`.
+
+- `social:post`
+  - **Jobs:** Publish or schedule social posts to Facebook, Instagram, LinkedIn.
+  - **Producers:** Automation rules, manual "Post to social" actions.
+  - **Consumers:** `SocialPostingProcessor`.
+
+Each queue is configured with:
+- Sensible **concurrency** based on workload.
+- **Retry policies** (exponential backoff, max attempts).
+- **Dead-letter handling** (failed jobs can be inspected from BullMQ UI or a custom admin tool).
+
+### 6.3 NestJS Application Layout (API + Worker)
+
+We use a single NestJS codebase (apps/api) with two runtimes:
+
+1. **HTTP API runtime** (existing)
+   - Entry: `apps/api/src/main.ts`
+   - Responsibilities:
+     - Serve REST endpoints.
+     - Authenticate users (JWT).
+     - Perform light validation and enqueue background work into Redis queues.
+   - Uses BullMQ as a **producer** only.
+
+2. **Worker runtime** (new)
+   - Entry: `apps/api/src/worker-main.ts` (or similar).
+   - Bootstraps a Nest application without HTTP server.
+   - Imports the same domain modules, but registers BullMQ **processors** for each queue.
+
+**Key NestJS modules (conceptual):**
+
+- `QueueModule` (infrastructure)
+  - Centralizes BullMQ configuration (Redis connection options).
+  - Exposes factories for named queues (e.g., `SeoPageCrawlQueue`, `ShopifySyncQueue`).
+
+- `SeoScanModule`
+  - API: `/seo-scan/start`, `/seo-scan/results`.
+  - Worker: `SeoPageCrawlProcessor`, `SeoProjectScanProcessor`.
+
+- `ShopifyModule`
+  - API: OAuth flows, `sync-products` endpoint.
+  - Worker: `ShopifySyncProcessor` for `shopify:product-sync`.
+
+- `AiModule`
+  - API: `POST /ai/metadata`, `POST /ai/product-metadata`, content generation endpoints.
+  - Worker: `AiMetadataProcessor`, `AiContentProcessor` for `ai:*` queues.
+
+- `ReportingModule`
+  - Worker: `ReportingProcessor` for weekly reports, emits emails and stores summaries.
+
+- `AutomationModule`
+  - Worker: `AutomationRulesProcessor` for evaluating rules based on store changes.
+
+- `SocialModule`
+  - Worker: `SocialPostingProcessor` for cross-posting to social platforms.
+
+Both API and worker share domain services (e.g., `ProductsService`, `ProjectsService`) via Nest’s dependency injection so business logic is not duplicated.
+
+### 6.4 Render Services & Scheduling
+
+On Render, we run multiple services:
+
+1. **seoengine-api** (Web Service)
+   - Runs NestJS HTTP server (apps/api/main.ts).
+   - Scales horizontally based on traffic.
+   - Enqueues jobs into Redis queues via BullMQ.
+
+2. **seoengine-worker** (Background Worker)
+   - Runs NestJS worker runtime (apps/api/worker-main.ts).
+   - Single or few replicas (depends on workload); can scale separately from API.
+   - Processes queues: `seo:*`, `shopify:*`, `ai:*`, `reporting:*`, `automation:*`, `social:*`.
+
+3. **seoengine-cron** (optional Cron Job / Worker)
+   - Simple Node/Nest process that periodically enqueues jobs (e.g., every 5 minutes).
+   - Responsibilities:
+     - Schedule weekly reports (`reporting:weekly`).
+     - Schedule periodic project scans.
+     - Kick off automation rule evaluations.
+
+Environment variables (Render):
+
+- Shared:
+  - `DATABASE_URL` (Neon Postgres)
+  - `REDIS_URL`
+  - `NODE_ENV=production`
+- API-only:
+  - `JWT_SECRET`, public URLs, Shopify app URL, etc.
+- Worker/cron-only:
+  - Any secrets needed for emails, webhooks, or internal tooling.
+
+This architecture keeps HTTP latency low, isolates heavy workloads, and lets us scale **API**, **workers**, and **Redis** independently as the product grows.
 
 ---
 
