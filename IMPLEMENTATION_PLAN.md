@@ -1534,17 +1534,246 @@ Add subscription relation to User if desired.
     - `POST /billing/cancel` → marks the subscription as canceled.
     - `POST /billing/webhook` → currently a stub that logs incoming events and includes TODOs for future Stripe integration.
 
-**Backend (planned Phase 10B – Stripe integration):**
+---
 
-- Integrate with Stripe Billing:
-  - Add endpoints:
-    - `/billing/create-checkout-session`
-    - `/billing/create-portal-session`
-    - Webhook endpoint: `POST /webhooks/stripe`
-  - Verify Stripe signatures and update `Subscription` based on events:
-    - `customer.subscription.created`
-    - `customer.subscription.updated`
-    - `customer.subscription.deleted`.
+# PHASE 10B — Production-Ready Stripe Subscription Billing
+
+**Status:** Not started (Stripe stubs exist in code with TODOs).
+
+**Goal:** Convert the internal subscription system implemented in Phase 10A into a real SaaS billing system using Stripe Billing.
+
+This includes:
+
+- Checkout sessions
+- Customer portal
+- Webhook-driven subscription syncing
+- Stripe customer creation
+- Plan management
+- Frontend billing UI
+- Production-ready env variables & deployment
+
+This phase is required before go-live and marketing launch.
+
+### 10B.1. Stripe Setup (Backend + Environment)
+
+**Install Stripe SDK:**
+
+```bash
+pnpm add stripe
+```
+
+**Add Render (API) environment variables:**
+
+```
+STRIPE_SECRET_KEY=sk_live_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx
+STRIPE_PRICE_STARTER=price_xxx
+STRIPE_PRICE_PRO=price_xxx
+STRIPE_PRICE_AGENCY=price_xxx
+
+STRIPE_SUCCESS_URL=https://app.seoengine.io/settings/billing/success
+STRIPE_CANCEL_URL=https://app.seoengine.io/settings/billing/cancel
+```
+
+Create products & recurring prices in Stripe Dashboard and copy price IDs above.
+
+### 10B.2. Extend Prisma Subscription Model
+
+Ensure the model includes Stripe fields:
+
+```prisma
+model Subscription {
+  id                   String   @id @default(cuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id])
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  plan                 String
+  status               String
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+```
+
+**Run migration:**
+
+```bash
+npx prisma migrate dev --name stripe_subscription_fields
+```
+
+### 10B.3. API: Create Checkout Session
+
+**POST /billing/create-checkout-session**
+
+**Body:**
+
+```json
+{
+  "plan": "starter" | "pro" | "agency"
+}
+```
+
+**Flow:**
+
+1. Authenticate user
+2. Find or create Stripe customer (save to DB)
+3. Load price ID from env
+4. Create Stripe Checkout Session:
+
+```typescript
+const session = await stripe.checkout.sessions.create({
+  mode: "subscription",
+  customer,
+  line_items: [{ price: priceId, quantity: 1 }],
+  success_url: STRIPE_SUCCESS_URL,
+  cancel_url: STRIPE_CANCEL_URL
+});
+```
+
+5. Return `session.url`
+
+### 10B.4. API: Customer Billing Portal
+
+**GET /billing/portal**
+
+Creates a Stripe portal session:
+
+```typescript
+stripe.billingPortal.sessions.create({
+  customer: stripeCustomerId,
+  return_url: "https://app.seoengine.io/settings/billing"
+});
+```
+
+Return portal URL.
+
+### 10B.5. Stripe Webhook Handler
+
+**POST /billing/webhook**
+
+Must use raw body parsing and verify signature:
+
+```typescript
+const event = stripe.webhooks.constructEvent(
+  rawBody,
+  signature,
+  STRIPE_WEBHOOK_SECRET
+);
+```
+
+**Handle events:**
+
+**Event Types to Support:**
+
+| Event | Behavior |
+|-------|----------|
+| `customer.subscription.created` | Create/update Subscription row |
+| `customer.subscription.updated` | Update plan, status, period end |
+| `customer.subscription.deleted` | Mark subscription as canceled |
+| `invoice.paid` | Mark status as active |
+| `invoice.payment_failed` | Mark status as past_due |
+
+The webhook becomes the source of truth for subscription state.
+
+### 10B.6. Frontend Billing Page Enhancements
+
+**Location:** `apps/web/src/app/settings/billing/page.tsx`
+
+**Add:**
+
+**Buttons:**
+
+- Upgrade Plan → calls `/billing/create-checkout-session`
+- Manage Billing → calls `/billing/portal`
+
+**Display:**
+
+- Current plan
+- Subscription status
+- Next billing date
+- Past due / canceled banners
+
+### 10B.7. Stripe Customer Creation Logic
+
+Inside `BillingService`:
+
+```typescript
+if (!subscription.stripeCustomerId) {
+  const customer = await stripe.customers.create({
+    email: user.email
+  });
+  save stripeCustomerId;
+}
+```
+
+Prevents duplicates.
+
+### 10B.8. Map Price IDs → Internal Plan Names
+
+**Utility:**
+
+```typescript
+function mapPriceToPlan(priceId: string): "starter" | "pro" | "agency" {
+  if (priceId === env.STRIPE_PRICE_STARTER) return "starter";
+  if (priceId === env.STRIPE_PRICE_PRO) return "pro";
+  if (priceId === env.STRIPE_PRICE_AGENCY) return "agency";
+  throw new Error("Unknown price ID");
+}
+```
+
+Used inside webhook handlers.
+
+### 10B.9. Plan Enforcement Skeleton (Optional Now)
+
+Add TODOs in:
+
+- Project creation
+- SEO scans
+- Product sync limits
+- AI usage
+
+**Example:**
+
+```typescript
+// TODO: enforce plan limits
+if (projectCount >= planConfig.maxProjects) {
+  throw new ForbiddenException("Limit reached — upgrade your plan.");
+}
+```
+
+### 10B.10. Testing Checklist (Stripe Test Mode)
+
+**Test Scenarios:**
+
+- Create user → upgrade to Starter
+- Complete checkout using Stripe test cards
+- Check webhook:
+  - Subscription row created
+  - Status active
+- Cancel from Stripe Dashboard → webhook updates DB
+- Upgrade/downgrade via Stripe Customer Portal
+- Billing page updates in real time
+
+### 10B.11. Live Mode Preparation
+
+- Switch Stripe keys from test → live
+- Add a live webhook endpoint in Stripe Dashboard
+- Redeploy API to Render with live env vars
+- Test live card payments with a $1 temporary plan
+- Verify webhook events in production
+
+### 10B.12. Deliverables
+
+- Fully functional Stripe billing system
+- Production-grade webhook processor
+- Billing page integrated with real subscription state
+- Proper environment configuration for Render & Vercel
+- Full test-mode and live-mode validation
+- Plan enforcement TODO hooks in place
+
+---
+
 
 **Plan Configuration (code, not DB at first):**
 
