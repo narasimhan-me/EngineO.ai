@@ -1,129 +1,167 @@
-import type { Metadata } from 'next';
-import Link from 'next/link';
+'use client';
 
-export const metadata: Metadata = {
-  title: 'Pricing - SEOEngine.io',
-  description: 'Simple, transparent pricing for SEO automation. Choose the plan that fits your needs.',
-};
+import { useState } from 'react';
+import Link from 'next/link';
 
 const plans = [
   {
-    name: 'Free',
-    price: '$0',
-    period: 'forever',
-    description: 'Perfect for trying out SEOEngine',
+    name: 'Starter',
+    monthlyPrice: '$19',
+    yearlyPrice: '$15',
+    period: 'mo',
+    description: 'For new stores and side hustlers.',
     features: [
-      '1 project',
-      '50 pages analyzed',
-      'Basic SEO suggestions',
-      'Manual crawl only',
-      'Community support',
+      'Up to 3 Projects',
+      '500 Synced Products',
+      '200k AI Tokens / Month',
+      'SEO Audit & Score',
+      'AI Metadata Suggestions',
+      'Basic Automations',
+      'Shopify Integration',
     ],
     cta: 'Start Free',
-    href: '/signup',
-    highlighted: false,
-  },
-  {
-    name: 'Starter',
-    price: '$29',
-    period: 'per month',
-    description: 'Great for small Shopify stores',
-    features: [
-      '3 projects',
-      '500 pages analyzed',
-      'AI-powered suggestions',
-      'Weekly automated scans',
-      'Shopify integration',
-      'Email support',
-    ],
-    cta: 'Start Free Trial',
     href: '/signup?plan=starter',
     highlighted: false,
   },
   {
     name: 'Pro',
-    price: '$79',
-    period: 'per month',
-    description: 'For growing eCommerce businesses',
+    monthlyPrice: '$59',
+    yearlyPrice: '$47',
+    period: 'mo',
+    description: 'For growing eCommerce brands.',
     features: [
-      '10 projects',
-      '5,000 pages analyzed',
-      'Advanced AI suggestions',
-      'Daily automated scans',
-      'Bulk operations',
-      'Priority support',
-      'Team collaboration',
-      'API access',
+      'Everything in Starter',
+      '10 Projects',
+      '5,000 Products',
+      '2M AI Tokens / Month',
+      'Smart Schema Markup',
+      'AI Content Generator',
+      'Competitor Insights',
+      'Redirect Manager',
     ],
-    cta: 'Start Free Trial',
+    cta: 'Upgrade to Pro',
     href: '/signup?plan=pro',
     highlighted: true,
   },
   {
-    name: 'Enterprise',
-    price: 'Custom',
-    period: 'contact us',
-    description: 'For large stores and agencies',
+    name: 'Agency',
+    monthlyPrice: '$199',
+    yearlyPrice: '$159',
+    period: 'mo',
+    description: 'For agencies and large stores.',
     features: [
-      'Unlimited projects',
-      'Unlimited pages',
-      'Custom AI training',
-      'Real-time monitoring',
-      'White-label options',
-      'Dedicated account manager',
-      'SLA guarantee',
-      'Custom integrations',
+      'Unlimited Projects',
+      'Unlimited Products',
+      '10M AI Tokens / Month',
+      'Team Accounts',
+      'Advanced Automation',
+      'Weekly Client Reports',
+      'Priority Support',
     ],
-    cta: 'Contact Sales',
+    cta: 'Talk to Sales',
     href: '/contact',
     highlighted: false,
   },
 ];
 
+const faqs = [
+  {
+    question: 'How does the free trial work?',
+    answer: 'Start with our Starter plan free for 14 days. No credit card required. You get full access to all Starter features during the trial period.',
+  },
+  {
+    question: 'Will this affect my Shopify theme?',
+    answer: 'No. SEOEngine.io only modifies product metadata (titles, descriptions, alt tags) and structured data. We never touch your theme files or design.',
+  },
+  {
+    question: 'Do I need a developer?',
+    answer: 'Not at all. SEOEngine.io is designed for non-technical users. Connect your Shopify store with one click and start optimizing immediately.',
+  },
+  {
+    question: 'What is an AI token?',
+    answer: 'AI tokens are used when generating content like product descriptions, blog posts, or meta tags. Each plan includes a monthly token allocation. Unused tokens don\'t roll over.',
+  },
+  {
+    question: 'Can I cancel anytime?',
+    answer: 'Yes, you can cancel your subscription at any time. You\'ll continue to have access until the end of your current billing period.',
+  },
+];
+
 export default function PricingPage() {
+  const [isYearly, setIsYearly] = useState(false);
+
   return (
     <div>
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-gray-900 to-gray-800 text-white py-20">
+      <section className="bg-gradient-to-br from-sky-50 to-white py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-6">
-            Simple, Transparent Pricing
+          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6">
+            Simple, transparent pricing for every type of business
           </h1>
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+          <p className="text-xl text-slate-600 max-w-3xl mx-auto mb-10">
             Start free and scale as you grow. No hidden fees, no surprises.
           </p>
+
+          {/* Billing Toggle */}
+          <div className="flex items-center justify-center gap-4">
+            <span className={`text-sm font-medium ${!isYearly ? 'text-slate-900' : 'text-slate-500'}`}>
+              Monthly
+            </span>
+            <button
+              onClick={() => setIsYearly(!isYearly)}
+              className={`relative w-14 h-7 rounded-full transition-colors ${
+                isYearly ? 'bg-sky-500' : 'bg-slate-300'
+              }`}
+            >
+              <span
+                className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform ${
+                  isYearly ? 'translate-x-8' : 'translate-x-1'
+                }`}
+              />
+            </button>
+            <span className={`text-sm font-medium ${isYearly ? 'text-slate-900' : 'text-slate-500'}`}>
+              Annual
+            </span>
+            {isYearly && (
+              <span className="text-xs font-semibold text-sky-600 bg-sky-100 px-2 py-1 rounded-full">
+                Save 20%
+              </span>
+            )}
+          </div>
         </div>
       </section>
 
       {/* Pricing Cards */}
-      <section className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <section className="py-20 bg-white">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-3 gap-8">
             {plans.map((plan, index) => (
               <div
                 key={index}
-                className={`bg-white rounded-2xl p-8 shadow-sm border-2 ${
+                className={`bg-white rounded-2xl p-8 border-2 ${
                   plan.highlighted
-                    ? 'border-blue-600 ring-2 ring-blue-600 ring-opacity-50'
-                    : 'border-gray-100'
+                    ? 'border-sky-500 ring-2 ring-sky-500 ring-opacity-20 shadow-lg'
+                    : 'border-slate-200'
                 }`}
               >
                 {plan.highlighted && (
-                  <div className="bg-blue-600 text-white text-xs font-semibold px-3 py-1 rounded-full inline-block mb-4">
+                  <div className="bg-sky-500 text-white text-xs font-semibold px-3 py-1 rounded-full inline-block mb-4">
                     Most Popular
                   </div>
                 )}
-                <h3 className="text-xl font-bold text-gray-900 mb-2">{plan.name}</h3>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">{plan.name}</h3>
                 <div className="mb-4">
-                  <span className="text-4xl font-bold text-gray-900">{plan.price}</span>
-                  <span className="text-gray-500 ml-2">/{plan.period}</span>
+                  <span className="text-4xl font-bold text-slate-900">
+                    {isYearly ? plan.yearlyPrice : plan.monthlyPrice}
+                  </span>
+                  <span className="text-slate-500 ml-1">/{plan.period}</span>
                 </div>
-                <p className="text-gray-600 mb-6">{plan.description}</p>
+                <p className="text-slate-600 mb-6">{plan.description}</p>
                 <ul className="space-y-3 mb-8">
                   {plan.features.map((feature, featureIndex) => (
                     <li key={featureIndex} className="flex items-start">
                       <svg
-                        className="w-5 h-5 text-green-500 mr-2 mt-0.5 flex-shrink-0"
+                        className="w-5 h-5 text-sky-500 mr-2 mt-0.5 flex-shrink-0"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -135,7 +173,7 @@ export default function PricingPage() {
                           d="M5 13l4 4L19 7"
                         />
                       </svg>
-                      <span className="text-gray-600 text-sm">{feature}</span>
+                      <span className="text-slate-600 text-sm">{feature}</span>
                     </li>
                   ))}
                 </ul>
@@ -143,8 +181,8 @@ export default function PricingPage() {
                   href={plan.href}
                   className={`block w-full text-center py-3 px-4 rounded-lg font-semibold transition-colors ${
                     plan.highlighted
-                      ? 'bg-blue-600 text-white hover:bg-blue-700'
-                      : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                      ? 'bg-sky-500 text-white hover:bg-sky-600'
+                      : 'bg-slate-100 text-slate-900 hover:bg-slate-200'
                   }`}
                 >
                   {plan.cta}
@@ -156,49 +194,39 @@ export default function PricingPage() {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-20">
+      <section className="py-20 bg-slate-50">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">
+          <h2 className="text-3xl font-bold text-slate-900 text-center mb-12">
             Frequently Asked Questions
           </h2>
-          <div className="space-y-8">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Can I change plans anytime?
-              </h3>
-              <p className="text-gray-600">
-                Yes! You can upgrade or downgrade your plan at any time. Changes take effect
-                immediately and we&apos;ll prorate your billing accordingly.
-              </p>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                What happens when I reach my page limit?
-              </h3>
-              <p className="text-gray-600">
-                You&apos;ll receive a notification when you&apos;re approaching your limit.
-                You can upgrade to a higher plan or wait until your next billing cycle.
-              </p>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Do you offer refunds?
-              </h3>
-              <p className="text-gray-600">
-                We offer a 14-day money-back guarantee on all paid plans. If you&apos;re not
-                satisfied, contact us for a full refund.
-              </p>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Is my data secure?
-              </h3>
-              <p className="text-gray-600">
-                Absolutely. We use industry-standard encryption and never store your Shopify
-                credentials. All data is processed securely in compliance with GDPR.
-              </p>
-            </div>
+          <div className="space-y-6">
+            {faqs.map((faq, index) => (
+              <div key={index} className="bg-white rounded-xl p-6 border border-slate-200">
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                  {faq.question}
+                </h3>
+                <p className="text-slate-600">{faq.answer}</p>
+              </div>
+            ))}
           </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 bg-slate-900">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl font-bold text-white mb-6">
+            Ready to automate your SEO?
+          </h2>
+          <p className="text-xl text-slate-300 mb-10">
+            Start your free trial today. No credit card required.
+          </p>
+          <Link
+            href="/signup"
+            className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold rounded-lg bg-sky-500 text-white hover:bg-sky-600 transition-colors shadow-lg"
+          >
+            Start Free Today
+          </Link>
         </div>
       </section>
     </div>
