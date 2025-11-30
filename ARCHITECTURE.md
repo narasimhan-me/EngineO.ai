@@ -34,35 +34,25 @@ Deployment targets:
 
 ```mermaid
 graph TD
-
-  A[Browser / Client]
-  B[Next.js 14 frontend]
-  C[NestJS HTTP API]
-  D[(PostgreSQL - Neon)]
-  E[(Redis - cache & queues)]
-  F[AI providers]
-  G[E-commerce platforms]
-  H[Other integrations (GSC, GA4)]
-
-  A --> B
-  B --> C
-  C --> D
-  C --> E
-  C --> F
-  C --> G
-  C --> H
-
-  %% Background worker service consumes jobs from Redis queues
-  E --> W[NestJS worker service]
-  W --> D
-  W --> F
-  W --> G
-  W --> H
-
-  G --> G1[Shopify Admin API]
-  G --> G2[WooCommerce REST API]
-  G --> G3[BigCommerce API]
-  G --> G4[Magento 2 REST API]
+    A[Browser / Client] --> B[Next.js 14 Frontend]
+    B --> C[NestJS HTTP API]
+    
+    C --> D[(PostgreSQL - Neon)]
+    C --> E[(Redis - Cache & Queues)]
+    C --> F[AI Providers]
+    C --> G[E-commerce Platforms]
+    C --> H[Other Integrations]
+    
+    E --> W[NestJS Worker Service]
+    W --> D
+    W --> F
+    W --> G
+    W --> H
+    
+    G --> G1[Shopify Admin API]
+    G --> G2[WooCommerce REST API]
+    G --> G3[BigCommerce API]
+    G --> G4[Magento 2 REST API]
 ```
 
 ---
