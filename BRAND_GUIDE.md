@@ -1,12 +1,29 @@
-# SEOEngine.io – Brand Guide
+# EngineO.ai Brand Guide
 
-This document defines the core branding elements for SEOEngine.io.
+This document defines the core branding elements for EngineO.ai.
+
+## Brand Name
+
+**EngineO.ai**
+
+- Full name: EngineO.ai
+- Short handle: EngineO
+- Descriptor: Discovery Engine Optimization (DEO) Platform
+
+### What is DEO?
+
+DEO (Discovery Engine Optimization) = SEO + AEO + PEO + VEO
+
+- **SEO** – Search Engine Optimization (Google, Bing, etc.)
+- **AEO** – Answer Engine Optimization (AI assistants and answer boxes)
+- **PEO** – Presence Engine Optimization (knowledge panels, profiles, entities)
+- **VEO** – Visibility Engine Optimization (multi-surface visibility across channels)
 
 ---
 
 ## 1. Brand Essence
 
-**SEOEngine.io** is an **AI-powered SEO autopilot** for e‑commerce merchants.
+**EngineO.ai** is a **Discovery Engine Optimization (DEO) platform** for modern brands and e‑commerce merchants.
 
 Keywords:
 
@@ -62,7 +79,7 @@ Recommended concept: **Engine + Growth**
 
 ### 4.2 Usage
 
-- Default logo: icon + wordmark (`SEOEngine.io`).
+- Default logo: icon + wordmark (`EngineO.ai`).
 - Simplified icon-only version for:
   - Favicon
   - App icons

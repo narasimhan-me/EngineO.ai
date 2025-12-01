@@ -1,12 +1,12 @@
-# SEOEngine.io Deployment Guide
+# EngineO.ai Deployment Guide
 
-This guide explains how to deploy SEOEngine.io to production using the recommended cloud infrastructure stack.
+This guide explains how to deploy EngineO.ai to production using the recommended cloud infrastructure stack.
 
 ---
 
 ## Overview
 
-SEOEngine.io is a monorepo containing:
+EngineO.ai is a monorepo containing:
 
 - **apps/api** – NestJS backend with Prisma ORM (PostgreSQL)
 - **apps/web** – Next.js 14 frontend (App Router)

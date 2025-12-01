@@ -1,6 +1,6 @@
-# SEOEngine.io
+# EngineO.ai – Discovery Engine Optimization (DEO) Platform
 
-SEO on Autopilot - Automated SEO optimization for websites and Shopify stores.
+EngineO.ai is the Discovery Engine Optimization (DEO) platform that unifies SEO, AEO, PEO, and VEO to optimize your brand for both search engines and AI assistants.
 
 ## Tech Stack
 
