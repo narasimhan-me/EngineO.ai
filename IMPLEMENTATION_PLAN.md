@@ -170,7 +170,7 @@ At repo root:
 
 ---
 
-# # PHASE 0.5 — Public Marketing Website (Landing, Features, Pricing, Signup Funnel)
+## PHASE 0.5 — Public Marketing Website (Landing, Features, Pricing, Signup Funnel)
 
 *(Insert this between Phase 0 and Phase 1)*
 
@@ -405,6 +405,7 @@ Update `(marketing)/contact/page.tsx`:
 - Add static info:
   - Support email (e.g. support@engineo.ai)
   - Expected response time (e.g. "within 1 business day").
+
 #### 0.5.9.6. SEO Meta & OG Content
 
 For all marketing routes (`/`, `/features`, `/pricing`, `/contact`):
@@ -1424,6 +1425,54 @@ Stats are computed from `CrawlResult` and `Product` tables.
 (Reuse existing components from previous phases where possible.)
 
 ---
+### 7.3. DEO Score Calculation & Storage
+
+To make DEO Score first-class and consistent across the app, introduce a scoring model.
+
+#### 7.3.1. Prisma Model
+
+Add to `schema.prisma`:
+
+```prisma
+model DeoScore {
+  id        String   @id @default(cuid())
+  project   Project  @relation(fields: [projectId], references: [id])
+  projectId String
+  period    String   // "daily", "weekly", "overall"
+  seoScore  Int      // 0–100
+  aeoScore  Int      // 0–100
+  peoScore  Int      // 0–100
+  veoScore  Int      // 0–100
+  deoScore  Int      // 0–100 aggregate
+  createdAt DateTime @default(now())
+}
+```
+
+#### 7.3.2. Scoring Formula (Initial Version)
+deoScore = round(
+  0.4 * seoScore +
+  0.3 * aeoScore +
+  0.2 * peoScore +
+  0.1 * veoScore
+)
+- SEO score – average page score from CrawlResult & issues.
+- AEO score – based on presence of FAQ, entities, and schema on key URLs.
+- PEO score – % of products with SEO metadata applied.
+- VEO score – 0/50/100 depending on video coverage (see Phase 14B).
+
+#### 7.3.3. Aggregation Job
+A daily job in `reporting_queue` should:
+
+- For each project, compute seo/aeo/peo/veo scores.
+- Calculate deoScore using the formula above.
+- Insert a DeoScore row with period = "daily".
+
+Add endpoint:
+
+- `GET /projects/:id/deo-score/current` → latest row for project.
+
+Use this wherever DEO Score is displayed (dashboard cards, sidebar header).
+---
 
 # PHASE 8 — Two-Factor Authentication (2FA)
 
@@ -1729,120 +1778,49 @@ Create a new page:
 
 ---
 
-# PHASE 9 — UX & Navigation Redesign + Error Handling
+# PHASE 9 — DEO-Aware UX & Navigation Redesign
 
-✅ **COMPLETED** - Phase 9 implementation finished. Navigation structure, error boundaries, and friendly error handling are in place.
+**Rewritten for Option B — full replacement with DEO-first navigation**
 
-**Goal:** Redesign the app UX so it can scale to all planned features, and implement friendly, consistent error handling.
+### 9.1. DEO-Centric Global Navigation
 
-### 9.1. New Global & Project Layouts
+The navigation must reflect EngineO.ai’s multi‑engine model (SEO, AEO, PEO, VEO).
 
-**Frontend (`apps/web`)**
+**Global Top Nav (authenticated users):**
+- Projects
+- Content (AEO Content Engine)
+- Products (PEO)
+- Media (VEO-ready placeholder)
+- Automations
+- Performance
+- Billing
+- User Menu
 
-**Top-level App Layout**
+**Project Sidebar (per‑project workspace):**
+- Overview (DEO Score)
+- Issues (SEO + AEO + PEO readiness issues)
+- Content (AEO articles, FAQs, entities)
+- Products (Shopify/Amazon)
+- Media (video metadata readiness)
+- Competitors
+- Backlinks
+- Local SEO
+- Automation
+- Settings
 
-`src/app/layout.tsx` should:
-- Render a top navigation bar for logged-in users.
-- Wrap all authenticated routes with a consistent shell.
-- For marketing routes (e.g. `(marketing)`), use a lighter layout without side nav.
+### 9.2. DEO Score Integration Everywhere
 
-**Top Nav (Global)**
+Every page in the workspace should show:
+- DEO Score (combined SEO + AEO + PEO + VEO)
+- Breakdown per engine
 
-Create `components/layout/TopNav.tsx`:
+### 9.3. Unified Error Handling
 
-- **Left:**
-  - Logo + text "EngineO.ai" → links to `/projects`.
-  - Project switcher (dropdown with:
-    - Current project name
-    - Search projects (calls `GET /projects`)
-    - "Create new project"
-  )
-- **Right:**
-  - Help / Docs link.
-  - Admin link (if `user.role === 'ADMIN'`) → `/admin`.
-  - User avatar menu:
-    - Profile
-    - Billing & Subscription
-    - Sign out
-
-After login, redirect to `/projects` (project list) instead of `/dashboard`.
-
-**Project Workspace & Side Nav**
-
-Add a layout: `src/app/projects/[id]/layout.tsx`:
-- Uses the TopNav from above.
-- Adds a left side nav with project-level sections:
-  - Overview → `/projects/[id]/overview`
-  - Issues & Fixes → `/projects/[id]/issues`
-  - Products → `/projects/[id]/products`
-  - Content → `/projects/[id]/content`
-  - Performance → `/projects/[id]/performance`
-  - Keywords → `/projects/[id]/keywords`
-  - Competitors → `/projects/[id]/competitors`
-  - Backlinks → `/projects/[id]/backlinks`
-  - Automation → `/projects/[id]/automation`
-  - Local SEO → `/projects/[id]/local`
-  - Settings → `/projects/[id]/settings`
-
-Existing functionality should be mapped to:
-- Current project detail view → `/projects/[id]/overview`
-- Existing SEO scan UI → integrated into Overview + Issues.
-- Products page → `/projects/[id]/products`.
-
-**Placeholder Routes for Future Features**
-
-Create minimal placeholder pages (with simple text + description) for:
-- `/projects/[id]/issues`
-- `/projects/[id]/content`
-- `/projects/[id]/performance`
-- `/projects/[id]/keywords`
-- `/projects/[id]/competitors`
-- `/projects/[id]/backlinks`
-- `/projects/[id]/automation`
-- `/projects/[id]/local`
-
-Each page should explain what will go there later (helps keep UX consistent while features are WIP).
-
-### 9.2. Friendly Error Handling
-
-**Frontend:**
-
-**Global Error Boundary / Error UI**
-
-- Implement `error.tsx` files in key routes (app root and project layouts).
-- Create a reusable component like `components/ui/FriendlyError.tsx` that:
-  - Shows a human + playful message like:
-    - "Oops, our SEO robot tripped over a cable. Please try again in a few seconds."
-  - Includes:
-    - "Retry" button (retries the last action when possible).
-    - Optional "Go back" and "Go to Dashboard" buttons.
-
-**API Error Handling in Hooks**
-
-- Consolidate fetch logic into a small client utility (`lib/api.ts`).
-- For errors (4xx/5xx), show:
-  - Toast message with friendly text.
-  - Use standard phrasing across the app.
-
-**Backend:**
-
-**NestJS Global Exception Filter**
-
-- Implement a global filter (e.g. `AllExceptionsFilter`) that:
-  - Logs internal errors with stack traces (for you).
-  - Returns structured JSON to the client:
-    ```json
-    {
-      "error": "Internal server error",
-      "code": "INTERNAL_ERROR",
-      "requestId": "..."
-    }
-    ```
-  - DO NOT leak sensitive info in production.
-
-**Validation Errors**
-
-- Use NestJS `ValidationPipe` with DTOs and send clean messages.
+Replace all earlier logic with:
+- A global DEO Error Boundary
+- Friendly AI‑branded error messages
+- Retry logic
+- End‑to‑end structured error JSON from API
 
 ---
 
@@ -2647,53 +2625,221 @@ Even though Neon manages backups, we'll also create our own periodic logical dum
 ✅ **COMPLETED** - Phase 11 implementation finished. Production deployment infrastructure, documentation, and backup script skeleton are in place.
 
 ---
+# PHASE 11.5 — Job Queues & Worker Architecture (BullMQ + Redis)
 
-# PHASE 12 — Advanced AI SEO Automation (Feature Set A)
+**Goal:** Define a consistent job + worker architecture for all asynchronous work in EngineO.ai so that later phases (SEO scans, automations, social posting, reporting) plug into a predictable and robust system.
 
-(This is the same concept I outlined earlier as "Advanced SEO Automation Engine", now explicitly tied to your A list.)
+### 11.5.1. Technology Choices
 
-**Goal:** Implement:
-- Auto-fix technical SEO issues
-- Auto-optimize metadata at scale
-- Bulk image alt text & compression
-- Internal linking suggestions
-- Schema markup engine
-- 1-click redirect manager
+- **Queue library:** BullMQ  
+- **Backend worker runtime:** Node + NestJS (separate worker process)  
+- **Broker:** Redis (managed, e.g. Upstash or Render Redis)  
+- **Deployment:** Independent worker service on Render (`engineo-worker`) using the same codebase as `apps/api` but with a worker entrypoint.
 
-(I'll keep this abbreviated since you already saw the earlier breakdown; you can paste the previous detailed Phase 9 Automation plan here and label it Phase 12.)
+### 11.5.2. Redis Configuration
 
-**Key components (high level):**
+Add env vars (both API and worker):
 
-- `UrlIssue` & `RedirectRule` models
-- Enhanced crawler to detect:
-  - Missing alt tags
-  - Broken links
-  - Missing schema
-- AI endpoints for:
-  - Generating alt text
-  - Generating schema JSON-LD
-  - Internal link suggestions
-- UI:
-  - Issues tab with filters and "Apply fix" actions
-  - Redirect manager UI
+- `REDIS_URL=redis://...`
+- `REDIS_TLS=true|false`
+- Optional: `REDIS_PREFIX=engineo`
+
+Create `apps/api/src/config/redis.config.ts`:
+
+```ts
+export const redisConfig = {
+  url: process.env.REDIS_URL!,
+  prefix: process.env.REDIS_PREFIX ?? "engineo",
+};
+```
+
+### 11.5.3. Queue Names & Responsibilities
+Define the following queues:
+seo_scan_queue — page scans, recrawls, bulk discovery checks.
+deo_issue_queue — detection and creation of DeoIssue records.
+deo_fix_queue — auto-apply fixes (metadata, schema, redirects).
+product_sync_queue — product sync jobs (Shopify now, others later).
+social_post_queue — social post creation and publishing.
+reporting_queue — weekly/monthly report generation and email.
+webhook_queue — async processing of heavy webhooks (Stripe, Shopify, etc.).
+Create a central queue registry:
+apps/api/src/queues/queues.ts:
+
+import { Queue } from "bullmq";
+import { redisConfig } from "../config/redis.config";
+
+export const seoScanQueue = new Queue("seo_scan_queue", { connection: { url: redisConfig.url } });
+export const deoIssueQueue = new Queue("deo_issue_queue", { connection: { url: redisConfig.url } });
+export const deoFixQueue = new Queue("deo_fix_queue", { connection: { url: redisConfig.url } });
+export const productSyncQueue = new Queue("product_sync_queue", { connection: { url: redisConfig.url } });
+export const socialPostQueue = new Queue("social_post_queue", { connection: { url: redisConfig.url } });
+export const reportingQueue = new Queue("reporting_queue", { connection: { url: redisConfig.url } });
+export const webhookQueue = new Queue("webhook_queue", { connection: { url: redisConfig.url } });
+```
+
+### 11.5.4. Job Payload Conventions
+All jobs should:
+Use a common jobId format: ${projectId}:${resourceType}:${resourceId}:${timestamp} where applicable.
+Include projectId in payload so workers can always scope work.
+Store minimal but sufficient state; fetch large objects from DB.
+Examples (in packages/shared/src/jobs.ts):
+// SEO scan job
+export type SeoScanJob = {
+  projectId: string;
+  url: string;
+  crawlResultId?: string;
+};
+
+// DEO issue creation job
+export type DeoIssueJob = {
+  projectId: string;
+  url?: string;
+  engine: "seo" | "aeo" | "peo" | "veo";
+  type: string;
+  metadata?: Record<string, any>;
+};
+```
+
+### 11.5.5. Worker Service
+Create worker entrypoint: apps/api/src/worker.main.ts
+Connect to Redis
+Register BullMQ Worker instances for each queue
+Call into Nest services
+Skeleton:
+import { Worker } from "bullmq";
+import { redisConfig } from "./config/redis.config";
+import { bootstrapNestContext } from "./worker.context"; // helper to init Nest context
+
+async function bootstrap() {
+  const appContext = await bootstrapNestContext();
+
+  new Worker(
+    "seo_scan_queue",
+    async job => {
+      const service = appContext.get(SeoScanService);
+      await service.handleJob(job.data);
+    },
+    { connection: { url: redisConfig.url } }
+  );
+
+  // Repeat for other queues...
+}
+
+bootstrap();
+```
+
+**Render worker service:**
+
+- Name: `engineo-worker`
+- Start command: `pnpm --filter api start:worker` (runs `node dist/worker.main.js`)
+
+### 11.5.6. Retry & DLQ Strategy
+Default retry: 3 attempts, exponential backoff (5s, 30s, 5m).
+On final failure:
+Leave job as failed in BullMQ.
+Optionally persist into:
+model FailedJob {
+  id        String   @id @default(cuid())
+  queueName String
+  jobId     String
+  projectId String?
+  reason    String?
+  payload   Json
+  createdAt DateTime @default(now())
+}
+```
+
+### 11.5.7. Integration with Later Phases
+Whenever a phase says “queue a job” or “handled by workers” it should:
+Import the correct queue from queues.ts.
+Add a job with the documented payload object.
+Keep API endpoints fast (enqueue → return).
 
 ---
 
-# PHASE 13 — AEO Content Engine & Content Intelligence (Feature Set B)
+# PHASE 12 — DEO Automation Engine (Full Rewrite)
 
-**Updated Scope:**  
-This phase is responsible for making content "answer-engine ready." In addition to classic long-form SEO content, it should support AEO use cases such as FAQ blocks, entity definitions, structured fact snippets, and brand/knowledge profiles that can be consumed by AI assistants and answer engines. The existing content intelligence features should be implemented with this broader DEO/AEO framing in mind.
+**This is the unified automation engine for SEO + AEO + PEO + VEO.**
 
-As described earlier:
+### 12.1. Core Goals
+- Auto-detect issues across all engines
+- Auto‑generate metadata, schema, facts, FAQs
+- Auto‑apply fixes (Shopify today, Amazon/TikTok later)
+- AI-driven internal linking
+- Bulk alt‑text + media optimization
+- Redirect management
+- Automation rules for events (product added, content updated)
 
-- **Models:** `Keyword`, `ContentAsset`, `BrandSettings`
-- **AI:**
-  - Keyword clustering
-  - Blog/landing/product content generators
-  - Content scoring endpoint
-- **UI:** "Content" & "Keywords" tabs with:
-  - Keyword lists
-  - Content editor with AI suggestions
+### 12.2. Data Models
+Introduce:
+
+```
+model DeoIssue {
+  id          String   @id @default(cuid())
+  projectId   String
+  url         String?
+  engine      String   // seo | aeo | peo | veo
+  type        String   // MISSING_TITLE, MISSING_SCHEMA, etc.
+  severity    String
+  metadata    Json
+  createdAt   DateTime @default(now())
+}
+```
+
+```
+model RedirectRule {
+  id          String   @id @default(cuid())
+  projectId   String
+  fromPath    String
+  toPath      String
+  createdAt   DateTime @default(now())
+}
+```
+
+### 12.3. Automation Types
+- Auto‑Fix Metadata
+- Auto‑Fix Schema
+- Auto‑Redirect Manager
+- Auto‑Internal‑Linking
+- Auto‑Alt‑Text
+- Auto‑Video Optimization (placeholder)
+- Auto‑AEO FAQ & Answer Snippets
+
+### 12.4. Worker Flows
+All jobs handled by queue workers (added Phase 17).
+
+---
+
+# PHASE 13 — AEO Content Engine (Full Rewrite)
+
+### 13.1. Purpose
+Prepare content for answer engines (ChatGPT, Gemini, Perplexity, Copilot).
+
+### 13.2. Capabilities
+- Entity extraction & knowledge graph population
+- FAQ generation
+- Fact cards
+- Answer‑ready paragraphs
+- Long‑form blog generator (SEO + AEO hybrid)
+- SERP/AEO scoring
+
+### 13.3. Models
+```
+model ContentAsset {
+  id        String   @id @default(cuid())
+  projectId String
+  type      String   // blog, faq, entity, factSheet
+  title     String?
+  body      String?
+  score     Int?
+  metadata  Json
+}
+```
+
+### 13.4. UI
+- Content Library
+- AEO Optimizer
+- AI Writer with structured output modes
 
 ---
 
@@ -2709,26 +2855,120 @@ While the initial implementation may focus on SEO metrics (traffic, rankings, cl
 - **UI:** "Performance" tab with charts and trend lines.
 
 ---
+### 13.5. Entities & Knowledge Graph
 
-# PHASE 15 — Competitive Intelligence & Backlink Tools (Feature Sets E & F)
+To support AEO and DEO, content must be mapped to entities and relationships.
 
-- **Models:** `Competitor`, `Backlink`
-- **AI:**
-  - Gap analysis report
-  - Outreach email generator
-- **UI:**
-  - "Competitors" & "Backlinks" tabs.
+#### 13.5.1. Prisma Models
+
+Add to `schema.prisma`:
+
+```prisma
+model Entity {
+  id            String   @id @default(cuid())
+  project       Project  @relation(fields: [projectId], references: [id])
+  projectId     String
+  name          String
+  type          String   // "product", "brand", "category", "person", "place", etc.
+  slug          String?
+  description   String?
+  metadata      Json
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  mentions      EntityMention[]
+  relationsFrom EntityRelation[] @relation("FromEntity")
+  relationsTo   EntityRelation[] @relation("ToEntity")
+}
+
+model EntityMention {
+  id             String        @id @default(cuid())
+  project        Project       @relation(fields: [projectId], references: [id])
+  projectId      String
+  entity         Entity        @relation(fields: [entityId], references: [id])
+  entityId       String
+  contentAsset   ContentAsset? @relation(fields: [contentAssetId], references: [id])
+  contentAssetId String?
+  url            String?
+  snippet        String?
+  metadata       Json
+  createdAt      DateTime      @default(now())
+}
+
+model EntityRelation {
+  id           String   @id @default(cuid())
+  fromEntity   Entity   @relation("FromEntity", fields: [fromEntityId], references: [id])
+  fromEntityId String
+  toEntity     Entity   @relation("ToEntity", fields: [toEntityId], references: [id])
+  toEntityId   String
+  type         String   // "belongs_to", "similar_to", "related_to", etc.
+  metadata     Json
+  createdAt    DateTime @default(now())
+}
+```
+
+#### 13.5.2. Entity Extraction Flow
+On new/updated content:
+
+- API enqueues an entity extraction job (e.g. `aeo_entity_queue` or `deo_issue_queue`).
+- Worker calls AI with content text to:
+  - Extract entity names + types.
+  - Suggest basic relationships.
+  - Upsert entities into Entity.
+  - Create EntityMention rows linking to ContentAsset or raw URL.
+  - Optionally create EntityRelation rows.
+
+#### 13.5.3. AEO Usage
+Use entities to:
+
+- Build answer snippets grouped by entity.
+- Generate FAQ blocks.
+- Drive schema (Product, Organization, FAQPage, etc.).
+
+#### 13.5.4. UI
+Extend AEO engine UI with Entities tab:
+Table: name, type, mentions count, last updated.
+Detail view: related content assets, related products (via metadata links).
+---
+
+# PHASE 15 — Competitive Intelligence (Full Rewrite)
+
+### 15.1. Scope
+- Competitor SEO analysis
+- Competitor AEO presence analysis
+- Product-level competitor comparison (PEO)
+- Competitor backlink graph
+
+### 15.2. Models
+```
+model Competitor {
+  id            String @id @default(cuid())
+  projectId     String
+  domain        String
+  metadata      Json
+}
+```
 
 ---
 
-# PHASE 16 — Local SEO Features (Feature Set G)
+# PHASE 16 — Local DEO Engine (Full Rewrite)
 
-- **Models:** `Location`
-- **AI:**
-  - Local keyword suggestions
-  - Local landing page templates
-- **UI:**
-  - "Local" tab with locations and local content ideas.
+### 16.1. Scope
+- Local SEO for Google Maps
+- Local AEO profile (hours, services, entities)
+- Local landing pages
+- Local keyword clusters
+
+### 16.2. Models
+```
+model Location {
+  id        String @id @default(cuid())
+  projectId String
+  name      String
+  address   String
+  metadata  Json
+}
+```
 
 ---
 
@@ -2958,55 +3198,25 @@ Add endpoint:
 
 ---
 
-# PHASE 19 — Subscription Management + Hard Enforcement
+# PHASE 19 — Subscription Hard Enforcement (Full Rewrite)
 
-**Goal:** Allow users to manage subscriptions and enforce plan limits strictly.
+### 19.1. Enforce per‑engine limits
+- SEO scans per month
+- AEO generations per month
+- PEO sync limits
+- Media processing limits (VEO)
 
-### 19.1. Allow Users to Manage Subscription
+### 19.2. Middleware
+Every protected endpoint must:
+- Load subscription
+- Load limits
+- Check usage
+- Throw `UPGRADE_REQUIRED` errors
 
-#### 19.1.1. Add /billing page
-
-**Shows:**
-- Current plan
-- Usage meters (products synced, AI tokens, projects)
-- Renewal date
-- "Upgrade plan"
-- "Cancel subscription"
-- If using Stripe: "Manage in Stripe Portal"
-
-**Backend:**
-- Add `GET /billing/usage`
-- Add `GET /billing/limits` (returns plan limits)
-- Add Stripe portal endpoint (Phase 10B)
-
-### 19.2. Enforcement Middleware (Backend)
-
-Create middleware `SubscriptionLimitGuard`:
-
-**Runs on protected API routes such as:**
-- `/shopify/sync-products`
-- `/ai/*`
-- `/projects`
-- `/products`
-- `/automation/*`
-
-**Checks:**
-- User subscription plan
-- Usage stats
-- Remaining quota
-
-**If exceeded:**
-
-Return structured error:
-
-```json
-{
-  "error": "LIMIT_EXCEEDED",
-  "limit": "PRODUCT_LIMIT",
-  "message": "You've reached your product sync limit for your plan.",
-  "upgradeUrl": "/pricing"
-}
-```
+### 19.3. Frontend UX
+- Unified Upgrade Modal
+- Usage meter banners
+- Lock icons on restricted tabs
 
 ---
 
@@ -3153,15 +3363,13 @@ model BlogSchedule {
 
 ---
 
-
-# 
 # PHASE 22 — Advanced Pricing Tiers & Monetization for High-Cost AI Features
 
 **Goal:** Introduce advanced pricing tiers and add-ons for compute-heavy, high-value capabilities (Phases 23–30) so you can monetize them properly and protect AI/infra costs.
 
 This phase does **not** change core product behavior yet — it defines the pricing architecture, data model, and enforcement hooks that later phases (23–30) will plug into.
 
-### 22.1. Scope of “Advanced Features”
+### 22.1. Scope of "Advanced Features"
 
 Advanced features that should **not** be bundled into base Pro/Agency plans by default:
 
@@ -3207,7 +3415,7 @@ On top of these, introduce the following **add-on products**:
      - Marketplace SEO scoring
    - Pricing:
      - $29–$49/mo per marketplace (e.g. Amazon, Etsy)
-     - Bundle option: $79–$99/mo for “All marketplaces”
+     - Bundle option: $79–$99/mo for "All marketplaces"
 
 3. **AI Video & Social Studio Add-On**
    - Includes:
@@ -3346,7 +3554,7 @@ export const ADDONS = {
 
 ### 22.5. Stripe Integration for Add-Ons
 
-Extend Phase 10B’s Stripe Billing implementation:
+Extend Phase 10B's Stripe Billing implementation:
 
 1. **Environment Variables:**
 
@@ -3433,7 +3641,7 @@ Return structured error if lacking:
 
 **Pricing Page (`/pricing`):**
 
-- Under main plans, add a section: **“Advanced Add-Ons”**
+- Under main plans, add a section: **"Advanced Add-Ons"**
   - Cards for:
     - Enterprise Suite
     - Marketplace SEO
@@ -3441,8 +3649,8 @@ Return structured error if lacking:
     - Competitor & CRO
   - Each card:
     - Short description
-    - “Requires Pro or Agency” label (where applicable)
-    - “Talk to sales” or “Add to plan” CTA
+    - "Requires Pro or Agency" label (where applicable)
+    - "Talk to sales" or "Add to plan" CTA
 
 **Billing Settings Page (`/settings/billing`):**
 
@@ -3450,9 +3658,9 @@ Return structured error if lacking:
   - Base plan
   - Current add-ons with status
   - Buttons:
-    - “Add Enterprise Suite”
-    - “Add Marketplace SEO”
-    - “Add AI Video Studio”
+    - "Add Enterprise Suite"
+    - "Add Marketplace SEO"
+    - "Add AI Video Studio"
 - Clicking opens flow:
   - Calls `/billing/addons/create-checkout-session`
   - Redirects to Stripe Checkout
@@ -3463,7 +3671,7 @@ Return structured error if lacking:
   - Show modal:
     - Explains feature
     - Shows price (from config)
-    - Button → “Unlock with Enterprise Suite”
+    - Button → "Unlock with Enterprise Suite"
     - On click → start add-on checkout session
 
 ### 22.8. Analytics & Safeguards
@@ -3473,7 +3681,7 @@ Return structured error if lacking:
   - Add-on checkout started
   - Add-on purchased
 - Add basic guardrails:
-  - Don’t show add-on upsell to Free users until they upgrade to Starter/Pro
+  - Don't show add-on upsell to Free users until they upgrade to Starter/Pro
   - For Free users, first upsell path:
     - Free → Starter/Pro
     - Then → add-on
@@ -3503,7 +3711,7 @@ Return structured error if lacking:
 
 # PHASE 23 — AI Competitor Intelligence Dashboard
 
-**Goal:** Turn competitive research into a first-class, data-backed feature that shows merchants where they can win: which competitors to watch, which keywords they’re losing, and which pages to build next.
+**Goal:** Turn competitive research into a first-class, data-backed feature that shows merchants where they can win: which competitors to watch, which keywords they're losing, and which pages to build next.
 
 This phase deepens and extends the earlier competitive intelligence models from Phase 15.
 
@@ -3605,14 +3813,14 @@ Add an AI endpoint:
 **Steps:**
 
 1. Load project competitors + latest snapshots.
-2. Load project’s own SEO metrics from:
+2. Load project's own SEO metrics from:
    - Crawl results
    - Product SEO data
 3. Ask AI to generate:
-   - “Where you’re behind”
-   - “Quick wins”
-   - “Long-term content strategy”
-   - “Product / category gaps to fill”
+   - "Where you're behind"
+   - "Quick wins"
+   - "Long-term content strategy"
+   - "Product / category gaps to fill"
 
 Return:
 
@@ -3645,7 +3853,7 @@ Enhance the existing Competitors tab:
 - Snapshot detail view:
   - List of top competitor keywords vs your ranking (if known)
   - Top pages with quick "View in SERP" link
-- “AI Competitor Report” button:
+- "AI Competitor Report" button:
   - Calls `/ai/competitor-report`
   - Shows an insight panel with:
     - Key findings
@@ -3654,12 +3862,11 @@ Enhance the existing Competitors tab:
       - Create new content assets (Phase 13)
       - Create tasks/automations (Phase 17)
 
-
 ---
 
 # PHASE 24 — AI SEO Opportunity Engine
 
-**Goal:** Build an “AI growth brain” that surfaces the highest-impact actions for each project and turns your existing data into a prioritized to-do list.
+**Goal:** Build an "AI growth brain" that surfaces the highest-impact actions for each project and turns your existing data into a prioritized to-do list.
 
 ### 24.1. SEO Opportunity Model
 
@@ -3725,28 +3932,28 @@ Sources of signals:
 - `PATCH /seo-opportunities/:id`
   - Update status (`done`, `dismissed`, etc.)
 
-### 24.3. UI — “Opportunities” Panel
+### 24.3. UI — "Opportunities" Panel
 
 Integrate into:
 
 - Project Overview page
-- Issues tab or new “Opportunities” sub-tab
+- Issues tab or new "Opportunities" sub-tab
 
 Features:
 
 - List of opportunities with:
   - Type badge (Content / Product SEO / Technical / etc.)
-  - Impact vs Effort (displayed as a 2D indicator or text like “High impact · Low effort”)
+  - Impact vs Effort (displayed as a 2D indicator or text like "High impact · Low effort")
 - Filters:
   - By type
   - By priority
   - By status
 - Actions:
-  - “Mark as done”
-  - “Create Task” (Phase 17 Task model)
-  - “Auto-fix” (where possible, e.g., metadata)
+  - "Mark as done"
+  - "Create Task" (Phase 17 Task model)
+  - "Auto-fix" (where possible, e.g., metadata)
 
-Use this as the “home feed” of what to do next.
+Use this as the "home feed" of what to do next.
 
 ---
 
@@ -3845,7 +4052,7 @@ Features:
 - For each item:
   - AI-generated explanation in plain English.
   - Code suggestion snippet.
-  - “Copy code” button.
+  - "Copy code" button.
 
 Future:
 - Approve-and-apply flow that integrates with Shopify theme API and a safe staging workflow.
@@ -3911,7 +4118,7 @@ Prompt includes best practices for CRO in eCommerce.
 
 On `/projects/[id]/products`:
 
-- Add “CRO Review” action for each product.
+- Add "CRO Review" action for each product.
 - Modal shows:
   - CRO score
   - Top 3 improvements
@@ -3975,7 +4182,7 @@ AI endpoint:
 
 In product detail or content pages:
 
-- Button: “Create A/B Test”
+- Button: "Create A/B Test"
 - Workflow:
   1. Show baseline content (Variant A).
   2. Generate Variant B via AI.
@@ -4047,12 +4254,12 @@ model ProductReviewSummary {
 
 On `/projects/[id]/products`:
 
-- Add “Review Insights” action.
+- Add "Review Insights" action.
 - Show:
   - Summary
   - Pros/cons
   - SEO keyword suggestions
-  - Button “Apply to Description” (Phase 6 integration to push to Shopify).
+  - Button "Apply to Description" (Phase 6 integration to push to Shopify).
 
 ---
 
@@ -4137,14 +4344,14 @@ AI endpoints:
 
 UI:
 
-- New tab on product detail: “Marketplace SEO”
+- New tab on product detail: "Marketplace SEO"
 - Future: push changes via marketplace APIs.
 
 ---
 
 # PHASE 30 — AI Video & Social Content Engine
 
-**Goal:** Deepen social + content automation with short-form video scripts, captions, and campaign bundles, building on Phase 17’s social integrations.
+**Goal:** Deepen social + content automation with short-form video scripts, captions, and campaign bundles, building on Phase 17's social integrations.
 
 ### 30.1. Data Model: SocialContentAsset
 
@@ -4209,12 +4416,12 @@ Save as `SocialContentAsset` records.
 - Allow user to:
   - Manually schedule posts.
   - Use rules like:
-    - “When new product added → generate social bundle and suggest schedule.”
+    - "When new product added → generate social bundle and suggest schedule."
 - For each connected social account (Phase 17):
   - Provide UI:
-    - “Publish now”
-    - “Schedule”
-    - “Edit before posting”
+    - "Publish now"
+    - "Schedule"
+    - "Edit before posting"
 
 ### 30.4. UI: Social Content Studio
 
@@ -4237,4 +4444,4 @@ These Phases 23–30 extend your IMPLEMENTATION_PLAN.md and keep your roadmap co
 
 - Phases 12–17: Core feature sets (automation, content, performance, competitors, local, social).
 - Phases 18–22: Security, subscription management, monitoring, fairness & limits.
-- Phases 23–30: **Differentiation layer** — deep competitor intel, opportunity engine, CRO, technical AI support, marketplaces, and advanced social/video content.
+- Phases 23–30: Advanced AI-powered features gated behind add-ons for sustainable growth.
