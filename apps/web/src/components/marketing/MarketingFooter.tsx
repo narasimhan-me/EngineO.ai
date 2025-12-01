@@ -79,7 +79,7 @@ export default function MarketingFooter() {
         </div>
 
         <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-slate-200 pt-6 text-xs text-slate-500 sm:flex-row">
-          <p>&copy; {new Date().getFullYear()} SEOEngine.io. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} EngineO.ai. All rights reserved.</p>
           <p className="text-[11px]">
             Built for modern eCommerce teams &amp; Shopify merchants.
           </p>

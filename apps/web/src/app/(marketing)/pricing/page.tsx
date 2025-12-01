@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Pricing — SEOEngine.io',
+  title: 'Pricing — EngineO.ai',
   description:
-    'Simple, transparent pricing for stores and agencies. Start free and upgrade as you grow.',
+    'Simple, transparent pricing for brands and agencies using EngineO.ai to power Discovery Engine Optimization (DEO). Start free and upgrade as you grow.',
 };
 
 const plans = [

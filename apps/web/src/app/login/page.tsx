@@ -7,7 +7,7 @@ import { authApi } from '@/lib/api';
 import { setToken } from '@/lib/auth';
 
 // Session storage key for 2FA temp token
-const TEMP_2FA_TOKEN_KEY = 'seoengine_temp_2fa_token';
+const TEMP_2FA_TOKEN_KEY = 'engineo_temp_2fa_token';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -48,10 +48,10 @@ export default function LoginPage() {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h1 className="text-center text-3xl font-bold text-gray-900">
-            SEOEngine.io
+            EngineO.ai
           </h1>
           <h2 className="mt-6 text-center text-2xl font-semibold text-gray-700">
-            Sign in to your account
+            Sign in to your EngineO.ai account
           </h2>
         </div>
 

@@ -5,42 +5,42 @@ import MarketingFooter from '@/components/marketing/MarketingFooter';
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
   title: {
-    default: 'SEOEngine.io — AI-Powered SEO for Shopify & eCommerce',
-    template: '%s | SEOEngine.io',
+    default: 'EngineO.ai — Discovery Engine Optimization for modern brands',
+    template: '%s | EngineO.ai',
   },
   description:
-    'SEOEngine.io scans your store, fixes technical issues, writes metadata, optimizes products, and tracks performance — so you can focus on growth, not spreadsheets.',
+    'EngineO.ai is the AI-first Discovery Engine Optimization platform that scans your site and store, fixes technical issues, maps entities, writes metadata and answer-ready content, and tracks visibility across search and AI surfaces.',
   openGraph: {
-    title: 'SEOEngine.io — AI-Powered SEO for Shopify & eCommerce',
+    title: 'EngineO.ai — Discovery Engine Optimization for modern brands',
     description:
-      'SEOEngine.io scans your store, fixes technical issues, writes metadata, optimizes products, and tracks performance — so you can focus on growth, not spreadsheets.',
+      'EngineO.ai is the AI-first Discovery Engine Optimization platform that scans your site and store, fixes technical issues, maps entities, writes metadata and answer-ready content, and tracks visibility across search and AI surfaces.',
     url: '/',
-    siteName: 'SEOEngine.io',
+    siteName: 'EngineO.ai',
     type: 'website',
     images: [
       {
-        url: '/logo/A_digital_vector_graphic_displays_the_logo_for_SEO.png',
+        url: '/branding/engineo/logo-light.png',
         width: 1200,
         height: 630,
-        alt: 'SEOEngine.io — AI SEO for Shopify',
+        alt: 'EngineO.ai — Discovery Engine Optimization (DEO)',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'SEOEngine.io — AI-Powered SEO for Shopify & eCommerce',
+    title: 'EngineO.ai — Discovery Engine Optimization for modern brands',
     description:
-      'SEOEngine.io scans your store, fixes technical issues, writes metadata, optimizes products, and tracks performance — so you can focus on growth, not spreadsheets.',
-    images: ['/logo/A_digital_vector_graphic_displays_the_logo_for_SEO.png'],
+      'EngineO.ai is the AI-first Discovery Engine Optimization platform that scans your site and store, fixes technical issues, maps entities, writes metadata and answer-ready content, and tracks visibility across search and AI surfaces.',
+    images: ['/branding/engineo/logo-light.png'],
   },
 };
 
 const organizationSchema = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
-  name: 'SEOEngine.io',
-  url: 'https://seoengine.io',
-  logo: 'https://seoengine.io/logo/SEOEngine_logo.png',
+  name: 'EngineO.ai',
+  url: 'https://engineo.ai',
+  logo: 'https://engineo.ai/branding/engineo/logo-light.png',
   sameAs: [],
 };
 

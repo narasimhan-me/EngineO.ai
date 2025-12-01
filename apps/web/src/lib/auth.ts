@@ -1,4 +1,4 @@
-const TOKEN_KEY = 'seoengine_token';
+const TOKEN_KEY = 'engineo_token';
 
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;

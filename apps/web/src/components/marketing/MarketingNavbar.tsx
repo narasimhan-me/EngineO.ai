@@ -22,8 +22,8 @@ export default function MarketingNavbar() {
         {/* Left: Logo + brand */}
         <Link href="/" className="flex items-center gap-2">
           <Image
-            src="/logo/SEOEngine_logo.png"
-            alt="SEOEngine.io"
+            src="/branding/engineo/logo-light.png"
+            alt="EngineO.ai"
             width={140}
             height={35}
             className="object-contain"

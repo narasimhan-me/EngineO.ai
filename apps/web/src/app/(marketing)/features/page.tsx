@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Features — SEOEngine.io',
+  title: 'Features — EngineO.ai',
   description:
-    'See everything SEOEngine.io does for your Shopify or eCommerce store: AI SEO automation, product optimization, content intelligence, monitoring, and more.',
+    'See everything EngineO.ai does for your brand: AI-powered Discovery Engine Optimization, product and content optimization, entity intelligence, monitoring, and more.',
 };
 
 function FeatureBlock({

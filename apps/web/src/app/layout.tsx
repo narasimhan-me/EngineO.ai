@@ -5,11 +5,12 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'SEOEngine.io - SEO on Autopilot',
-  description: 'Automated SEO optimization for websites and Shopify stores',
+  title: 'EngineO.ai – Discovery Engine Optimization on Autopilot',
+  description:
+    'EngineO.ai is the AI-first Discovery Engine Optimization (DEO) platform for websites, stores, and brands that want to stay visible across search engines and AI assistants.',
   icons: {
-    icon: '/logo/SEOEngine_logo.png',
-    apple: '/logo/SEOEngine_logo.png',
+    icon: '/branding/engineo/logo-light.png',
+    apple: '/branding/engineo/logo-light.png',
   },
 };
 

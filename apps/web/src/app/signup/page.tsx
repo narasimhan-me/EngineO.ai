@@ -51,10 +51,10 @@ export default function SignupPage() {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h1 className="text-center text-3xl font-bold text-gray-900">
-            SEOEngine.io
+            EngineO.ai
           </h1>
           <h2 className="mt-6 text-center text-2xl font-semibold text-gray-700">
-            Create your account
+            Create your EngineO.ai account
           </h2>
         </div>
 

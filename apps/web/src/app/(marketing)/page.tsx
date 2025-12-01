@@ -22,17 +22,17 @@ export default function MarketingHomePage() {
           <div className="flex-1 space-y-6">
             <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
               <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-              AI SEO for Shopify &amp; eCommerce
+              Discovery Engine Optimization (DEO) for modern brands
             </div>
 
             <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
-              AI-powered SEO for Shopify &amp; eCommerce — on autopilot.
+              AI-powered discovery across search engines and AI assistants — on autopilot.
             </h1>
 
             <p className="max-w-xl text-sm leading-relaxed text-slate-600 sm:text-base">
-              SEOEngine.io scans your store, fixes technical issues, writes
-              metadata, optimizes products, and tracks performance — so you can
-              focus on growth, not spreadsheets.
+              EngineO.ai scans your site and store, fixes technical issues, maps entities, writes metadata and
+              answer-ready content, and tracks visibility across search and AI surfaces — so you can focus on
+              growth instead of chasing algorithms.
             </p>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -46,7 +46,7 @@ export default function MarketingHomePage() {
                 href="/features"
                 className="text-sm font-medium text-slate-700 hover:text-slate-900"
               >
-                Learn how it works &rarr;
+                Learn how EngineO.ai works &rarr;
               </Link>
             </div>
 
@@ -56,8 +56,8 @@ export default function MarketingHomePage() {
                   🔍
                 </span>
                 <div>
-                  <dt className="font-semibold text-slate-800">Instant SEO audit</dt>
-                  <dd>Scan pages &amp; products in a few clicks.</dd>
+                  <dt className="font-semibold text-slate-800">Instant discovery audit</dt>
+                  <dd>Scan pages, products, and entities in a few clicks.</dd>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -65,8 +65,8 @@ export default function MarketingHomePage() {
                   🤖
                 </span>
                 <div>
-                  <dt className="font-semibold text-slate-800">AI metadata optimization</dt>
-                  <dd>Titles, descriptions &amp; alt text generated for you.</dd>
+                  <dt className="font-semibold text-slate-800">AI metadata &amp; answer content</dt>
+                  <dd>Titles, descriptions, alt text, FAQs, and answer blocks generated for you.</dd>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -74,8 +74,8 @@ export default function MarketingHomePage() {
                   🛒
                 </span>
                 <div>
-                  <dt className="font-semibold text-slate-800">Shopify product SEO</dt>
-                  <dd>Sync, optimize, and push changes back to Shopify.</dd>
+                  <dt className="font-semibold text-slate-800">Store &amp; product discovery</dt>
+                  <dd>Sync, optimize, and push changes back to Shopify and your site.</dd>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -83,8 +83,8 @@ export default function MarketingHomePage() {
                   🚀
                 </span>
                 <div>
-                  <dt className="font-semibold text-slate-800">Automated improvements</dt>
-                  <dd>Weekly automation to keep SEO moving.</dd>
+                  <dt className="font-semibold text-slate-800">Automated DEO improvements</dt>
+                  <dd>Ongoing automations keep your discovery footprint improving.</dd>
                 </div>
               </div>
             </dl>
