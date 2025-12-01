@@ -98,7 +98,7 @@ apps/web/src/
 
 - TailwindCSS configured with JIT.
 - Global layout with a simple navigation shell (top nav + optional sidebar).
-- Home page text: `EngineO.ai – SEO on Autopilot.`
+- Home page text: `EngineO.ai – Discovery Engine Optimization on Autopilot.`
 - `/dashboard` renders "Dashboard placeholder".
 - `/projects` renders "Projects placeholder".
 - `/settings` renders "Settings placeholder".
@@ -238,7 +238,7 @@ Inside it, create:
 
 **Initial copy (placeholders permitted):**
 
-- Hero text: "EngineO.ai — AI-Powered SEO for eCommerce & SaaS."
+- Hero text: "EngineO.ai — AI-Powered Discovery Engine Optimization (SEO + AEO + PEO + VEO) for eCommerce & SaaS."
 - Primary CTA: "Start Free"
 
 **Features Page (`/features`)**
@@ -1079,6 +1079,19 @@ model CrawlResult {
 }
 ```
 
+**DEO Note:**
+While the initial implementation focuses on SEO fields, the scanner should be designed to expand into multi-engine discovery checks. Each `issues` entry should support DEO-ready structure:
+
+```json
+{
+  "engine": "seo" | "aeo" | "peo" | "veo",
+  "code": "MISSING_TITLE",
+  "metadata": {}
+}
+```
+
+Initial implementation may always use `"engine": "seo"`, but the structure prepares the system for Phases 12–14.
+
 Run migration.
 
 ### 3.2. SEO Scan Service (Backend)
@@ -1165,6 +1178,22 @@ async function generateMetadata(input: {
 ```
 
 Implementation can return a richer JSON payload as long as at minimum it includes a title and description.
+
+**DEO Metadata Requirement:**
+The `extra` field returned by `generateMetadata()` **must** be able to hold multi-engine metadata in a future-safe structure:
+
+```json
+{
+  "engines": {
+    "seo": { },
+    "aeo": { },
+    "peo": { },
+    "veo": { }
+  }
+}
+```
+
+Even if only SEO metadata is implemented now, this ensures smooth expansion into AEO/PEO/VEO in later phases.
 
 ### 4.2. Metadata Suggestion Endpoint
 
@@ -1407,9 +1436,10 @@ Stats are computed from `CrawlResult` and `Product` tables.
 - For each project, fetch overview.
 - Show cards/rows:
   - Project name
-  - Avg SEO score
-  - Crawl count
-  - Product count
+  - DEO Score (primary KPI)
+  - SEO sub-score
+  - Product optimization count
+  - Crawl count / issue count
   - "View project" button
 
 **`/projects/[id]/page.tsx`**
@@ -1458,7 +1488,7 @@ deoScore = round(
 - SEO score – average page score from CrawlResult & issues.
 - AEO score – based on presence of FAQ, entities, and schema on key URLs.
 - PEO score – % of products with SEO metadata applied.
-- VEO score – 0/50/100 depending on video coverage (see Phase 14B).
+- VEO score – 0/50/100 depending on video coverage (see Phase 30 — AI Video & Social Content Engine).
 
 #### 7.3.3. Aggregation Job
 A daily job in `reporting_queue` should:
@@ -1780,7 +1810,7 @@ Create a new page:
 
 # PHASE 9 — DEO-Aware UX & Navigation Redesign
 
-**Rewritten for Option B — full replacement with DEO-first navigation**
+*(Adopted DEO-first navigation as the primary UX model)*
 
 ### 9.1. DEO-Centric Global Navigation
 
@@ -2622,8 +2652,6 @@ Even though Neon manages backups, we'll also create our own periodic logical dum
   - Marketing site updated.
   - Shopify App listing updated.
 
-✅ **COMPLETED** - Phase 11 implementation finished. Production deployment infrastructure, documentation, and backup script skeleton are in place.
-
 ---
 # PHASE 11.5 — Job Queues & Worker Architecture (BullMQ + Redis)
 
@@ -2806,7 +2834,7 @@ model RedirectRule {
 - Auto‑AEO FAQ & Answer Snippets
 
 ### 12.4. Worker Flows
-All jobs handled by queue workers (added Phase 17).
+All jobs handled by queue workers (see Phase 11.5 — BullMQ Worker Architecture).
 
 ---
 
@@ -3315,9 +3343,15 @@ model AutomationTask {
 - Processes pending tasks
 - Handles retries & exponential backoff
 
+**Implementation note:**
+All `StoreEvent → AutomationTask` flows enqueue jobs into the BullMQ queues defined in Phase 11.5 (`productSyncQueue`, `socialPostQueue`, `deoFixQueue`, `reportingQueue`).
+
 ---
 
 # PHASE 21 — Blog Auto-Scheduling System
+
+**AEO Integration Requirement:**
+Blog generation must leverage the AEO Content Engine from Phase 13, including entities, FAQs, answer-ready paragraphs, and structured blocks, rather than using a free-form standalone prompt.
 
 **Goal:** Automate blog post generation and publishing on a schedule.
 
@@ -3364,6 +3398,9 @@ model BlogSchedule {
 ---
 
 # PHASE 22 — Advanced Pricing Tiers & Monetization for High-Cost AI Features
+
+**Context:**
+Phase 22 extends the billing system built in Phases 10B and 10C. It does not introduce a separate billing stack — instead it adds feature-level add-ons that layer on top of existing Stripe subscriptions and plan limits.
 
 **Goal:** Introduce advanced pricing tiers and add-ons for compute-heavy, high-value capabilities (Phases 23–30) so you can monetize them properly and protect AI/infra costs.
 
