@@ -18,6 +18,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const exceptionResponse = exception.getResponse();
 
       let message: string;
+      let code = 'HTTP_ERROR';
+
       if (typeof exceptionResponse === 'string') {
         message = exceptionResponse;
       } else if (
@@ -32,6 +34,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
         } else {
           message = exception.message;
         }
+        // Preserve custom error code if provided
+        if (typeof resp.code === 'string') {
+          code = resp.code;
+        }
       } else {
         message = exception.message;
       }
@@ -40,7 +46,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         statusCode: status,
         error: exception.name || 'HttpException',
         message,
-        code: 'HTTP_ERROR',
+        code,
         path: request.url,
         timestamp: new Date().toISOString(),
       });

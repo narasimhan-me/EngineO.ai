@@ -12,6 +12,8 @@ import { AiModule } from './ai/ai.module';
 import { TwoFactorAuthModule } from './two-factor-auth/two-factor-auth.module';
 import { BillingModule } from './billing/billing.module';
 import { AdminModule } from './admin/admin.module';
+import { CaptchaModule } from './captcha/captcha.module';
+import { ContactModule } from './contact/contact.module';
 
 @Module({
   imports: [
@@ -19,6 +21,7 @@ import { AdminModule } from './admin/admin.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    CaptchaModule,
     HealthModule,
     AuthModule,
     UsersModule,
@@ -31,6 +34,7 @@ import { AdminModule } from './admin/admin.module';
     TwoFactorAuthModule,
     BillingModule,
     AdminModule,
+    ContactModule,
   ],
   controllers: [],
   providers: [],

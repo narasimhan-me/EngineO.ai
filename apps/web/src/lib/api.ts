@@ -3,22 +3,49 @@ import { getToken } from './auth';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 /**
- * Build a user-friendly error message from an API response
+ * Custom API error with optional error code for special handling
  */
-function buildErrorMessage(response: Response, body: unknown): string {
-  // Try to extract message from JSON body
+export class ApiError extends Error {
+  code?: string;
+
+  constructor(message: string, code?: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = code;
+  }
+}
+
+/**
+ * Build an ApiError from an API response
+ */
+function buildApiError(response: Response, body: unknown): ApiError {
+  let message: string;
+  let code: string | undefined;
+
+  // Try to extract message and code from JSON body
   if (body && typeof body === 'object') {
     const json = body as Record<string, unknown>;
     if (typeof json.message === 'string' && json.message) {
-      return json.message;
+      message = json.message;
+    } else if (typeof json.error === 'string' && json.error) {
+      message = json.error;
+    } else {
+      message = getStatusMessage(response.status, response.statusText);
     }
-    if (typeof json.error === 'string' && json.error) {
-      return json.error;
+    if (typeof json.code === 'string') {
+      code = json.code;
     }
+  } else {
+    message = getStatusMessage(response.status, response.statusText);
   }
 
-  // Fall back to status-based friendly messages
-  const status = response.status;
+  return new ApiError(message, code);
+}
+
+/**
+ * Get user-friendly message based on HTTP status
+ */
+function getStatusMessage(status: number, statusText: string): string {
   if (status === 401 || status === 403) {
     return 'Unauthorized. Please log in again.';
   }
@@ -28,8 +55,7 @@ function buildErrorMessage(response: Response, body: unknown): string {
   if (status >= 500) {
     return 'Something went wrong on our side. Please try again.';
   }
-
-  return response.statusText || 'Request failed. Please try again.';
+  return statusText || 'Request failed. Please try again.';
 }
 
 async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
@@ -50,7 +76,7 @@ async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
 
   if (!response.ok) {
     const body = await response.json().catch(() => null);
-    throw new Error(buildErrorMessage(response, body));
+    throw buildApiError(response, body);
   }
 
   return response.json();
@@ -73,21 +99,21 @@ async function fetchWithoutAuth(endpoint: string, options: RequestInit = {}) {
 
   if (!response.ok) {
     const body = await response.json().catch(() => null);
-    throw new Error(buildErrorMessage(response, body));
+    throw buildApiError(response, body);
   }
 
   return response.json();
 }
 
 export const authApi = {
-  signup: (data: { email: string; password: string; name?: string }) =>
-    fetchWithAuth('/auth/signup', {
+  signup: (data: { email: string; password: string; name?: string; captchaToken: string }) =>
+    fetchWithoutAuth('/auth/signup', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
-  login: (data: { email: string; password: string }) =>
-    fetchWithAuth('/auth/login', {
+  login: (data: { email: string; password: string; captchaToken?: string }) =>
+    fetchWithoutAuth('/auth/login', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
@@ -271,5 +297,17 @@ export const adminApi = {
     fetchWithAuth(`/admin/users/${userId}/subscription`, {
       method: 'PUT',
       body: JSON.stringify({ planId }),
+    }),
+};
+
+/**
+ * Contact API - for public contact form
+ */
+export const contactApi = {
+  /** Submit contact form (public, requires CAPTCHA) */
+  submit: (data: { name: string; email: string; message: string; captchaToken: string }) =>
+    fetchWithoutAuth('/contact', {
+      method: 'POST',
+      body: JSON.stringify(data),
     }),
 };

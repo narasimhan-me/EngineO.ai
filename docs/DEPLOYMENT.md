@@ -189,12 +189,14 @@ In Vercel's **Settings** → **Environment Variables**, add:
 |----------|-------|
 | `NEXT_PUBLIC_API_URL` | `https://api.seoengine.io` |
 | `NEXT_PUBLIC_APP_URL` | `https://app.seoengine.io` |
+| `NEXT_PUBLIC_CAPTCHA_PROVIDER` | `turnstile` |
+| `NEXT_PUBLIC_CAPTCHA_SITE_KEY` | Cloudflare Turnstile site key |
 
 **Optional:**
 
 | Variable | Description |
 |----------|-------------|
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare Turnstile site key |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Legacy Cloudflare Turnstile site key (still supported) |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Google Analytics ID |
 
 > **Note:** You must redeploy after changing environment variables for changes to take effect.

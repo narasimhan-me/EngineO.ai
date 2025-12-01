@@ -6,7 +6,7 @@ import { twoFactorAuthApi } from '@/lib/api';
 import { setToken } from '@/lib/auth';
 
 // Session storage key for 2FA temp token (must match login page)
-const TEMP_2FA_TOKEN_KEY = 'seoengine_temp_2fa_token';
+const TEMP_2FA_TOKEN_KEY = 'engineo_temp_2fa_token';
 
 export default function TwoFactorPage() {
   const router = useRouter();
@@ -78,7 +78,7 @@ export default function TwoFactorPage() {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h1 className="text-center text-3xl font-bold text-gray-900">
-            SEOEngine.io
+            EngineO.ai
           </h1>
           <h2 className="mt-6 text-center text-2xl font-semibold text-gray-700">
             Two-Factor Authentication
@@ -139,7 +139,7 @@ export default function TwoFactorPage() {
         <div className="text-center">
           <p className="text-xs text-gray-500">
             Open your authenticator app (Google Authenticator, 1Password, Authy, etc.)
-            and enter the 6-digit code for SEOEngine.io
+            and enter the 6-digit code for EngineO.ai
           </p>
         </div>
       </div>

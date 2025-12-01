@@ -9,10 +9,11 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@engineo/shared": "workspace:*",
+    "@marsidev/react-turnstile": "^1.3.1",
     "next": "^14.0.4",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "@engineo/shared": "workspace:*"
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.6",
