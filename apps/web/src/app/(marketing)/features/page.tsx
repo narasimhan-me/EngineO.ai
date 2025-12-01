@@ -41,12 +41,10 @@ export default function FeaturesPage() {
       <section className="border-b border-slate-100 bg-slate-50/60">
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-            Everything you need to automate SEO — without hiring a full team.
+            Everything you need to automate discovery — without hiring a full team.
           </h1>
           <p className="mt-3 max-w-2xl text-sm text-slate-600">
-            SEOEngine.io combines technical SEO, product optimization, content
-            intelligence, monitoring, and automation into one platform built for
-            Shopify and modern eCommerce.
+            EngineO.ai combines technical SEO, product and content optimization, entity intelligence, monitoring, and automation into one platform built for modern brands and eCommerce.
           </p>
         </div>
       </section>
@@ -54,7 +52,7 @@ export default function FeaturesPage() {
       <section className="border-b border-slate-100 bg-white">
         <div className="mx-auto max-w-6xl px-4 py-12 space-y-10 sm:px-6 lg:px-8">
           <FeatureBlock
-            label="AI SEO Automation"
+            label="AI DEO & SEO Automation"
             description="Let AI handle the repetitive SEO work while you focus on strategy and growth."
             whyItMatters="Most stores have hundreds of missing meta descriptions, broken links, and unoptimized images. Fixing them manually takes weeks. AI automation handles the busywork so you can focus on strategy that actually moves the needle."
             bullets={[
@@ -80,9 +78,9 @@ export default function FeaturesPage() {
           />
 
           <FeatureBlock
-            label="eCommerce SEO"
-            description="Purpose-built for Shopify stores and product-heavy catalogs."
-            whyItMatters="Product pages are your biggest SEO opportunity — and your biggest bottleneck. Writing unique, optimized metadata for thousands of SKUs is nearly impossible without automation. SEOEngine.io syncs with Shopify and optimizes at scale."
+            label="eCommerce discovery & SEO"
+            description="Purpose-built for Shopify and product-heavy catalogs that need to stay visible across search and AI assistants."
+            whyItMatters="Product pages are your biggest discovery opportunity — and your biggest bottleneck. Writing unique, optimized metadata and answer-ready content for thousands of SKUs is nearly impossible without automation. EngineO.ai syncs with your store and optimizes at scale."
             bullets={[
               'Shopify product & variant sync',
               'AI-optimized product titles and descriptions',

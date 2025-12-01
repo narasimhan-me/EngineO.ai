@@ -172,32 +172,32 @@ export default function MarketingHomePage() {
       <section className="border-b border-slate-100 bg-slate-50/60">
         <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
           <h2 className="text-center text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
-            How SEOEngine.io works
+            How EngineO.ai works
           </h2>
           <p className="mt-2 text-center text-sm text-slate-600">
-            From connection to automation in four simple steps.
+            From connection to ongoing Discovery Engine Optimization in four simple steps.
           </p>
 
           <div className="mt-10 grid gap-6 md:grid-cols-4">
             {[
               {
-                title: 'Connect your store',
-                desc: 'One-click Shopify integration. No theme edits required.',
+                title: 'Connect your site & store',
+                desc: 'Connect Shopify and your main site in a few clicks. No theme edits required.',
                 step: 'Step 1',
               },
               {
-                title: 'AI scans everything',
-                desc: 'Products, pages, metadata, speed & more are analyzed.',
+                title: 'Run a DEO discovery scan',
+                desc: 'Pages, products, entities, and metadata are analyzed for search and AI visibility.',
                 step: 'Step 2',
               },
               {
-                title: 'Auto-optimize',
-                desc: 'Fix issues, generate metadata, alt text, schema & more.',
+                title: 'Apply AI-powered fixes',
+                desc: 'Generate and approve metadata, FAQs, schema, and answer-ready content in bulk.',
                 step: 'Step 3',
               },
               {
-                title: 'Grow & track',
-                desc: 'Monitor SEO health, rankings, and improvements over time.',
+                title: 'Monitor visibility & improve',
+                desc: 'Track your DEO score and keep your discovery footprint improving over time.',
                 step: 'Step 4',
               },
             ].map((item, i) => (
@@ -227,7 +227,7 @@ export default function MarketingHomePage() {
             Who it&apos;s for
           </h2>
           <p className="mt-2 text-center text-sm text-slate-600">
-            Built for the teams who need SEO results without the overhead.
+            Built for teams who need to stay discoverable across search engines and AI assistants, without the overhead.
           </p>
 
           <div className="mt-10 grid gap-6 md:grid-cols-3">
@@ -237,7 +237,7 @@ export default function MarketingHomePage() {
               </div>
               <h3 className="text-sm font-semibold text-slate-900">Shopify Store Owners</h3>
               <p className="mt-2 text-xs text-slate-600">
-                Running a DTC brand with 50–5,000 products? You know SEO matters but don&apos;t have time to learn or execute it properly. SEOEngine.io handles the technical work so you can focus on growing your business.
+                Running a DTC brand with 50–5,000 products? You know organic discovery matters across Google, marketplaces, and AI assistants — but you don&apos;t have time to master every channel. EngineO.ai handles the technical work so you can focus on growing your business.
               </p>
             </div>
 
@@ -247,7 +247,7 @@ export default function MarketingHomePage() {
               </div>
               <h3 className="text-sm font-semibold text-slate-900">SEO Agencies</h3>
               <p className="mt-2 text-xs text-slate-600">
-                Managing SEO for multiple Shopify clients? Scale your workflows with bulk metadata, automated audits, and white-label reporting. Spend less time on repetitive tasks and more on strategy.
+                Managing organic growth for multiple clients? Scale your workflows with bulk DEO audits, AI metadata, and reporting. Spend less time on repetitive implementation and more on strategy and communication.
               </p>
             </div>
 
@@ -257,7 +257,7 @@ export default function MarketingHomePage() {
               </div>
               <h3 className="text-sm font-semibold text-slate-900">Growth Marketers</h3>
               <p className="mt-2 text-xs text-slate-600">
-                Need to move fast without hiring an SEO specialist? Get agency-level results with AI-powered automation. No spreadsheets, no guesswork — just results you can measure.
+                Need to move fast without hiring a full SEO team? Get agency-level results with AI-powered Discovery Engine Optimization. No spreadsheets, no guesswork — just visibility you can measure.
               </p>
             </div>
           </div>
@@ -274,10 +274,10 @@ export default function MarketingHomePage() {
                 Native Integration
               </div>
               <h2 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
-                Built for Shopify first
+                Built for Shopify and modern eCommerce
               </h2>
               <p className="mt-3 text-sm text-slate-600">
-                SEOEngine.io connects directly to your Shopify store via OAuth — no theme edits, no code changes. Pull in your entire product catalog, generate optimized metadata at scale, and push changes back with a single click.
+                EngineO.ai connects directly to your Shopify store via OAuth — no theme edits, no code changes. Pull in your entire product catalog, generate optimized metadata and answer-ready content at scale, and push changes back with a single click.
               </p>
 
               <ul className="mt-6 space-y-3">
@@ -349,10 +349,10 @@ export default function MarketingHomePage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
-                Everything you need to automate SEO — without a full team.
+                Everything you need to automate discovery — without a full team.
               </h2>
               <p className="mt-2 text-sm text-slate-600">
-                AI automation for technical SEO, content, products, and monitoring in one workspace.
+                AI automation for technical SEO, product and content optimization, and DEO monitoring in one workspace.
               </p>
             </div>
             <Link
@@ -365,9 +365,9 @@ export default function MarketingHomePage() {
 
           <div className="mt-8 grid gap-6 md:grid-cols-2">
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-              <h3 className="text-sm font-semibold text-slate-900">AI SEO Automation</h3>
+              <h3 className="text-sm font-semibold text-slate-900">AI DEO &amp; SEO Automation</h3>
               <p className="mt-2 text-xs text-slate-600">
-                Detect issues, generate metadata, and apply fixes in bulk.
+                Detect issues, generate metadata and answer content, and apply fixes in bulk.
               </p>
               <ul className="mt-4 space-y-1.5 text-xs text-slate-600">
                 <li>• Fix missing titles, meta descriptions &amp; H1s</li>
@@ -426,7 +426,7 @@ export default function MarketingHomePage() {
             Trusted by modern eCommerce brands
           </h2>
           <p className="mt-2 text-center text-sm text-slate-600">
-            Join the Shopify stores and agencies already using SEOEngine.io to grow organic traffic.
+            Join the brands and agencies using EngineO.ai to stay visible across search engines and AI assistants.
           </p>
 
           {/* Placeholder logos */}
@@ -445,7 +445,7 @@ export default function MarketingHomePage() {
           <div className="mt-12 grid gap-6 md:grid-cols-3">
             <figure className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5">
               <blockquote className="text-sm text-slate-700">
-                &ldquo;SEOEngine.io saved us hours every week on product SEO. The AI suggestions are spot-on and the Shopify sync just works.&rdquo;
+                &ldquo;EngineO.ai saves us hours every week on product and content optimization. The AI suggestions are spot-on and the Shopify sync just works.&rdquo;
               </blockquote>
               <figcaption className="mt-4 flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-slate-100" />
@@ -458,7 +458,7 @@ export default function MarketingHomePage() {
 
             <figure className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5">
               <blockquote className="text-sm text-slate-700">
-                &ldquo;We manage 15 Shopify stores and SEOEngine.io lets us handle metadata at scale. Game changer for our agency.&rdquo;
+                &ldquo;We manage 15 stores and EngineO.ai lets us handle discovery and metadata at scale. It&apos;s a game changer for our agency.&rdquo;
               </blockquote>
               <figcaption className="mt-4 flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-slate-100" />
@@ -493,10 +493,10 @@ export default function MarketingHomePage() {
       <section className="bg-gradient-to-r from-blue-600 to-blue-500">
         <div className="mx-auto max-w-6xl px-4 py-12 text-center text-white sm:px-6 lg:px-8">
           <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            Ready to put your SEO on autopilot?
+            Ready to put your discovery on autopilot?
           </h2>
           <p className="mt-2 text-sm text-blue-100">
-            Connect your store, run your first audit, and generate AI metadata in minutes.
+            Connect your site and store, run your first DEO audit, and generate AI metadata and answer content in minutes.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link

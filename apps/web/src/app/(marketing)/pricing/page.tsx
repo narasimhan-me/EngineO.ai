@@ -12,55 +12,55 @@ const plans = [
     name: 'Starter',
     price: '$19',
     period: 'per month',
-    tagline: 'For new stores and side hustlers.',
+    tagline: 'For new brands and side projects testing DEO.',
     popular: false,
     cta: 'Start free',
     href: '/signup',
     features: [
       'Up to 3 projects',
-      '500 synced products',
+      '500 synced products or pages',
       '200k AI tokens / month',
-      'SEO audit & health score',
-      'AI metadata suggestions',
-      'Basic automations',
-      'Shopify integration',
+      'DEO audit & visibility score (SEO + basics)',
+      'AI metadata & answer suggestions',
+      'Basic DEO automations',
+      'Single Shopify or site integration',
     ],
   },
   {
     name: 'Pro',
     price: '$59',
     period: 'per month',
-    tagline: 'For growing eCommerce brands.',
+    tagline: 'For growing brands that need reliable discovery.',
     popular: true,
     cta: 'Upgrade to Pro',
     href: '/signup',
     features: [
       'Everything in Starter',
       'Up to 10 projects',
-      '5,000 products',
+      '5,000 products or pages',
       '2M AI tokens / month',
-      'Smart schema markup',
-      'AI content generator',
-      'Competitor insights',
-      'Redirect manager',
+      'Smart schema & entity markup',
+      'AI content & FAQ generator',
+      'Discovery competitor insights',
+      'Redirect & URL manager',
     ],
   },
   {
     name: 'Agency',
     price: '$199',
     period: 'per month',
-    tagline: 'For agencies and large stores.',
+    tagline: 'For agencies and multi-brand teams.',
     popular: false,
     cta: 'Talk to sales',
     href: '/contact',
     features: [
       'Unlimited projects',
-      'Unlimited products',
-      '10M AI tokens / month',
-      'Team accounts',
-      'Advanced automation',
-      'Weekly client reports',
-      'Priority support',
+      'Unlimited products or pages',
+      '10M+ AI tokens / month',
+      'Team accounts & role-based access',
+      'Advanced DEO automations & playbooks',
+      'Weekly client & DEO score reports',
+      'Priority support & onboarding',
     ],
   },
 ];
@@ -149,11 +149,11 @@ export default function PricingPage() {
             />
             <FaqItem
               q="Will this affect my Shopify theme?"
-              a="SEOEngine.io focuses on metadata, structured data, and search-facing fields. It does not rewrite your theme code without your approval."
+              a="EngineO.ai focuses on metadata, structured data, entities, and other search- and AI-facing fields. It does not rewrite your theme code without your approval."
             />
             <FaqItem
               q="Do I need a developer to use this?"
-              a="No. SEOEngine.io is built for marketers, founders, and growth teams. Developers can help with advanced workflows, but they're not required."
+              a="No. EngineO.ai is built for marketers, founders, and growth teams. Developers can help with advanced workflows, but they&apos;re not required."
             />
             <FaqItem
               q="What is an AI token?"
