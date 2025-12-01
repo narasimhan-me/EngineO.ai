@@ -1,5 +1,15 @@
 # EngineO.ai Architecture — DEO Platform
 
+EngineO.ai is a multi-tenant SaaS platform for **Discovery Engine Optimization (DEO)**.
+
+DEO (Discovery Engine Optimization) = **SEO + AEO + PEO + VEO**
+
+The architecture is optimized for:
+- Running DEO pipelines asynchronously (Score, Entities, Answers, Signals)
+- Multi-tenant workspaces and projects
+- Token-aware AI workloads (OpenAI / LLM calls)
+- Stripe-based billing and entitlements
+
 This document describes the **high-level and component-level architecture** for EngineO.ai.
 
 ---
@@ -27,6 +37,41 @@ Deployment targets:
 - **Background workers:** NestJS worker app on Render
 - **Database:** Neon (managed PostgreSQL)
 - **Redis (cache/queue):** Managed Redis (Render or Upstash)
+
+## Core Components
+
+- **Next.js 14 Web App (`apps/web`)**
+  - Marketing site (EngineO.ai)
+  - Dashboard (projects, reports, settings)
+  - Auth front-end flows
+
+- **NestJS API (`apps/api`)**
+  - REST endpoints
+  - Auth & session management
+  - Projects, workspaces, entities, answers
+  - Stripe integration, usage metering, entitlements
+  - Orchestrates DEO pipelines (enqueue jobs to Redis)
+
+- **Postgres (Neon)**
+  - Primary relational store
+  - Multi-tenant schema for users, workspaces, projects, entities, answers, jobs
+  - PITR & branching support for safe migrations
+
+- **Redis (managed)**
+  - Job queues for DEO pipelines
+  - Short-lived counters (rate limits, failed login attempts)
+  - Caching for hot reads where needed
+
+- **Background Workers**
+  - Dedicated worker processes consuming Redis queues
+  - Execute DEO pipelines (Score / Entities / Answers / Signals)
+
+- **Stripe**
+  - Subscription and usage-based billing
+  - Customer, subscription, invoice, and metered usage
+
+- **Object Storage (e.g., S3-compatible)**
+  - Storing crawl snapshots, export files, and generated reports
 
 ## 1.1 Infrastructure Stack
 
@@ -363,6 +408,99 @@ This architecture keeps HTTP latency low, isolates heavy workloads, and lets us 
 
 ---
 
+## DEO Pipelines & Queues
+
+EngineO.ai models DEO as four primary pipelines:
+
+1. **DEO Score**
+2. **Entities & Knowledge Graph**
+3. **Answer-Ready Content**
+4. **Signals & Visibility (SEO/AEO/PEO/VEO)**
+
+Each pipeline is backed by a dedicated Redis queue and worker.
+
+### Queues
+
+- `deo_score_queue`
+  - Recalculate DEO Score for a project or entity
+  - Aggregate signals from entities, answers, technical health, and visibility
+
+- `deo_entity_queue`
+  - Extract entities from content and sitemaps
+  - Enrich entities (schemas, attributes, relationships)
+  - Sync entities into the internal knowledge graph
+
+- `deo_answer_queue`
+  - Generate and evaluate answer units
+  - Classify intents, match entities, and structure answer-ready content
+
+- `deo_signal_queue`
+  - Run crawl & visibility checks across surfaces
+  - Collect SEO, AEO, PEO, VEO signals (rankings, snippets, panels, citations)
+
+### Workers
+
+Each queue is consumed by a dedicated worker process:
+
+- **DEO Score Worker**
+  - Listens to `deo_score_queue`
+  - Computes/updates DEO Scores
+  - Writes aggregated scores and breakdowns to Postgres
+
+- **Entity Worker**
+  - Listens to `deo_entity_queue`
+  - Extracts entities from source content
+  - Updates entity tables and relationships
+
+- **Answer Worker**
+  - Listens to `deo_answer_queue`
+  - Generates, validates, and scores answer units
+  - Stores answer units and metadata for retrieval
+
+- **Signals Worker**
+  - Listens to `deo_signal_queue`
+  - Calls external services (search APIs, crawlers)
+  - Stores visibility and crawl metrics
+
+---
+
+## End-to-End DEO Flow (High Level)
+
+1. User triggers an action from the dashboard (e.g., "Recalculate DEO Score", "Run crawl", "Generate answers").
+2. The Next.js front-end calls the NestJS API with the relevant project/entity IDs.
+3. The API:
+   - Validates authorization and entitlements
+   - Writes or updates a job record in Postgres
+   - Enqueues a job into the appropriate Redis queue
+4. A background worker consumes the job:
+   - Fetches required data from Postgres and/or external APIs
+   - Executes LLM calls and other compute steps
+   - Writes results back to Postgres (scores, entities, answers, signals)
+5. The dashboard:
+   - Polls or subscribes to job status
+   - Renders updated DEO Scores, entities, and answer-ready content
+
+```mermaid
+flowchart LR
+  A[User in Dashboard - Next.js] --> B[NestJS API]
+  B --> C[(Postgres - Neon)]
+  B --> D[(Redis Queues)]
+
+  D --> E[DEO Score Worker]
+  D --> F[Entity Worker]
+  D --> G[Answer Worker]
+  D --> H[Signals Worker]
+
+  E --> C
+  F --> C
+  G --> C
+  H --> C
+
+  H --> I[External Search / Crawl APIs]
+```
+
+---
+
 ## 7. External Integrations
 
 ### 7.1 Shopify Admin API
@@ -430,6 +568,25 @@ Switching providers should be achievable by configuration.
 
 ---
 
+## Security & Abuse Protection (High Level)
+
+- **Auth**
+  - Standard email-based auth (and/or OAuth providers as configured)
+  - Session management handled by the API and Next.js middleware
+
+- **Abuse protection**
+  - Rate limiting and failed login counters stored in Redis
+  - CAPTCHA integrations planned for:
+    - Contact forms
+    - Signup flows
+    - Login after repeated failures
+
+- **Data isolation**
+  - Workspace- and project-level scoping enforced in the API layer
+  - Role- and entitlement-based access controlled via the entitlements matrix
+
+---
+
 ## 9. Environments
 
 Typical environments:
@@ -473,4 +630,47 @@ Later:
 
 ---
 
+## Infrastructure Stack
+
+- **App Hosting**
+  - Next.js 14 app deployed as a modern app (e.g., Vercel or Render web service)
+  - NestJS API deployed as a long-running service (e.g., Render or similar PaaS)
+
+- **Background Workers**
+  - One or more worker services (e.g., Render background workers) running the DEO workers
+  - Shared code with `apps/api` where appropriate (job handlers in a shared module)
+
+- **Database**
+  - Postgres on Neon
+  - PITR enabled
+  - Branching used for staging and safe migrations
+
+- **Cache & Queues**
+  - Managed Redis instance
+  - Separate logical databases or key prefixes for:
+    - Job queues
+    - Rate limiting & abuse protection (e.g., failed login counters)
+    - Lightweight caching
+
+- **Storage**
+  - Object storage bucket for:
+    - Crawl artifacts
+    - Exported reports, CSVs, and similar assets
+
+- **Billing**
+  - Stripe:
+    - Subscriptions
+    - Metered usage (tokens, DEO compute, projects/items)
+
+- **Observability**
+  - Centralized logging (PaaS logs + optional external sink)
+  - Error tracking (e.g., Sentry)
+  - Basic metrics around queue depth and worker health
+
+---
+
 END OF ARCHITECTURE
+
+---
+
+_Author: Narasimhan Mahendrakumar_
