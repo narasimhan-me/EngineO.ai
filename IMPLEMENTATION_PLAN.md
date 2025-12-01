@@ -19,7 +19,23 @@ Each step should produce diffs and await approval before applying.
 - **Database:** PostgreSQL + Prisma (Neon in production)
 - **Cache / Queue (later):** Redis
 - **AI:** OpenAI / Gemini via REST API
-- **E-commerce:** Shopify Admin API (REST or GraphQL), via a generic **Integration** model (Shopify first, others later)
+
+---
+
+## High-Level DEO Architecture
+
+EngineO.ai is organized around a set of "engines" that optimize for different discovery surfaces. The phases below should be understood as building blocks for these engines:
+
+- **SEO Engine (Search Engine Optimization)** – classic web search results and technical/content SEO.
+- **Answer Engine (AEO)** – AI assistants and answer engines (ChatGPT, Gemini, Perplexity, Copilot, etc.).
+- **Product Engine (PEO)** – on-site and marketplace product search (Shopify Search today, Amazon/TikTok Shop later).
+- **Video Engine (VEO)** – video discovery surfaces (YouTube, Shorts, TikTok).
+- **DEO Core** – entities, knowledge graph, DEO scoring, and multi-engine metadata bundles.
+- **Integration Layer** – Shopify first, with future adapters for Amazon, TikTok Shop, YouTube, Google Search Console, and others.
+- **Automation Engine** – scheduled scans, automatic fixes, social posting, and workflow automation.
+- **Analytics & Monitoring** – multi-engine performance tracking, alerts, and reporting.
+
+Each implementation phase should keep this DEO architecture in mind so that new features are not SEO-only, but can evolve into multi-engine discovery optimization.
 
 ---
 
@@ -1313,7 +1329,10 @@ Run migration, making sure to match the current code's schema (this plan is alig
 
 ---
 
-# PHASE 6 — Push AI SEO Updates to Shopify
+# PHASE 6 — Multi-Engine Apply Layer (Shopify-first Writer)
+
+**Updated Scope:**  
+This phase is still implemented against Shopify, but the service layer, interfaces, and DTOs should be treated as a generic "writer" for DEO metadata bundles. Shopify is the first concrete writer, with future writers planned for Amazon, TikTok Shop, YouTube (video metadata), structured data (schema/JSON-LD), and AI answer/brand profiles. The existing Shopify-specific behavior remains, but the design must allow plugging in additional writers without large refactors.
 
 ### 6.1. Shopify Update Endpoint
 
@@ -2660,7 +2679,10 @@ Even though Neon manages backups, we'll also create our own periodic logical dum
 
 ---
 
-# PHASE 13 — Content Intelligence & AI Generation (Feature Set B)
+# PHASE 13 — AEO Content Engine & Content Intelligence (Feature Set B)
+
+**Updated Scope:**  
+This phase is responsible for making content "answer-engine ready." In addition to classic long-form SEO content, it should support AEO use cases such as FAQ blocks, entity definitions, structured fact snippets, and brand/knowledge profiles that can be consumed by AI assistants and answer engines. The existing content intelligence features should be implemented with this broader DEO/AEO framing in mind.
 
 As described earlier:
 
@@ -2675,7 +2697,10 @@ As described earlier:
 
 ---
 
-# PHASE 14 — SEO Performance Monitoring (Feature Set D)
+# PHASE 14 — Multi-Engine Performance Monitoring (SEO + AEO + Product) (Feature Set D)
+
+**Updated Scope:**  
+While the initial implementation may focus on SEO metrics (traffic, rankings, clicks), the data model and APIs should be designed so they can later incorporate AEO and product-level discovery signals (e.g., AI answer appearance, on-site search performance, product visibility). Think of this phase as the foundation for a DEO-wide performance view, not just Google SEO.
 
 - **Models:** `PageMetric`, `KeywordRank`
 - **Integrations:**
@@ -2708,6 +2733,9 @@ As described earlier:
 ---
 
 # PHASE 17 — Automation, Workflow & Social Media Integration (Feature Set H + Social)
+
+**Updated Scope:**  
+This phase is effectively the **Social & Automation part of the DEO Engine**. Automations and social posting should be designed to react to DEO events (new products, new content, promotions) and to publish multi-engine optimized content across channels (site, search, AI answers, and social feeds). The goal is to turn detection of change into coordinated actions across all discovery surfaces.
 
 **Goal:** Add scheduling, reporting, tasks, chatbot, and social media auto-posting (Facebook, Instagram, LinkedIn).
 
@@ -2983,6 +3011,9 @@ Return structured error:
 ---
 
 # PHASE 20 — Store Monitoring & Automated Actions
+
+**Updated Scope:**  
+Treat this phase as the **DEO Event Engine**. Store, content, and catalog changes should be converted into structured events that can trigger multi-engine optimization workflows (SEO fixes, product metadata updates, schema changes, AI answer profile refreshes, and social posts). This is the backbone that keeps EngineO.ai continuously in sync with the merchant's evolving store and content.
 
 **Goal:** Implement an event-driven Shopify monitoring engine. This is one of your strongest differentiators.
 
