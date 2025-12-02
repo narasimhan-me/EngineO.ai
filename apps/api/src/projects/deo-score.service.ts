@@ -7,7 +7,6 @@ import {
   DeoScoreSignals,
   DeoScoreSnapshot as DeoScoreSnapshotDto,
   computeDeoScoreFromSignals,
-  computePlaceholderDeoScore,
 } from '@engineo/shared';
 
 @Injectable()
@@ -33,18 +32,10 @@ export class DeoScoreService {
       throw new ForbiddenException('You do not have access to this project');
     }
 
-    let snapshot = await prisma.deoScoreSnapshot.findFirst({
+    const snapshot = await prisma.deoScoreSnapshot.findFirst({
       where: { projectId },
       orderBy: { computedAt: 'desc' },
     });
-
-    // Auto-create placeholder snapshot if none exists
-    if (!snapshot) {
-      const created = await this.createPlaceholderSnapshotForProject(projectId);
-      snapshot = await prisma.deoScoreSnapshot.findUnique({
-        where: { id: created.id },
-      });
-    }
 
     if (!snapshot) {
       return {
@@ -79,16 +70,13 @@ export class DeoScoreService {
   }
 
   /**
-   * Placeholder entry point for future DEO score computation.
+   * Compute DEO score breakdown from normalized signals and persist as snapshot.
    *
-   * For now, this creates a simple snapshot with a fixed overall score
-   * and updates the denormalized current_deo_score fields on Project.
-   *
-   * Note: This method does NOT check ownership - it is intended to be called
-   * from background workers. Ownership should be validated at the API layer.
+   * This is the v1 scoring engine entry point, used by the recompute worker.
    */
-  async createPlaceholderSnapshotForProject(
+  async computeAndPersistScoreFromSignals(
     projectId: string,
+    signals: DeoScoreSignals,
   ): Promise<DeoScoreSnapshotDto> {
     const prisma = this.prisma as any;
 
@@ -100,7 +88,7 @@ export class DeoScoreService {
       throw new NotFoundException('Project not found');
     }
 
-    const breakdown = computePlaceholderDeoScore();
+    const breakdown = computeDeoScoreFromSignals(signals);
     const now = new Date();
 
     const created = await prisma.deoScoreSnapshot.create({
@@ -134,25 +122,43 @@ export class DeoScoreService {
       metadata: (created.metadata as Record<string, unknown> | null) ?? undefined,
     };
   }
+}
 
+/**
+ * Stub service that collects DEO signals for a project.
+ *
+ * Phase 2.2: Returns hardcoded signals in the 0.4–0.8 range.
+ * Phase 2.3+: Will integrate with real data sources (crawl, analytics, etc.).
+ */
+@Injectable()
+export class DeoSignalsService {
   /**
-   * Compute DEO score breakdown from normalized signals.
+   * Collect all signals needed for DEO score computation.
    *
-   * This method is not yet used in production flows; it exists to define
-   * the contract for future phases where real signals will be passed in.
+   * Phase 2.2: Returns stub values for testing the scoring engine.
    */
-  async computeAndPersistScoreFromSignals(
-    projectId: string,
-    signals: DeoScoreSignals,
-  ): Promise<DeoScoreBreakdown> {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const version = DEO_SCORE_VERSION;
-    const breakdown = computeDeoScoreFromSignals(signals);
+  async collectSignalsForProject(_projectId: string): Promise<DeoScoreSignals> {
+    // Stub signals for Phase 2.2 – hardcoded values in realistic range
+    return {
+      // Content signals
+      contentCoverage: 0.65,
+      contentDepth: 0.55,
+      contentFreshness: 0.70,
 
-    // TODO (future phase): persist using the same path as createPlaceholderSnapshotForProject:
-    // - Insert a DeoScoreSnapshot row
-    // - Update Project.currentDeoScore / currentDeoScoreComputedAt
+      // Entity signals
+      entityCoverage: 0.60,
+      entityAccuracy: 0.75,
+      entityLinkage: 0.50,
 
-    return breakdown;
+      // Technical signals
+      crawlHealth: 0.80,
+      coreWebVitals: 0.65,
+      indexability: 0.70,
+
+      // Visibility signals
+      serpPresence: 0.45,
+      answerSurfacePresence: 0.40,
+      brandNavigationalStrength: 0.55,
+    };
   }
 }

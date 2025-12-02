@@ -153,3 +153,46 @@ Weights are defined in shared config (`DEO_SCORE_WEIGHTS`) and can be tuned in f
   - Evolve `DeoScoreSignals`
   - Update weight/aggregation logic behind a new version constant.
 
+## Phase 2.2 – V1 Scoring Engine
+
+Phase 2.2 replaces the placeholder scoring (fixed `overall=50`) with a real v1 engine that computes weighted component scores from normalized signals.
+
+### Key Changes
+
+- **`DeoSignalsService`** – new service that collects signals for a project. Phase 2.2 uses hardcoded stub values (0.4–0.8 range); Phase 2.3+ will integrate with real data sources.
+- **`computeAndPersistScoreFromSignals`** – service method that takes signals, computes the breakdown via `computeDeoScoreFromSignals`, persists a `DeoScoreSnapshot`, and updates the project's denormalized `currentDeoScore`.
+- **Processor update** – `DeoScoreProcessor` now calls `DeoSignalsService.collectSignalsForProject` and pipes the result through the v1 scoring engine instead of the placeholder.
+
+### New Exports (shared package)
+
+- `normalizeSignal(value)` – converts 0–1 to 0–100
+- `computeDeoComponentScore(signals, component)` – compute one component score
+- `computeOverallDeoScore(components)` – weighted sum from component scores
+
+### Stub Signals (Phase 2.2)
+
+All signals are hardcoded in `DeoSignalsService`:
+
+| Signal | Stub Value |
+|--------|------------|
+| contentCoverage | 0.65 |
+| contentDepth | 0.55 |
+| contentFreshness | 0.70 |
+| entityCoverage | 0.60 |
+| entityAccuracy | 0.75 |
+| entityLinkage | 0.50 |
+| crawlHealth | 0.80 |
+| coreWebVitals | 0.65 |
+| indexability | 0.70 |
+| serpPresence | 0.45 |
+| answerSurfacePresence | 0.40 |
+| brandNavigationalStrength | 0.55 |
+
+With v1 weights, the computed overall score for stub signals is **~60**.
+
+### Phase 2.3+ Plans
+
+- Integrate real data sources (crawl results, analytics, GSC) into `DeoSignalsService`.
+- Allow per-project signal overrides and custom weighting.
+- Add signal freshness tracking and staleness detection.
+

@@ -26,6 +26,14 @@ function averageNullable(values: Array<number | null | undefined>): number | nul
 }
 
 /**
+ * Public helper to normalize a single 0–1 signal into a 0–100 score.
+ * This wraps the internal normalize01To100 utility.
+ */
+export function normalizeSignal(value: number | null | undefined): number {
+  return normalize01To100(value);
+}
+
+/**
  * Compute component scores (0–100) from raw DEO signals.
  * This is a simple v1 heuristics-based model.
  */
@@ -33,7 +41,7 @@ export function computeDeoComponentsFromSignals(
   signals: DeoScoreSignals,
 ): DeoScoreComponents {
   // Content: coverage, depth, freshness
-  const content = normalize01To100(
+  const content = normalizeSignal(
     averageNullable([
       signals.contentCoverage,
       signals.contentDepth,
@@ -42,7 +50,7 @@ export function computeDeoComponentsFromSignals(
   );
 
   // Entities: coverage, accuracy, linkage
-  const entities = normalize01To100(
+  const entities = normalizeSignal(
     averageNullable([
       signals.entityCoverage,
       signals.entityAccuracy,
@@ -51,7 +59,7 @@ export function computeDeoComponentsFromSignals(
   );
 
   // Technical: crawl health, CWV, indexability
-  const technical = normalize01To100(
+  const technical = normalizeSignal(
     averageNullable([
       signals.crawlHealth,
       signals.coreWebVitals,
@@ -60,7 +68,7 @@ export function computeDeoComponentsFromSignals(
   );
 
   // Visibility: SERP, answer surfaces, brand
-  const visibility = normalize01To100(
+  const visibility = normalizeSignal(
     averageNullable([
       signals.serpPresence,
       signals.answerSurfacePresence,
@@ -72,19 +80,36 @@ export function computeDeoComponentsFromSignals(
 }
 
 /**
+ * Compute a single component score (0–100) from raw DEO signals.
+ */
+export function computeDeoComponentScore(
+  signals: DeoScoreSignals,
+  component: keyof DeoScoreComponents,
+): number {
+  const components = computeDeoComponentsFromSignals(signals);
+  return components[component];
+}
+
+/**
+ * Compute the overall DEO score (0–100) from component scores using DEO_SCORE_WEIGHTS.
+ */
+export function computeOverallDeoScore(components: DeoScoreComponents): number {
+  return Math.round(
+    components.content * DEO_SCORE_WEIGHTS.content +
+      components.entities * DEO_SCORE_WEIGHTS.entities +
+      components.technical * DEO_SCORE_WEIGHTS.technical +
+      components.visibility * DEO_SCORE_WEIGHTS.visibility,
+  );
+}
+
+/**
  * Compute overall DEO score and breakdown from signals using DEO_SCORE_WEIGHTS.
  */
 export function computeDeoScoreFromSignals(
   signals: DeoScoreSignals,
 ): DeoScoreBreakdown {
   const components = computeDeoComponentsFromSignals(signals);
-
-  const overall = Math.round(
-    components.content * DEO_SCORE_WEIGHTS.content +
-      components.entities * DEO_SCORE_WEIGHTS.entities +
-      components.technical * DEO_SCORE_WEIGHTS.technical +
-      components.visibility * DEO_SCORE_WEIGHTS.visibility,
-  );
+  const overall = computeOverallDeoScore(components);
 
   return {
     overall,

@@ -2127,13 +2127,22 @@ Use this snapshot and denormalized score wherever DEO Score is displayed (dashbo
 - Pipeline now supports asynchronous DEO Score recomputation via BullMQ.
 - Documented queue, endpoint, and pipeline behavior in `docs/deo-score-spec.md` under "Phase 2.1 – Recompute Pipeline".
 
-**Phase 2.2+ – Follow-Up Tasks**
+**Phase 2.2 – Scoring Engine (Completed)**
 
-- Implement real DEO scoring logic (signals, weights, computation) using `DeoScoreService.computeAndPersistScoreFromSignals` and `computeDeoScoreFromSignals`.
-- Integrate signals from crawlers, products, entities, and visibility pipelines into `DeoScoreSignals` and persist them for scoring.
-- Implement a `DeoScoreSnapshot` history endpoint (e.g., `GET /projects/:id/deo-score/history`) and wire it into dashboard trend visualizations.
-- Replace the placeholder snapshot generator with the v1 scoring engine while maintaining backwards-compatible snapshot schema.
-- Add unit and integration tests for `DeoScoreService`, the recompute endpoint, and the `deo_score_queue` worker.
+- Added full `DeoScoreSignals` interface covering content, entities, technical, and visibility signals.
+- Implemented normalization and component score functions in the shared scoring engine (including `normalizeSignal` and component aggregation).
+- Implemented `computeOverallDeoScore` using `DEO_SCORE_WEIGHTS` to produce a weighted overall DEO score.
+- Added `DeoSignalsService` as a stub-based signal collector returning hardcoded 0.4–0.8 signal values.
+- Implemented `computeAndPersistScoreFromSignals` in `DeoScoreService` to create real `DeoScoreSnapshot` rows and update `Project.currentDeoScore`.
+- Updated the worker pipeline to run the v1 scoring engine instead of placeholder logic.
+- Updated `GET /projects/:id/deo-score` behavior and `docs/deo-score-spec.md` with v1 scoring formulas and flow.
+
+**Phase 2.3 – Follow-Up Tasks**
+
+- Replace stub signals with real crawlers, entity extractors, and visibility collectors.
+- Integrate DEO signals with product data, pages, crawl results, and the entity graph.
+- Add a DEO scoring history endpoint (e.g., `GET /projects/:id/deo-score/history`) and connect it to dashboard trend visualizations.
+- Begin implementing per-pillar signal sources (Content, Entities, Technical, Visibility) and add unit/integration tests for the scoring and worker pipeline.
 
 ---
 

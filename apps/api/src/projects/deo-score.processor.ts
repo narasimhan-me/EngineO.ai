@@ -2,14 +2,17 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Worker, Job } from 'bullmq';
 import { redisConfig } from '../config/redis.config';
-import { DeoScoreService } from './deo-score.service';
+import { DeoScoreService, DeoSignalsService } from './deo-score.service';
 import { DeoScoreJobPayload, DeoScoreJobResult } from '@engineo/shared';
 
 @Injectable()
 export class DeoScoreProcessor implements OnModuleInit, OnModuleDestroy {
   private worker: Worker<DeoScoreJobPayload, DeoScoreJobResult> | null = null;
 
-  constructor(private readonly deoScoreService: DeoScoreService) {}
+  constructor(
+    private readonly deoScoreService: DeoScoreService,
+    private readonly deoSignalsService: DeoSignalsService,
+  ) {}
 
   async onModuleInit() {
     this.worker = new Worker<DeoScoreJobPayload, DeoScoreJobResult>(
@@ -18,12 +21,15 @@ export class DeoScoreProcessor implements OnModuleInit, OnModuleDestroy {
         const { projectId } = job.data;
 
         try {
-          const snapshot = await this.deoScoreService.createPlaceholderSnapshotForProject(
+          // Phase 2.2: Collect stub signals and compute v1 score
+          const signals = await this.deoSignalsService.collectSignalsForProject(projectId);
+          const snapshot = await this.deoScoreService.computeAndPersistScoreFromSignals(
             projectId,
+            signals,
           );
 
           console.log(
-            `[DeoScoreProcessor] Successfully recomputed placeholder DEO score for project ${projectId} (snapshot ${snapshot.id})`,
+            `[DeoScoreProcessor] Successfully computed v1 DEO score for project ${projectId} (snapshot ${snapshot.id}, overall=${snapshot.breakdown.overall})`,
           );
 
           return {
@@ -32,7 +38,7 @@ export class DeoScoreProcessor implements OnModuleInit, OnModuleDestroy {
           };
         } catch (error) {
           console.error(
-            `[DeoScoreProcessor] Failed to recompute DEO score for project ${projectId}`,
+            `[DeoScoreProcessor] Failed to compute DEO score for project ${projectId}`,
             error,
           );
           throw error;
