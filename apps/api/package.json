@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "postinstall": "prisma generate",
+    "postinstall": "test -n \"$DATABASE_URL\" && prisma generate || echo 'Skipping prisma generate (no DATABASE_URL)'",
     "build": "prisma generate && nest build",
     "start": "nest start",
     "start:dev": "nest start --watch",
