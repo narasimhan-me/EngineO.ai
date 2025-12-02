@@ -34,3 +34,6 @@ export interface HealthResponse {
 
 // DEO Score types
 export * from './deo-score';
+
+// DEO job types
+export * from './deo-jobs';

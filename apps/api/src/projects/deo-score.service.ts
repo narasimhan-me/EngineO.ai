@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+// Note: ForbiddenException is used in getLatestForProject for ownership checks
 import { PrismaService } from '../prisma.service';
 import {
   DeoScoreBreakdown,
@@ -71,10 +72,12 @@ export class DeoScoreService {
    *
    * For now, this creates a simple snapshot with a fixed overall score
    * and updates the denormalized current_deo_score fields on Project.
+   *
+   * Note: This method does NOT check ownership - it is intended to be called
+   * from background workers. Ownership should be validated at the API layer.
    */
   async createPlaceholderSnapshotForProject(
     projectId: string,
-    userId: string,
   ): Promise<DeoScoreSnapshotDto> {
     const prisma = this.prisma as any;
 
@@ -84,10 +87,6 @@ export class DeoScoreService {
 
     if (!project) {
       throw new NotFoundException('Project not found');
-    }
-
-    if (project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this project');
     }
 
     const overall = 50; // Placeholder score until real DEO computation is implemented

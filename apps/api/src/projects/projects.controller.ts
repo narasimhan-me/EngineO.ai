@@ -13,7 +13,8 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ProjectsService, CreateProjectDto } from './projects.service';
 import { DeoScoreService } from './deo-score.service';
-import { DeoScoreLatestResponse } from '@engineo/shared';
+import { DeoScoreLatestResponse, DeoScoreJobPayload } from '@engineo/shared';
+import { deoScoreQueue } from '../queues/queues';
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard)
@@ -90,5 +91,27 @@ export class ProjectsController {
     @Param('id') projectId: string,
   ): Promise<DeoScoreLatestResponse> {
     return this.deoScoreService.getLatestForProject(projectId, req.user.id);
+  }
+
+  /**
+   * POST /projects/:id/deo-score/recompute
+   * Enqueues a DEO score recompute job for the project
+   */
+  @Post(':id/deo-score/recompute')
+  async recomputeDeoScore(
+    @Request() req: any,
+    @Param('id') projectId: string,
+  ): Promise<{ projectId: string; enqueued: true }> {
+    const userId = (req as any).user?.id ?? null;
+
+    const payload: DeoScoreJobPayload = {
+      projectId,
+      triggeredByUserId: userId,
+      reason: 'manual',
+    };
+
+    await deoScoreQueue.add('deo_score_recompute', payload);
+
+    return { projectId, enqueued: true };
   }
 }

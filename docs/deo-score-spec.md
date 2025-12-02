@@ -40,7 +40,22 @@ The `Project` model stores a denormalized `currentDeoScore` and `currentDeoScore
 Future endpoints (later phases):
 
 - `GET /projects/:projectId/deo-score/history`
-- `POST /projects/:projectId/deo-score/recompute`
+
+## Recompute (Phase 2.1)
+
+- **POST /projects/:projectId/deo-score/recompute**
+  - Enqueues a DEO Score job into `deo_score_queue`.
+  - Payload: `DeoScoreJobPayload` (shared type).
+  - Response: `{ "projectId": string, "enqueued": true }`.
+
+## Worker Pipeline
+
+A worker listens on `deo_score_queue` and invokes:
+
+- `DeoScoreService.createPlaceholderSnapshotForProject(projectId)`
+
+In Phase 2.1 this uses placeholder scoring logic (e.g., fixed overall score of 50/100).
+Future phases will replace this with the real scoring engine that aggregates content, entity, technical, and visibility signals.
 
 ## Computation (Placeholder in Phase 2.0)
 
