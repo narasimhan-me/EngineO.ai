@@ -2137,12 +2137,24 @@ Use this snapshot and denormalized score wherever DEO Score is displayed (dashbo
 - Updated the worker pipeline to run the v1 scoring engine instead of placeholder logic.
 - Updated `GET /projects/:id/deo-score` behavior and `docs/deo-score-spec.md` with v1 scoring formulas and flow.
 
-**Phase 2.3 – Follow-Up Tasks**
+**Phase 2.3 – Real Signal Extraction (Completed)**
 
-- Replace stub signals with real crawlers, entity extractors, and visibility collectors.
-- Integrate DEO signals with product data, pages, crawl results, and the entity graph.
-- Add a DEO scoring history endpoint (e.g., `GET /projects/:id/deo-score/history`) and connect it to dashboard trend visualizations.
-- Begin implementing per-pillar signal sources (Content, Entities, Technical, Visibility) and add unit/integration tests for the scoring and worker pipeline.
+- Implemented real DEO pillar signals using existing DB data:
+  - Content signals: `contentCoverage`, `contentDepth`, `contentFreshness`.
+  - Technical signals: `crawlHealth`, `indexability`, `coreWebVitals` (placeholder 0.5).
+  - Visibility proto-signals: `serpPresence`, `brandNavigationalStrength`, `answerSurfacePresence`.
+  - Entity proto-signals: `entityCoverage`, heuristic `entityAccuracy`, `entityLinkage`.
+- Updated `DeoSignalsService` to replace stub logic with data-driven heuristics over `CrawlResult` and `Product` tables.
+- Updated the worker pipeline (`DeoScoreProcessor`) to use real signal ingestion (via `collectSignalsForProject`) feeding into the v1 scoring engine (`computeAndPersistScoreFromSignals`).
+- Updated `docs/deo-score-spec.md` with Phase 2.3 heuristic v1 signal definitions, per-pillar heuristics, and the updated worker flow, including the debug endpoint.
+
+**Phase 2.4 – Follow-Up Tasks**
+
+- Integrate real crawling and indexability signals (expanded page fetch and metadata parsing) beyond the current single-page and heuristic assumptions.
+- Replace visibility heuristics with integrations against real visibility sources (e.g., SERP / Google Search Console placeholders) while keeping scope constrained.
+- Begin linking DEO entities to real schema extraction and early entity graph work (Phase 3 dependencies), evolving proto-entity metrics into graph-aware signals.
+- Add a DEO Score history endpoint (e.g., `GET /projects/:id/deo-score/history`) and wire it into dashboard trend visualizations.
+- Prepare for Phase 3.0 Entities by ensuring signals, storage, and worker flows can plug into a real entity graph and more advanced visibility pipelines.
 
 ---
 

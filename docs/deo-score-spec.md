@@ -190,9 +190,88 @@ All signals are hardcoded in `DeoSignalsService`:
 
 With v1 weights, the computed overall score for stub signals is **~60**.
 
-### Phase 2.3+ Plans
+## Phase 2.3 – Real Signal Ingestion (Heuristic v1)
 
-- Integrate real data sources (crawl results, analytics, GSC) into `DeoSignalsService`.
+Phase 2.3 replaces stubbed signals in `DeoSignalsService` with real, heuristic-based signals derived from existing database tables only (no external APIs, no new schema).
+
+### Pillar heuristics
+
+**Content**
+
+- `contentCoverage` – fraction of pages/products that have both a title and description-like field:
+  - Pages: `CrawlResult.title` and `CrawlResult.metaDescription` present.
+  - Products: `(seoTitle ?? title)` and `(seoDescription ?? description)` present.
+- `contentDepth` – average word count across:
+  - `CrawlResult.wordCount` and tokenized `Product.description`,
+  - normalized as `min(avgWordCount / 800, 1)`.
+- `contentFreshness` – average of `1 - min(age / 90 days, 1)` for:
+  - Page age: `now - CrawlResult.scannedAt`
+  - Product age: `now - Product.lastSyncedAt`.
+
+All content signals are normalized to the 0–1 range.
+
+**Technical**
+
+- `crawlHealth` – fraction of crawl results that:
+  - Have HTTP status 2xx/3xx, and
+  - Do not include `HTTP_ERROR` or `FETCH_ERROR` in issues.
+- `indexability` – fraction of crawl results that are:
+  - Considered successful (as above), and
+  - Not marked with `THIN_CONTENT` in issues.
+- `coreWebVitals` – fixed placeholder value `0.5` until real CWV integration.
+
+**Entities (proto)**
+
+- `entityCoverage` – fraction of pages/products with "entity hints":
+  - Pages: both `title` and `h1` present.
+  - Products: `(seoTitle ?? title)` and `(seoDescription ?? description)` present.
+- `entityAccuracy` – heuristic schema/structure quality:
+  - `raw = 1 - (pagesWithStructuralIssues / totalPages)`, where structural issues include:
+    - `MISSING_TITLE`, `MISSING_META_DESCRIPTION`, `MISSING_H1`, `THIN_CONTENT`.
+  - Clamped to `[0.3, 0.9]`; if no pages exist, defaults to `0.5`.
+- `entityLinkage` – simple proxy for internal linkage density:
+  - Uses the same average word count as content depth, normalized as `min(avgWordCount / 1200, 1)`.
+
+These are proto-entity signals and do not represent a full entity graph.
+
+**Visibility (proto)**
+
+- `serpPresence` – fraction of pages/products with SEO metadata:
+  - Pages: `title` and `metaDescription` present.
+  - Products: `(seoTitle ?? title)` and `(seoDescription ?? description)` present.
+- `brandNavigationalStrength` – normalized count of brand-like pages:
+  - Paths matching `/`, `/home`, `/about`, `/contact`, `/pricing`, `/blog`
+  - Score = `min(brandPages / 3, 1)`; 0 pages → 0, 3+ pages → 1.
+- `answerSurfacePresence` – fraction of pages that look "answer-ready":
+  - Successful crawl,
+  - `wordCount >= 400`,
+  - `h1` present.
+
+All visibility signals are normalized 0–1 and based solely on existing `CrawlResult` and `Product` data.
+
+### Worker flow (updated for Phase 2.3)
+
+The DEO Score worker (`DeoScoreProcessor`) now uses real heuristic signals:
+
+1. Reads `projectId` from `DeoScoreJobPayload` on `deo_score_queue`.
+2. Calls `DeoSignalsService.collectSignalsForProject(projectId)` to compute normalized signals (0–1) from:
+   - `CrawlResult` rows for the project.
+   - `Product` rows for the project.
+3. Passes these signals into `DeoScoreService.computeAndPersistScoreFromSignals(projectId, signals)`.
+4. `computeAndPersistScoreFromSignals`:
+   - Validates the project.
+   - Computes component and overall scores via the v1 scoring engine.
+   - Inserts a `DeoScoreSnapshot` row with `version = "v1"`.
+   - Updates `Project.currentDeoScore` and `Project.currentDeoScoreComputedAt`.
+5. Logs success or failure for each recompute, including `projectId` and `snapshotId`.
+
+For debugging, a developer endpoint `GET /projects/:projectId/deo-signals/debug` is available to inspect the current normalized signal values for a project.
+
+Full-fidelity signals (including real entity graph and external visibility integrations) are deferred to later phases (Phase 3 and 4).
+
+### Phase 2.4+ Plans
+
 - Allow per-project signal overrides and custom weighting.
 - Add signal freshness tracking and staleness detection.
+- Integrate external data sources (GSC, Analytics) for visibility signals.
 

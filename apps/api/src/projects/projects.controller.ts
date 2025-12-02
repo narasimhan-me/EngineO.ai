@@ -12,8 +12,12 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ProjectsService, CreateProjectDto } from './projects.service';
-import { DeoScoreService } from './deo-score.service';
-import { DeoScoreLatestResponse, DeoScoreJobPayload } from '@engineo/shared';
+import { DeoScoreService, DeoSignalsService } from './deo-score.service';
+import {
+  DeoScoreLatestResponse,
+  DeoScoreJobPayload,
+  DeoScoreSignals,
+} from '@engineo/shared';
 import { deoScoreQueue } from '../queues/queues';
 
 @Controller('projects')
@@ -22,6 +26,7 @@ export class ProjectsController {
   constructor(
     private readonly projectsService: ProjectsService,
     private readonly deoScoreService: DeoScoreService,
+    private readonly deoSignalsService: DeoSignalsService,
   ) {}
 
   /**
@@ -91,6 +96,20 @@ export class ProjectsController {
     @Param('id') projectId: string,
   ): Promise<DeoScoreLatestResponse> {
     return this.deoScoreService.getLatestForProject(projectId, req.user.id);
+  }
+
+  /**
+   * GET /projects/:id/deo-signals/debug
+   * Returns heuristic DEO signals for a project (developer/debug only).
+   */
+  @Get(':id/deo-signals/debug')
+  async getDeoSignalsDebug(
+    @Request() req: any,
+    @Param('id') projectId: string,
+  ): Promise<DeoScoreSignals> {
+    // Reuse existing ownership validation
+    await this.projectsService.getProject(projectId, req.user.id);
+    return this.deoSignalsService.collectSignalsForProject(projectId);
   }
 
   /**
