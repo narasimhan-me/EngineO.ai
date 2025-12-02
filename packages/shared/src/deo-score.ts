@@ -43,3 +43,17 @@ export type DeoScoreSignals = {
   brandNavigationalStrength?: number | null; // 0–1, brand queries success
 };
 
+/**
+ * Returns a placeholder DEO score breakdown.
+ * Used in Phase 2.0 before real signal-based computation is implemented.
+ */
+export function computePlaceholderDeoScore(): DeoScoreBreakdown {
+  return {
+    overall: 50,
+    content: null,
+    entities: null,
+    technical: null,
+    visibility: null,
+  };
+}
+

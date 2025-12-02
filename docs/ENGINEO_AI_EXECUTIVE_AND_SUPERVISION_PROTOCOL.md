@@ -272,6 +272,24 @@ Your rules:
    - Full updated file
 5. NEVER rewrite, improve, refactor, or reorder any text.
 6. Maintain markdown structure & spacing exactly.
+7. After completing all edits, you MUST append a section titled **"Manual Testing Steps"**.
+
+In this section, outline simple, clear manual steps the human founder can take to validate the patch. These steps must:
+- Be specific to the change applied
+- Mention the file name(s) involved
+- Reference exact lines/sections to visually confirm
+- Suggest any commands needed (e.g., build, typecheck)
+- Avoid introducing new scope or changes
+
+Example:
+
+### Manual Testing Steps
+1. Open the edited file and verify the inserted block appears directly below the anchor phrase.
+2. Run `pnpm --filter api build` to confirm there are no TypeScript errors.
+3. If the file affects frontend UI, navigate to the impacted page in the browser and visually confirm behavior.
+4. Confirm formatting and spacing match expectations.
+
+You MUST provide this section after every patch application.
 ```
 
 ---

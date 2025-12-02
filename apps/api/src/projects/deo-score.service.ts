@@ -7,6 +7,7 @@ import {
   DeoScoreSignals,
   DeoScoreSnapshot as DeoScoreSnapshotDto,
   computeDeoScoreFromSignals,
+  computePlaceholderDeoScore,
 } from '@engineo/shared';
 
 @Injectable()
@@ -32,10 +33,18 @@ export class DeoScoreService {
       throw new ForbiddenException('You do not have access to this project');
     }
 
-    const snapshot = await prisma.deoScoreSnapshot.findFirst({
+    let snapshot = await prisma.deoScoreSnapshot.findFirst({
       where: { projectId },
       orderBy: { computedAt: 'desc' },
     });
+
+    // Auto-create placeholder snapshot if none exists
+    if (!snapshot) {
+      const created = await this.createPlaceholderSnapshotForProject(projectId);
+      snapshot = await prisma.deoScoreSnapshot.findUnique({
+        where: { id: created.id },
+      });
+    }
 
     if (!snapshot) {
       return {
@@ -91,18 +100,18 @@ export class DeoScoreService {
       throw new NotFoundException('Project not found');
     }
 
-    const overall = 50; // Placeholder score until real DEO computation is implemented
+    const breakdown = computePlaceholderDeoScore();
     const now = new Date();
 
     const created = await prisma.deoScoreSnapshot.create({
       data: {
         projectId,
-        overallScore: overall,
-        contentScore: null,
-        entityScore: null,
-        technicalScore: null,
-        visibilityScore: null,
-        version: 'v1',
+        overallScore: breakdown.overall,
+        contentScore: breakdown.content ?? null,
+        entityScore: breakdown.entities ?? null,
+        technicalScore: breakdown.technical ?? null,
+        visibilityScore: breakdown.visibility ?? null,
+        version: DEO_SCORE_VERSION,
         metadata: {},
         computedAt: now,
       },
@@ -111,18 +120,10 @@ export class DeoScoreService {
     await prisma.project.update({
       where: { id: projectId },
       data: {
-        currentDeoScore: overall,
+        currentDeoScore: breakdown.overall,
         currentDeoScoreComputedAt: now,
       },
     });
-
-    const breakdown: DeoScoreBreakdown = {
-      overall,
-      content: created.contentScore,
-      entities: created.entityScore,
-      technical: created.technicalScore,
-      visibility: created.visibilityScore,
-    };
 
     return {
       id: created.id,

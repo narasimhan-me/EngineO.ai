@@ -22,6 +22,7 @@ export default function ProjectsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProject, setNewProject] = useState({ name: '', domain: '' });
   const [creating, setCreating] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -29,6 +30,7 @@ export default function ProjectsPage() {
       return;
     }
 
+    setAuthChecked(true);
     fetchProjects();
   }, [router]);
 
@@ -76,7 +78,8 @@ export default function ProjectsPage() {
     }
   };
 
-  if (loading) {
+  // Don't render anything until auth is checked - prevents flash of content before redirect
+  if (!authChecked || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-gray-600">Loading...</div>

@@ -59,13 +59,17 @@ Future phases will replace this with the real scoring engine that aggregates con
 
 ## Computation (Placeholder in Phase 2.0)
 
-In Phase 2.0, DEO Score computation is a placeholder. The current phase only defines:
+In Phase 2.0, DEO Score uses a placeholder scoring function:
 
-- Data model
-- API response shape
-- Service entry points for workers
+- **`computePlaceholderDeoScore()`** (shared package) returns:
+  - `overall: 50`
+  - `content`, `entities`, `technical`, `visibility`: `null`
 
-The actual scoring logic, signal weighting, and pipeline integration will be implemented in later Phase 2.x steps.
+- **getLatestForProject** auto-creates a placeholder snapshot if none exists.
+
+- **createPlaceholderSnapshotForProject** calls the shared helper and persists the breakdown.
+
+In later Phase 2.x steps, the placeholder will be replaced by signal-based scoring using `computeDeoScoreFromSignals()`.
 
 ## Scoring Model (v1)
 
