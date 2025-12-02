@@ -87,7 +87,7 @@ In production, Redis is provided by Render's managed Redis service or an externa
 | Branch | `main` |
 | Region | Same as Redis |
 | Build Command | `pnpm install && pnpm --filter api build` |
-| Start Command | `node apps/api/dist/worker-main.js` |
+| Start Command | `node apps/api/dist/apps/api/src/worker-main.js` |
 
 4. Add Environment Variables (same as API service, plus Redis):
 
@@ -195,7 +195,7 @@ The worker connects to Redis using the same `redisConfig` URL and prefix.
 - Ensures that any workers registered via Nest modules (e.g., `DeoScoreProcessor`) are initialized and can consume jobs from Redis.
 - Intended to be used as the entrypoint for Render's background worker:
   ```bash
-  node dist/apps/api/worker-main.js
+  node dist/apps/api/src/worker-main.js
   ```
 
 ---
