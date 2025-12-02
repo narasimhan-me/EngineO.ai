@@ -2026,7 +2026,7 @@ Stats are computed from `CrawlResult` and `Product` tables.
 
 **`/projects/[id]/page.tsx`**
 - Show project-level cards:
-  - DEO Score and sub-scores (SEO, AEO, PEO, VEO)
+  - DEO Score and sub-scores (Content, Entities, Technical, Visibility)
   - Last scan date
   - Number of issues
   - Products synced
@@ -2046,48 +2046,69 @@ To make DEO Score first-class and consistent across the app, introduce a scoring
 Add to `schema.prisma`:
 
 ```prisma
-model DeoScore {
-  id        String   @id @default(cuid())
-  project   Project  @relation(fields: [projectId], references: [id])
-  projectId String
-  period    String   // "daily", "weekly", "overall"
-  seoScore  Int      // 0–100
-  aeoScore  Int      // 0–100
-  peoScore  Int      // 0–100
-  veoScore  Int      // 0–100
-  deoScore  Int      // 0–100 aggregate
-  createdAt DateTime @default(now())
+model DeoScoreSnapshot {
+  id              String   @id @default(cuid())
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId       String
+  overallScore    Int
+  contentScore    Int?
+  entityScore     Int?
+  technicalScore  Int?
+  visibilityScore Int?
+  version         String   @default("v1")
+  metadata        Json?
+  computedAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([projectId, computedAt(sort: Desc)])
+}
+```
+
+Extend Project with denormalized DEO fields:
+
+```prisma
+model Project {
+  // existing fields...
+
+  currentDeoScore           Int?
+  currentDeoScoreComputedAt DateTime?
 }
 ```
 
 #### 7.3.2. Scoring Formula (Initial Version)
 
 ```typescript
-deoScore = round(
-  0.4 * seoScore +
-  0.3 * aeoScore +
-  0.2 * peoScore +
-  0.1 * veoScore
+overallDeoScore = Math.round(
+  0.3 * content +
+  0.25 * entities +
+  0.25 * technical +
+  0.2 * visibility
 )
 ```
 
-- **SEO sub-score** – average page score from CrawlResult & issues (SEO component of the overall DEO Score).
-- **AEO score** – based on presence of FAQ, entities, and schema on key URLs.
-- **PEO score** – % of products with SEO metadata applied.
-- **VEO score** – 0/50/100 depending on video coverage (see Phase 30 — AI Video & Social Content Engine).
+- **Content** – answer-ready content quality (coverage, depth, freshness).
+- **Entities** – coverage, correctness, and schema linkage for key entities.
+- **Technical** – crawl health, indexability, and Core Web Vitals.
+- **Visibility** – SEO/AEO/PEO/VEO presence and brand navigational strength.
+
+These weights and components are defined in `docs/deo-score-spec.md` and implemented in `packages/shared/src/deo-score-config.ts` / `deo-score-engine.ts` (`DEO_SCORE_WEIGHTS`, `DeoScoreComponents`).
 
 #### 7.3.3. Aggregation Job
-A daily job in `reporting_queue` should:
+A worker-based aggregation flow should:
 
-- For each project, compute seo/aeo/peo/veo scores.
-- Calculate deoScore using the formula above.
-- Insert a DeoScore row with period = "daily".
+- Use `deo_score_queue` to process recompute jobs (manual triggers and scheduled runs).
+- For each project, gather DEO signals (later Phase 2.x+).
+- Compute component scores (content, entities, technical, visibility) and the overall DEO Score.
+- Insert a `DeoScoreSnapshot` row for each computation.
+- Update `Project.currentDeoScore` and `Project.currentDeoScoreComputedAt` for fast access.
 
-Add endpoint:
+API endpoints:
 
-- `GET /projects/:id/deo-score/current` → latest row for project.
+- `GET /projects/:id/deo-score` → latest snapshot and breakdown for the project.
+- (Later phase) `GET /projects/:id/deo-score/history` → historical snapshots for trend charts.
 
-Use this wherever DEO Score is displayed (dashboard cards, sidebar header).
+Use this snapshot and denormalized score wherever DEO Score is displayed (dashboard cards, sidebar header).
 ---
 
 # PHASE 8 — Two-Factor Authentication (2FA)
