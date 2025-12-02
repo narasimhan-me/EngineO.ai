@@ -1,10 +1,12 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-// Note: ForbiddenException is used in getLatestForProject for ownership checks
 import { PrismaService } from '../prisma.service';
 import {
+  DEO_SCORE_VERSION,
   DeoScoreBreakdown,
   DeoScoreLatestResponse,
+  DeoScoreSignals,
   DeoScoreSnapshot as DeoScoreSnapshotDto,
+  computeDeoScoreFromSignals,
 } from '@engineo/shared';
 
 @Injectable()
@@ -130,5 +132,26 @@ export class DeoScoreService {
       breakdown,
       metadata: (created.metadata as Record<string, unknown> | null) ?? undefined,
     };
+  }
+
+  /**
+   * Compute DEO score breakdown from normalized signals.
+   *
+   * This method is not yet used in production flows; it exists to define
+   * the contract for future phases where real signals will be passed in.
+   */
+  async computeAndPersistScoreFromSignals(
+    projectId: string,
+    signals: DeoScoreSignals,
+  ): Promise<DeoScoreBreakdown> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const version = DEO_SCORE_VERSION;
+    const breakdown = computeDeoScoreFromSignals(signals);
+
+    // TODO (future phase): persist using the same path as createPlaceholderSnapshotForProject:
+    // - Insert a DeoScoreSnapshot row
+    // - Update Project.currentDeoScore / currentDeoScoreComputedAt
+
+    return breakdown;
   }
 }

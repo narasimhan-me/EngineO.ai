@@ -37,3 +37,7 @@ export * from './deo-score';
 
 // DEO job types
 export * from './deo-jobs';
+
+// DEO score config and engine
+export * from './deo-score-config';
+export * from './deo-score-engine';

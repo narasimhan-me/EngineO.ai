@@ -67,3 +67,68 @@ In Phase 2.0, DEO Score computation is a placeholder. The current phase only def
 
 The actual scoring logic, signal weighting, and pipeline integration will be implemented in later Phase 2.x steps.
 
+## Scoring Model (v1)
+
+DEO Score v1 is a weighted combination of four component scores (0–100):
+
+- **Content**
+- **Entities**
+- **Technical**
+- **Visibility (SEO/AEO/PEO/VEO)**
+
+These component scores are computed from normalized signals (`DeoScoreSignals`), where each signal is typically in the range 0–1.
+
+### Components
+
+**Content**
+
+- Inputs (examples):
+  - `contentCoverage` – how many critical intents are covered
+  - `contentDepth` – quality and completeness of answers
+  - `contentFreshness` – recency of key content
+- Score: average of available inputs, normalized 0–100.
+
+**Entities**
+
+- Inputs (examples):
+  - `entityCoverage` – coverage of key entities
+  - `entityAccuracy` – correctness of facts and schemas
+  - `entityLinkage` – internal cross-linking and schema connections
+- Score: average of available inputs, normalized 0–100.
+
+**Technical**
+
+- Inputs (examples):
+  - `crawlHealth` – crawl success rate and errors
+  - `coreWebVitals` – weighted LCP/FID/CLS
+  - `indexability` – indexability of critical URLs
+- Score: average of available inputs, normalized 0–100.
+
+**Visibility**
+
+- Inputs (examples):
+  - `serpPresence` – presence in organic results/snippets
+  - `answerSurfacePresence` – presence in AI/assistant responses
+  - `brandNavigationalStrength` – success on brand queries
+- Score: average of available inputs, normalized 0–100.
+
+### Weights
+
+The overall DEO Score is a weighted sum of the components, using:
+
+- Content: **30%**
+- Entities: **25%**
+- Technical: **25%**
+- Visibility: **20%**
+
+Weights are defined in shared config (`DEO_SCORE_WEIGHTS`) and can be tuned in future versions.
+
+### Versioning
+
+- Current scoring version: `DEO_SCORE_VERSION = "v1"`.
+- Stored in `deo_score_snapshots.version`.
+- Future scoring versions (v2, v3, …) must:
+  - Keep the same snapshot table
+  - Evolve `DeoScoreSignals`
+  - Update weight/aggregation logic behind a new version constant.
+
