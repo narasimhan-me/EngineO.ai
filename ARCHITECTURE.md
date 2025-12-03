@@ -85,6 +85,8 @@ EngineO.ai uses a modern, cloud‑native infrastructure optimized for scale, cos
   - Incremental static regeneration
   - Fast static asset CDN
   - Automatic SSL
+  - Production domain: `app.engineo.ai` (Vercel project, e.g. `engineo-web`)
+  - Staging domain: `staging.engineo.ai` (Preview/Preview-Staging environment)
 
 #### Backend API (NestJS)
 - **Render Web Service**
@@ -132,7 +134,8 @@ EngineO.ai uses a modern, cloud‑native infrastructure optimized for scale, cos
 
 ### Infra Summary Diagram (Text)
 
-- Vercel → Next.js frontend  
+- Cloudflare → routes `app.engineo.ai` / `staging.engineo.ai` to Vercel  
+- Vercel → Next.js frontend (marketing + app)  
 - Render → NestJS API  
 - Render → Background Worker  
 - Render → Cron Jobs  
@@ -147,11 +150,12 @@ EngineO.ai uses a modern, cloud‑native infrastructure optimized for scale, cos
 
 ```mermaid
 graph TD
-    A[Browser / Client] --> B[Next.js 14 Frontend]
-    B --> C[NestJS HTTP API]
+    A[Browser / Client] --> CF[Cloudflare DNS + WAF]
+    CF --> B[Next.js 14 Frontend (Vercel<br/>app.engineo.ai / staging.engineo.ai)]
+    B --> C[NestJS HTTP API (Render)]
     
     C --> D[(PostgreSQL - Neon)]
-    C --> E[(Redis - Cache & Queues)]
+    C --> E[(Redis - Upstash Queues)]
     C --> F[AI Providers]
     C --> G[E-commerce Platforms]
     C --> H[Other Integrations]
