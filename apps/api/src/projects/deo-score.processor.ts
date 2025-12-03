@@ -15,6 +15,12 @@ export class DeoScoreProcessor implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit() {
+    // Skip worker initialization if Redis is not configured
+    if (!redisConfig.isEnabled || !redisConfig.connection) {
+      console.warn('[DeoScoreProcessor] Redis not configured - worker disabled');
+      return;
+    }
+
     this.worker = new Worker<DeoScoreJobPayload, DeoScoreJobResult>(
       'deo_score_queue',
       async (job: Job<DeoScoreJobPayload>): Promise<DeoScoreJobResult> => {
@@ -45,9 +51,7 @@ export class DeoScoreProcessor implements OnModuleInit, OnModuleDestroy {
         }
       },
       {
-        connection: {
-          url: redisConfig.url,
-        },
+        connection: redisConfig.connection,
         prefix: redisConfig.prefix,
       },
     );

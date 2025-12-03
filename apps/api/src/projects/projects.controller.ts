@@ -120,10 +120,19 @@ export class ProjectsController {
   async recomputeDeoScore(
     @Request() req: any,
     @Param('id') projectId: string,
-  ): Promise<{ projectId: string; enqueued: true }> {
+  ): Promise<{ projectId: string; enqueued: boolean; message?: string }> {
     const userId = (req as any).user?.id ?? null;
     // Validate project ownership before enqueueing
     await this.projectsService.getProject(projectId, userId);
+
+    // Check if queue is available (Redis configured)
+    if (!deoScoreQueue) {
+      return {
+        projectId,
+        enqueued: false,
+        message: 'Queue functionality unavailable - Redis not configured',
+      };
+    }
 
     const payload: DeoScoreJobPayload = {
       projectId,
