@@ -1414,7 +1414,7 @@ If you'd like, next step I can:
 
 ---
 
-## Phase R0 — Redis Infrastructure (Render) — Planned
+## Phase R0 — Redis Infrastructure (Upstash) — Planned
 
 Redis is required for all asynchronous pipelines in EngineO.ai including:
 - DEO Score recomputation jobs
@@ -1423,30 +1423,33 @@ Redis is required for all asynchronous pipelines in EngineO.ai including:
 - Answer-ready content generation (Phase 4+)
 - Future rate-limiting + billing guardrails
 
-This phase introduces Redis into the EngineO infrastructure using a managed Redis instance on Render, plus a matching local development setup.
+This phase introduces Redis into the EngineO infrastructure using **Upstash serverless Redis** for production and a matching local development setup via Docker.
 
 ### Goals of This Phase
 
-1. Provision a production-grade Redis instance on Render.
-2. Add a local Redis environment via Docker.
-3. Create a shared Redis provider (ioredis) for the NestJS API and worker.
-4. Configure BullMQ queues (e.g., deo_score_queue) to use the shared Redis connection.
-5. Update worker runtime to use Redis for job processing.
+1. Provision a production-grade, serverless Redis database on Upstash.
+2. Add a local Redis environment via Docker that mirrors the Upstash configuration.
+3. Create a shared Redis provider (ioredis) for the NestJS API and worker, using the Upstash TLS connection string.
+4. Configure BullMQ queues (e.g., `deo_score_queue`) to use the shared Redis connection.
+5. Update worker runtime to use Redis for job processing (via the same Upstash-backed `REDIS_URL`).
 6. Prepare for future Redis-backed queues in Phases 2.4, 3.0, and 4.0.
 
 ### Deliverables
 
-#### 1. Provision Redis on Render
-- Create a Redis instance using Render's managed Redis add-on.
-- Obtain the connection string:
-  ```
-  REDIS_URL=redis://default:<password>@<host>:<port>
+#### 1. Provision Redis on Upstash
+- Create an Upstash Redis database from the [Upstash dashboard](https://console.upstash.com/).
+- In the database view, copy:
+  - `UPSTASH_REDIS_URL` (Redis TLS URL, e.g. `rediss://default:<password>@<host>.upstash.io:6379`)
+  - `UPSTASH_REDIS_REST_URL` (REST URL – not used for BullMQ, but may be useful for future serverless tasks)
+- Set the application connection string using the TLS URL:
+  ```env
+  REDIS_URL=<UPSTASH_REDIS_URL>
   ```
 - Add `REDIS_URL` to:
-  - API service environment
-  - Worker service environment
+  - Render API service environment
+  - Render worker service environment
 
-#### 2. Local Development Redis
+#### 2. Local Development Redis (mirrors Upstash)
 - Add a Docker Compose file:
   ```yaml
   version: "3.8"
@@ -1459,12 +1462,13 @@ This phase introduces Redis into the EngineO infrastructure using a managed Redi
       command: ["redis-server", "--appendonly", "no"]
   ```
 - Add `REDIS_URL=redis://localhost:6379` to `.env.development` and `.env.test`.
+- Note in docs that local Redis is a drop-in replacement for Upstash: the same `REDIS_URL` environment variable is used, but points to `localhost` instead of the Upstash TLS endpoint.
 
 #### 3. Redis Integration Module (API)
 - Implement a `RedisClient` using ioredis.
 - Add `RedisModule` that:
-  - Provides the Redis connection
-  - Ensures lifecycle cleanup
+  - Provides the Redis connection using `process.env.REDIS_URL` (Upstash TLS URL in production; `redis://localhost:6379` in local/dev).
+  - Ensures lifecycle cleanup.
 
 #### 4. BullMQ Queue Integration
 - Update `deo_score_queue` (Phase 2.1+) to use Redis via `RedisClient`.
@@ -1472,7 +1476,7 @@ This phase introduces Redis into the EngineO infrastructure using a managed Redi
 
 #### 5. Worker Runtime
 - Update worker entrypoint to:
-  - Load `REDIS_URL`
+  - Load `REDIS_URL` (Upstash TLS URL in production; local Redis in development).
   - Instantiate BullMQ Worker + QueueEvents
   - Process DEO Score jobs
   - Log job completion/failures
@@ -1483,14 +1487,15 @@ This phase introduces Redis into the EngineO infrastructure using a managed Redi
 ### Outcomes
 
 After Phase R0:
-- Redis will be fully provisioned for local + production environments.
-- API and workers will share a unified Redis connection.
+- Redis will be fully provisioned for local + production environments, with **Upstash Redis** as the managed production provider.
+- API and workers will share a unified Redis connection string (`REDIS_URL=<UPSTASH_TLS_URL>`).
 - DEO Score pipelines operate via a durable queue instead of in-process logic.
 - Infrastructure is ready for:
   - Phase 2.4: Crawl/indexability jobs
   - Phase 3.0: Entity extraction pipeline
   - Phase 4.0: Answer-ready content generation
   - Phase 10: Billing/rate-limiting
+  - Future Upstash-backed queues and caching workloads.
 
 ### Follow-Up Tasks After R0
 
@@ -3446,14 +3451,14 @@ Even though Neon manages backups, we'll also create our own periodic logical dum
 
 - **Queue library:** BullMQ  
 - **Backend worker runtime:** Node + NestJS (separate worker process)  
-- **Broker:** Redis (managed, e.g. Upstash or Render Redis)  
+- **Broker:** Redis (managed, via Upstash serverless Redis)  
 - **Deployment:** Independent worker service on Render (`engineo-worker`) using the same codebase as `apps/api` but with a worker entrypoint.
 
 ### 11.5.2. Redis Configuration
 
 Add env vars (both API and worker):
 
-- `REDIS_URL=redis://...`
+- `REDIS_URL=<UPSTASH_TLS_URL>` (e.g. `rediss://default:<password>@<host>.upstash.io:6379`)
 - `REDIS_TLS=true|false`
 - Optional: `REDIS_PREFIX=engineo`
 

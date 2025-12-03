@@ -10,7 +10,7 @@ This guide provides detailed step-by-step instructions for deploying the EngineO
 - [ ] Render account created at [render.com](https://render.com)
 - [ ] GitHub account connected to Render
 - [ ] Neon PostgreSQL database created (see [DEPLOYMENT.md](./DEPLOYMENT.md) for Neon setup)
-- [ ] Redis instance created (optional, but required for background job queues)
+- [ ] Upstash Redis database created (optional, but required for background job queues)
 
 ---
 
@@ -34,13 +34,13 @@ This guide provides detailed step-by-step instructions for deploying the EngineO
 
 ## Step 3: Configure Web Service Settings
 
-### Basic Configuration
+### Basic Configuration (Production)
 
 | Setting | Value | Notes |
 |---------|-------|-------|
 | **Name** | `engineo-api` | Or any name you prefer |
 | **Region** | Same as Neon database (e.g., `Oregon (US West)`) | Reduces latency |
-| **Branch** | `main` | Or your production branch |
+| **Branch** | `main` | Production branch |
 | **Root Directory** | _(leave blank)_ | Uses repo root |
 | **Runtime** | `Node` | Should auto-detect |
 | **Node Version** | `20` | Required: Node.js 20+ |
@@ -59,7 +59,7 @@ pnpm --filter api start:prod
 
 ### Verify Build Settings
 
-Your configuration should look like:
+Your production configuration should look like:
 
 ```
 Name: engineo-api
@@ -71,6 +71,15 @@ Node Version: 20
 Build Command: pnpm install && pnpm --filter api build
 Start Command: pnpm --filter api start:prod
 ```
+
+### Staging Web Service (develop)
+
+To add a dedicated staging API:
+
+1. Create a second Web Service (e.g., `engineo-api-staging`)
+2. Use the same build and start commands
+3. Set **Branch** to `develop`
+4. Point `DATABASE_URL`, `REDIS_URL`, and URLs (`SHOPIFY_APP_URL`, `FRONTEND_URL`) to your staging resources (for example, `https://api-staging.engineo.ai`, `https://staging.engineo.ai`)
 
 ---
 
@@ -137,14 +146,14 @@ Required if using CAPTCHA verification:
 
 ### Redis Variables (Optional but Recommended)
 
-Required for background job queues (DEO score computation):
+Required for background job queues (DEO score computation) using **external Upstash Redis**:
 
 | Variable Name | Default | Description | Used In |
 |---------------|---------|-------------|---------|
-| `REDIS_URL` | - | Redis connection URL | `src/config/redis.config.ts`, `src/queues/queues.ts`, `src/projects/deo-score.processor.ts` |
+| `REDIS_URL` | - | Upstash Redis TLS connection URL (`UPSTASH_REDIS_URL`) | `src/config/redis.config.ts`, `src/queues/queues.ts`, `src/projects/deo-score.processor.ts` |
 | `REDIS_PREFIX` | `engineo` | Prefix for Redis keys | `src/config/redis.config.ts` |
 
-**Note:** If `REDIS_URL` is not set, background job queues will not work. You can create a Redis instance in Render or use an external Redis service.
+**Note:** If `REDIS_URL` is not set, background job queues will not work. Render does **not** host Redis directly; EngineO.ai uses an external Upstash Redis database.
 
 ### Stripe Variables (Optional - Phase 10B)
 
@@ -191,7 +200,7 @@ AI_PROVIDER=gemini
 AI_API_KEY=your-ai-api-key
 CAPTCHA_PROVIDER=turnstile
 CAPTCHA_SECRET_KEY=your-turnstile-secret
-REDIS_URL=redis://...
+REDIS_URL=<UPSTASH_TLS_URL>
 REDIS_PREFIX=engineo
 ```
 
@@ -360,32 +369,20 @@ Render automatically deploys on:
 
 ---
 
-## Step 11: Set Up Redis (Optional but Recommended)
+## Step 11: Set Up Redis via Upstash (Optional but Recommended)
 
-If you're using background job queues (DEO score computation), you need Redis:
+If you're using background job queues (DEO score computation), you need an external Redis provider. EngineO.ai uses **Upstash Redis**:
 
-### Option A: Render Redis Instance
-
-1. In Render dashboard, click **New +** → **Redis**
-2. Configure:
-   - **Name**: `engineo-redis`
-   - **Region**: Same as your API service
-   - **Plan**: Free tier available
-3. Copy the **Internal Redis URL**
-4. Add to your API service environment variables:
-   - `REDIS_URL`: The internal Redis URL from Render
+1. In the [Upstash Dashboard](https://console.upstash.com), create a Redis database (or reuse an existing one).
+2. Copy the `UPSTASH_REDIS_URL` value (TLS Redis URL, e.g. `rediss://default:<password>@<host>.upstash.io:6379`).
+3. In your Render API service environment variables, add:
+   - `REDIS_URL`: `UPSTASH_REDIS_URL` value
+   - `REDIS_PREFIX`: `engineo` (optional)
+4. In your Render worker environment variables (if using a background worker), add the same:
+   - `REDIS_URL`: `UPSTASH_REDIS_URL` value
    - `REDIS_PREFIX`: `engineo` (optional)
 
-### Option B: External Redis
-
-If using an external Redis service (e.g., Upstash, Redis Cloud):
-
-1. Get your Redis connection URL
-2. Add to your API service environment variables:
-   - `REDIS_URL`: Your external Redis URL
-   - `REDIS_PREFIX`: `engineo` (optional)
-
-**Note:** Without Redis, background job queues will not work, but the API will still function for other features.
+**Note:** Without Redis, background job queues will not work, but the API will still function for other features. Render no longer manages Redis directly; all Redis traffic goes to Upstash.
 
 ---
 
@@ -461,10 +458,10 @@ If using an external Redis service (e.g., Upstash, Redis Cloud):
 ### Redis Connection Errors
 
 **Solution:**
-1. Verify `REDIS_URL` is set correctly
-2. Check Redis instance is running (if using Render Redis)
-3. Verify network connectivity between services
-4. Check Redis logs for errors
+1. Verify `REDIS_URL` is set correctly (should match your `UPSTASH_REDIS_URL` value)
+2. Check the Upstash Redis database status in the Upstash dashboard
+3. Verify network connectivity between Render and Upstash
+4. Check application logs for Redis connection errors
 
 ### Health Check Failing
 
@@ -603,4 +600,3 @@ After successful deployment:
 ---
 
 **Author:** Narasimhan Mahendrakumar
-

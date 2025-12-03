@@ -113,7 +113,7 @@ EngineO.ai uses a modern, cloud‑native infrastructure optimized for scale, cos
   - High‑performance storage
 
 #### Redis (Cache + Queues)
-- **Upstash Redis** (or Render Redis)
+- **Upstash Redis**
   - Low‑latency queue processing
   - Durable queue storage for BullMQ
   - Global multi‑region availability
@@ -137,7 +137,7 @@ EngineO.ai uses a modern, cloud‑native infrastructure optimized for scale, cos
 - Render → Background Worker  
 - Render → Cron Jobs  
 - Neon → Postgres  
-- Upstash/Render → Redis  
+- Upstash → Redis  
 - S3 → Backups  
 - Cloudflare → DNS + Security  
 
@@ -262,7 +262,7 @@ Redis is used both as a **cache** and as the **backing store for BullMQ job queu
 
 ### 6.1 Redis Deployment
 
-- **Service:** Managed Redis (Render Redis or Upstash Redis)
+- **Service:** Managed Redis (Upstash Redis – serverless, external to Render)
 - **Usage:**
   - BullMQ job queues (primary usage)
   - Short-lived cache entries (optional, e.g., integration status, small lookups)

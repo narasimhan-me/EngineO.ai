@@ -6,7 +6,7 @@ Redis is used as the backbone for EngineO's background processing and queues:
 - Worker processes (DEO Score recompute today; more workers later)
 - Future phases: crawl queues, entity extraction, answer-ready content, and test-track worker tests.
 
-This document describes how to run Redis locally, how it is used in Render, and how the NestJS API integrates with Redis and BullMQ.
+This document describes how to run Redis locally, how it is used in production with **Upstash Redis**, and how the NestJS API integrates with Redis and BullMQ.
 
 ---
 
@@ -50,31 +50,45 @@ REDIS_PREFIX=engineo_test
 
 ---
 
-## 2. Render Production Environment
+## 2. Production Environment – Upstash Redis
 
-In production, Redis is provided by Render's managed Redis service or an external provider like Upstash.
+In production, Redis is provided by **Upstash Redis** (serverless, managed). Render no longer hosts Redis directly; instead, the API and worker connect to an external Upstash endpoint.
 
-### 2.1 Create Redis (Key Value) on Render
+### 2.1 Create Upstash Redis Database
 
-1. Log in to [Render Dashboard](https://dashboard.render.com)
-2. Click **New** → **Key Value** (this is Render's Redis-compatible storage)
+1. Log in to the [Upstash Dashboard](https://console.upstash.com)
+2. Click **Redis** → **Create Database**
 3. Configure:
 
 | Setting | Value |
 |---------|-------|
-| Name | `engineo-redis` |
-| Region | Same as your API (e.g., `Oregon (US West)`) |
-| Plan | `Free` (for development) or `Starter` (for production) |
+| Name | `engineo-redis` (or similar) |
+| Region | Closest to your Render region |
+| TLS | Enabled (default for `rediss://` URLs) |
 
-4. Click **New Key Value Instance**
-5. After creation, go to the instance and copy the **Internal URL**:
-   ```
-   redis://red-xxxxx:6379
-   ```
+4. Create the database
+5. In the database view, locate and copy:
+   - `UPSTASH_REDIS_URL` – Redis TLS URL, e.g.:  
+     `rediss://default:<password>@<host>.upstash.io:6379`  
+   - `UPSTASH_REDIS_REST_URL` – REST URL (not used for BullMQ, but useful for serverless tasks)
 
-> **Note:** Use the **Internal URL** for services in the same region (faster, no egress costs). Use **External URL** only for local development or external access.
+> **Important:** For BullMQ and ioredis, we only use the Redis URL (`UPSTASH_REDIS_URL`). The REST URL is **not** used for job queues.
 
-### 2.2 Create Background Worker on Render
+### 2.2 Map Upstash URL to `REDIS_URL`
+
+To keep the application configuration simple, we use a single environment variable `REDIS_URL` everywhere, set to the Upstash TLS URL:
+
+```env
+REDIS_URL=<UPSTASH_REDIS_URL>
+```
+
+Use this mapping in:
+
+- `.env.production` / `.env` in `apps/api` (if present)
+- Render API service environment
+- Render worker environment
+
+### 2.3 Create Background Worker on Render (Production)
 
 1. Click **New** → **Background Worker**
 2. Connect your GitHub repository
@@ -95,12 +109,12 @@ In production, Redis is provided by Render's managed Redis service or an externa
 |----------|-------|
 | `NODE_ENV` | `production` |
 | `DATABASE_URL` | Your Neon connection string |
-| `REDIS_URL` | Redis Internal URL from step 2.1 |
+| `REDIS_URL` | Upstash Redis URL (`UPSTASH_REDIS_URL`) |
 | `REDIS_PREFIX` | `engineo` |
 
 5. Click **Create Background Worker**
 
-### 2.3 Configure API Service
+### 2.4 Configure API Service (Production)
 
 Add Redis environment variables to your existing `engineo-api` Web Service:
 
@@ -109,28 +123,26 @@ Add Redis environment variables to your existing `engineo-api` Web Service:
 
 | Variable | Value |
 |----------|-------|
-| `REDIS_URL` | Redis Internal URL |
+| `REDIS_URL` | Upstash Redis URL (`UPSTASH_REDIS_URL`) |
 | `REDIS_PREFIX` | `engineo` |
 
 3. Click **Save Changes** (triggers redeploy)
 
-### 2.4 Alternative: Upstash Redis
-
-For serverless Redis with better free tier limits:
-
-1. Create account at [Upstash](https://upstash.com)
-2. Create a new Redis database
-3. Copy the connection URL:
-   ```
-   rediss://default:<password>@<host>.upstash.io:6379
-   ```
-4. Use this URL in both API and Worker environment variables
-
 The existing BullMQ configuration in `apps/api/src/config/redis.config.ts` reads `REDIS_URL` and `REDIS_PREFIX` and passes them to queues and workers.
+
+### 2.5 Staging Environment (develop)
+
+For a staging environment on the `develop` branch:
+
+- Create a separate Upstash Redis database **or** reuse the same database with a different `REDIS_PREFIX` (for example, `engineo_staging`).
+- Create a staging Render Web Service and Background Worker (for example, `engineo-api-staging`, `engineo-worker-staging`) that:
+  - Use `Branch: develop`
+  - Point `REDIS_URL` to the staging Upstash database (or shared database)
+  - Set `REDIS_PREFIX` to a staging-specific prefix to avoid key collisions with production.
 
 ---
 
-## 3. NestJS + BullMQ Integration
+## 3. NestJS + BullMQ Integration (Upstash-Compatible)
 
 Redis is wired into the API and worker runtime via BullMQ.
 
@@ -143,7 +155,7 @@ Redis is wired into the API and worker runtime via BullMQ.
 
 ```typescript
 export const redisConfig = {
-  url: process.env.REDIS_URL!, // must be provided
+  url: process.env.REDIS_URL!, // must be provided (Upstash TLS URL in production)
   prefix: process.env.REDIS_PREFIX ?? 'engineo',
 };
 ```

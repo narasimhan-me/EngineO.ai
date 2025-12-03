@@ -19,9 +19,22 @@ EngineO.ai is a monorepo containing:
 | Database | Neon | Managed PostgreSQL |
 | API | Render | NestJS backend hosting |
 | Web | Vercel | Next.js frontend hosting |
+| Cache/Queues | Upstash Redis | BullMQ queues & caching |
 | DNS/SSL | Cloudflare | Domain management and SSL |
 | Backups | AWS S3 | Periodic database backups |
 | E-commerce | Shopify | Partner app integration |
+
+### Environments – Production vs Staging
+
+EngineO.ai runs two primary environments backed by Git branches:
+
+| Environment | Git branch | API URL (example) | Web URL (example) |
+|------------|------------|-------------------|-------------------|
+| Production | `main`     | `https://api.engineo.ai` | `https://app.engineo.ai` |
+| Staging    | `develop`  | `https://api-staging.engineo.ai` | `https://staging.engineo.ai` |
+
+- Production and staging each have their own Render services, Vercel environment, Neon database (or Neon branch), and Upstash Redis database/prefix.
+- All deployment steps in this guide apply to both environments; use **main** for production and **develop** for staging, with separate URLs and credentials.
 
 > **Note:** Stripe billing (Phase 10B) is optional and can be configured later. This guide focuses on core infrastructure.
 
@@ -47,9 +60,9 @@ EngineO.ai is a monorepo containing:
 
 ---
 
-## 1. Database: Neon (Production Postgres)
+## 1. Database: Neon (Postgres)
 
-### Create Neon Project
+### Create Neon Project (Production)
 
 1. Log in to [Neon Console](https://console.neon.tech)
 2. Click **New Project**
@@ -66,9 +79,9 @@ EngineO.ai is a monorepo containing:
    postgres://USER:PASSWORD@HOST:PORT/DBNAME?sslmode=require
    ```
 
-### Configure Environment
+### Configure Environment (Production)
 
-Add to your API environment (Render dashboard, not committed to git):
+Add to your **production** API environment (Render dashboard, not committed to git):
 
 ```bash
 DATABASE_URL=postgres://USER:PASSWORD@HOST:PORT/DBNAME?sslmode=require
@@ -85,6 +98,21 @@ npx prisma migrate deploy
 
 > **Important:** Use `migrate deploy` for production. The `migrate dev` command is for local development only.
 
+### Staging Database (develop)
+
+For staging, either:
+
+- Create a separate Neon project (e.g., `engineo-staging`) with its own connection string, **or**
+- Use a Neon branch dedicated to staging.
+
+Set a separate `DATABASE_URL` for your staging API service, for example:
+
+```bash
+DATABASE_URL=postgres://USER:PASSWORD@HOST:PORT/STAGING_DB?sslmode=require
+```
+
+Run `npx prisma migrate deploy` against the staging database as well (from the `apps/api` directory), typically after changes are merged into `develop`.
+
 ---
 
 ## 2. API Deployment: Render (NestJS)
@@ -100,7 +128,7 @@ npx prisma migrate deploy
 |---------|-------|
 | Name | `engineo-api` |
 | Region | Same as Neon (e.g., `us-east-1`) |
-| Branch | `main` |
+| Branch | `main` (production) |
 | Root Directory | _(leave blank – repo root)_ |
 | Runtime | Node |
 
@@ -142,6 +170,12 @@ In Render's **Environment** tab, add these variables:
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
 
 > **Security:** Never commit real secrets to version control. Use Render's environment variables dashboard.
+
+For **staging** (`develop` branch), create a separate Render Web Service (for example, `engineo-api-staging`) with:
+
+- `Branch`: `develop`
+- Its own `DATABASE_URL` pointing to the staging Neon database
+- Optional: separate `JWT_SECRET`, `SHOPIFY_APP_URL`, and any other URLs (e.g., `https://api-staging.engineo.ai`, `https://staging.engineo.ai`)
 
 ### Custom Domain
 
@@ -187,8 +221,8 @@ In Vercel's **Settings** → **Environment Variables**, add:
 
 | Variable | Value |
 |----------|-------|
-| `NEXT_PUBLIC_API_URL` | `https://api.engineo.ai` |
-| `NEXT_PUBLIC_APP_URL` | `https://app.engineo.ai` |
+| `NEXT_PUBLIC_API_URL` | `https://api.engineo.ai` (production) |
+| `NEXT_PUBLIC_APP_URL` | `https://app.engineo.ai` (production) |
 | `NEXT_PUBLIC_CAPTCHA_PROVIDER` | `turnstile` |
 | `NEXT_PUBLIC_CAPTCHA_SITE_KEY` | Cloudflare Turnstile site key |
 
@@ -200,6 +234,20 @@ In Vercel's **Settings** → **Environment Variables**, add:
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Google Analytics ID |
 
 > **Note:** You must redeploy after changing environment variables for changes to take effect.
+
+For **staging** (branch `develop`), configure a separate Vercel environment:
+
+- Map the `develop` branch to a preview/staging environment.
+- Set environment variables such as:
+
+  ```bash
+  NEXT_PUBLIC_API_URL=https://api-staging.engineo.ai
+  NEXT_PUBLIC_APP_URL=https://staging.engineo.ai
+  NEXT_PUBLIC_CAPTCHA_PROVIDER=turnstile
+  NEXT_PUBLIC_CAPTCHA_SITE_KEY=<staging-site-key>
+  ```
+
+- Attach a staging domain in Vercel (e.g., `staging.engineo.ai`) and configure DNS in Cloudflare accordingly.
 
 ### Custom Domain
 

@@ -56,8 +56,8 @@ This checklist provides a step-by-step guide to set up the full infrastructure f
 
 ### 3.2 Configure branches  
 - `main` → production  
-- `staging` → staging (optional)  
-- `dev` → development  
+- `develop` → staging  
+- other feature branches → development / preview  
 
 ### 3.3 Copy connection strings  
 Use Neon UI → **Connection Details**.
@@ -120,7 +120,8 @@ GEMINI_API_KEY=<optional>
 ```
 
 ### 5.3 Configure auto-deploy  
-- Trigger on push to `main`
+- Production API: trigger on push to `main`  
+- Staging API: separate service triggering on push to `develop`  
 
 ---
 

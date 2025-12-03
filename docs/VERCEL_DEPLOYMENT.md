@@ -126,11 +126,11 @@ These variables are not currently used in the codebase but may be added in the f
 
 You can set different values for different environments:
 
-- **Production**: Production URLs and keys
-- **Preview**: Preview/staging URLs
+- **Production (main)**: Production URLs and keys (e.g., `https://api.engineo.ai`, `https://app.engineo.ai`)
+- **Staging (develop)**: Staging URLs and keys (e.g., `https://api-staging.engineo.ai`, `https://staging.engineo.ai`)
 - **Development**: Local development URLs
 
-Click the environment dropdown next to each variable to set environment-specific values.
+Click the environment dropdown next to each variable to set environment-specific values. On Vercel, map the `main` branch to Production and the `develop` branch to a staging/preview environment with its own domain.
 
 ### Reference: Environment Variables in Code
 
@@ -223,9 +223,9 @@ Vercel will show you the DNS records to add. Typically:
 
 Vercel automatically deploys on:
 
-- **Push to `main` branch** → Production deployment
-- **Pull requests** → Preview deployments
-- **Other branches** → Preview deployments
+- **Push to `main` branch** → Production deployment (production domain)
+- **Push to `develop` branch** → Staging deployment (staging domain / preview environment)
+- **Pull requests / other branches** → Preview deployments
 
 ### Branch Protection (Optional)
 
@@ -386,4 +386,3 @@ After successful deployment:
 ---
 
 **Author:** Narasimhan Mahendrakumar
-
