@@ -167,6 +167,8 @@ In Render's **Environment** tab, add these variables:
 | `NODE_ENV` | `production` |
 | `PORT` | `3001` |
 | `DATABASE_URL` | Neon connection string |
+| `REDIS_URL` | Upstash Redis TLS URL (`UPSTASH_REDIS_URL`) |
+| `REDIS_PREFIX` | Redis key prefix (e.g., `engineo`) |
 | `JWT_SECRET` | Generate with `openssl rand -base64 32` |
 | `SHOPIFY_API_KEY` | From Shopify Partner Dashboard |
 | `SHOPIFY_API_SECRET` | From Shopify Partner Dashboard |
@@ -189,6 +191,8 @@ For **staging** (`develop` branch), create a separate Render Web Service (for ex
 
 - `Branch`: `develop`
 - Its own `DATABASE_URL` pointing to the staging Neon database
+- Its own `REDIS_URL` (staging Upstash database or shared DB)
+- A distinct `REDIS_PREFIX` (for example, `engineo_staging`)
 - Optional: separate `JWT_SECRET`, `SHOPIFY_APP_URL`, and any other URLs (e.g., `https://api-staging.engineo.ai`, `https://staging.engineo.ai`)
 
 ### Custom Domain
