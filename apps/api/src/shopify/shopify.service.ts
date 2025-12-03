@@ -321,13 +321,24 @@ export class ShopifyService {
 
     const edges = data.data?.products?.edges || [];
 
+    // Log the first product's SEO data for debugging
+    if (edges.length > 0) {
+      const firstNode = edges[0].node;
+      console.log('[Shopify Sync] Sample product SEO data:', {
+        title: firstNode.title,
+        seo: firstNode.seo,
+        hasSeoTitle: !!firstNode.seo?.title,
+        hasSeoDescription: !!firstNode.seo?.description,
+      });
+    }
+
     // Transform GraphQL response to our ShopifyProduct interface
     return edges.map((edge) => {
       const node = edge.node;
       // Extract numeric ID from GraphQL ID (e.g., "gid://shopify/Product/123" -> 123)
       const numericId = parseInt(node.id.split('/').pop() || '0', 10);
 
-      return {
+      const product = {
         id: numericId,
         title: node.title,
         handle: node.handle,
@@ -336,6 +347,8 @@ export class ShopifyService {
         metafields_global_description_tag: node.seo?.description || undefined,
         images: node.images?.edges.map((imgEdge) => ({ src: imgEdge.node.url })),
       };
+
+      return product;
     });
   }
 
