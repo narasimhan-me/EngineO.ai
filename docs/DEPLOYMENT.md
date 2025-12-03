@@ -33,6 +33,20 @@ EngineO.ai runs two primary environments backed by Git branches:
 | Production | `main`     | `https://api.engineo.ai` | `https://app.engineo.ai` |
 | Staging    | `develop`  | `https://api-staging.engineo.ai` | `https://staging.engineo.ai` |
 
+- **Production instances**
+  - Render API service: `engineo-api` (branch `main`, domain `api.engineo.ai`)
+  - Render worker: `engineo-worker` (branch `main`)
+  - Vercel web project: `engineo-web` (Production environment, domain `app.engineo.ai`)
+  - Neon database/project: e.g., `engineo-prod`
+  - Upstash Redis: e.g., database `engineo-redis-prod`, `REDIS_PREFIX=engineo`
+
+- **Staging instances**
+  - Render API service: `engineo-api-staging` (branch `develop`, domain `api-staging.engineo.ai`)
+  - Render worker: `engineo-worker-staging` (branch `develop`)
+  - Vercel web project: `engineo-web` (Preview/Staging environment, domain `staging.engineo.ai`)
+  - Neon database/project or branch: e.g., `engineo-staging`
+  - Upstash Redis: e.g., database `engineo-redis-staging`, `REDIS_PREFIX=engineo_staging`
+
 - Production and staging each have their own Render services, Vercel environment, Neon database (or Neon branch), and Upstash Redis database/prefix.
 - All deployment steps in this guide apply to both environments; use **main** for production and **develop** for staging, with separate URLs and credentials.
 

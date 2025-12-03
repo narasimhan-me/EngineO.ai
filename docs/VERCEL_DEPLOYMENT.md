@@ -4,6 +4,20 @@ This guide provides detailed step-by-step instructions for deploying the EngineO
 
 ---
 
+## Environments – Web Instances
+
+The frontend uses one Vercel project with separate environments:
+
+| Environment | Branch   | Vercel environment | Domain (example)          |
+|------------|----------|--------------------|---------------------------|
+| Production | `main`   | Production         | `https://app.engineo.ai`  |
+| Staging    | `develop`| Preview/Staging    | `https://staging.engineo.ai` |
+
+- Both environments use the same project name (for example, `engineo-web`).
+- Environment variables differ per environment, especially URLs and CAPTCHA keys.
+
+---
+
 ## Prerequisites
 
 - [ ] GitHub repository is set up and pushed (repository: `narasimhan-me/EngineO.ai`)

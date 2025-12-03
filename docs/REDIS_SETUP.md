@@ -62,7 +62,7 @@ In production, Redis is provided by **Upstash Redis** (serverless, managed). Ren
 
 | Setting | Value |
 |---------|-------|
-| Name | `engineo-redis` (or similar) |
+| Name | `engineo-redis-prod` (production) / `engineo-redis-staging` (staging) |
 | Region | Closest to your Render region |
 | TLS | Enabled (default for `rediss://` URLs) |
 

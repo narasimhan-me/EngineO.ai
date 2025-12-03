@@ -4,6 +4,24 @@ This guide provides detailed step-by-step instructions for deploying the EngineO
 
 ---
 
+## Environments – API Instances
+
+Render hosts separate instances for production and staging:
+
+| Environment | Service name           | Branch   | Base URL (example)              |
+|------------|------------------------|---------|---------------------------------|
+| Production | `engineo-api`          | `main`  | `https://api.engineo.ai`        |
+| Staging    | `engineo-api-staging`  | `develop` | `https://api-staging.engineo.ai` |
+
+Background workers follow the same pattern:
+
+- Production worker: `engineo-worker` (branch `main`)
+- Staging worker: `engineo-worker-staging` (branch `develop`)
+
+The rest of this guide walks through configuring these services.
+
+---
+
 ## Prerequisites
 
 - [ ] GitHub repository is set up and pushed (repository: `narasimhan-me/EngineO.ai`)
@@ -203,6 +221,18 @@ CAPTCHA_SECRET_KEY=your-turnstile-secret
 REDIS_URL=<UPSTASH_TLS_URL>
 REDIS_PREFIX=engineo
 ```
+
+#### Staging-Specific Values (engineo-api-staging)
+
+For the staging API service (`engineo-api-staging`, branch `develop`):
+
+- `DATABASE_URL`: staging Neon database URL (separate from production)
+- `SHOPIFY_APP_URL`: `https://api-staging.engineo.ai`
+- `FRONTEND_URL`: `https://staging.engineo.ai`
+- `REDIS_URL`: staging Upstash Redis URL (or same DB with a different prefix)
+- `REDIS_PREFIX`: `engineo_staging`
+
+All other variables (e.g., `NODE_ENV`, `AI_PROVIDER`, `CAPTCHA_PROVIDER`) normally mirror production but can be customized if needed.
 
 ### Environment-Specific Variables
 
