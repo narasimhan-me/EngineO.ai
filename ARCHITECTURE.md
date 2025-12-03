@@ -88,6 +88,33 @@ EngineO.ai uses a modern, cloud‑native infrastructure optimized for scale, cos
   - Production domain: `app.engineo.ai` (Vercel project, e.g. `engineo-web`)
   - Staging domain: `staging.engineo.ai` (Preview/Preview-Staging environment)
 
+**Deployment summary for `app.engineo.ai`:**
+
+- Use a single Vercel project (for example, `engineo-web`) with:
+  - **Root Directory:** `apps/web`
+  - **Build Command:** `pnpm install && pnpm --filter web build`
+  - **Output Directory:** `.next`
+  - **Install Command:** `pnpm install`
+- Configure environments:
+  - **Production (branch `main`):**
+    - `NEXT_PUBLIC_API_URL=https://api.engineo.ai`
+    - `NEXT_PUBLIC_APP_URL=https://app.engineo.ai`
+    - `NEXT_PUBLIC_CAPTCHA_PROVIDER=turnstile`
+    - `NEXT_PUBLIC_CAPTCHA_SITE_KEY=<prod-site-key>`
+  - **Staging (branch `develop`):**
+    - `NEXT_PUBLIC_API_URL=https://staging-api.engineo.ai`
+    - `NEXT_PUBLIC_APP_URL=https://staging.engineo.ai`
+    - `NEXT_PUBLIC_CAPTCHA_PROVIDER=turnstile`
+    - `NEXT_PUBLIC_CAPTCHA_SITE_KEY=<staging-site-key>`
+- Attach domains:
+  - In Vercel: add `app.engineo.ai` (production) and `staging.engineo.ai` (staging).
+  - In Cloudflare DNS:
+    - `CNAME app →` Vercel’s provided target (proxied).
+    - `CNAME staging →` Vercel’s provided staging/preview target (proxied).
+- On each push:
+  - `main` → deploys to `app.engineo.ai`.
+  - `develop` → deploys to `staging.engineo.ai`.
+
 #### Backend API (NestJS)
 - **Render Web Service**
   - Autoscaling stateless HTTP service
@@ -151,21 +178,21 @@ EngineO.ai uses a modern, cloud‑native infrastructure optimized for scale, cos
 ```mermaid
 graph TD
     A[Browser / Client] --> CF[Cloudflare DNS + WAF]
-    CF --> B[Next.js 14 Frontend (Vercel<br/>app.engineo.ai / staging.engineo.ai)]
-    B --> C[NestJS HTTP API (Render)]
-    
+    CF --> B["Next.js 14 Frontend (Vercel)"]
+    B --> C[NestJS HTTP API - Render]
+
     C --> D[(PostgreSQL - Neon)]
     C --> E[(Redis - Upstash Queues)]
     C --> F[AI Providers]
     C --> G[E-commerce Platforms]
     C --> H[Other Integrations]
-    
+
     E --> W[NestJS Worker Service]
     W --> D
     W --> F
     W --> G
     W --> H
-    
+
     G --> G1[Shopify Admin API]
     G --> G2[WooCommerce REST API]
     G --> G3[BigCommerce API]
