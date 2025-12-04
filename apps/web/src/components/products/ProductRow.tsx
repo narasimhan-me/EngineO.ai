@@ -1,10 +1,8 @@
 import { useState, type MouseEvent } from 'react';
 import Image from 'next/image';
 
-import type { Product } from '@/lib/products';
+import type { Product, ProductStatus } from '@/lib/products';
 import { ProductDetailPanel } from './ProductDetailPanel';
-
-export type ProductStatus = 'missing-metadata' | 'needs-optimization' | 'optimized';
 
 interface ProductRowProps {
   product: Product;
@@ -117,7 +115,7 @@ export function ProductRow({
               {product.title}
             </div>
             <div className="mt-0.5 truncate text-xs text-gray-500">
-              {product.externalId}
+              {product.handle ?? product.externalId}
             </div>
           </div>
         </div>

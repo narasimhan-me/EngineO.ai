@@ -134,3 +134,127 @@ No new API endpoints are introduced; filtering is done against the in-memory pro
 - **Future hooks**
   - The detail panel and overflow menu are designed so that real alt coverage, URL, issues, and per-product edit/remove actions can be wired in later without structural changes.
 
+---
+
+# Product Optimization Workspace (Phase UX-2)
+
+This phase adds a dedicated per-product optimization screen for Shopify products, complementing the Products list redesign from UX-1.
+
+## Purpose
+
+Provide a full-screen workspace for optimizing individual product SEO metadata with AI assistance and DEO insights.
+
+## Layout
+
+The workspace uses a responsive 3-panel layout:
+
+### Left Panel (260px on desktop)
+- **Product Overview Panel**
+  - Product thumbnail (40×40)
+  - Product title (bold, truncated)
+  - Shopify handle / external ID
+  - Price (formatted with currency)
+  - Shopify status
+  - Last synced timestamp
+  - Last optimized timestamp
+  - Status chip (Optimized / Needs optimization / Missing metadata)
+
+### Center Panel (flexible width)
+- **AI Suggestions Panel**
+  - Generate AI-powered SEO suggestions
+  - Display suggested title with character count (X/60)
+  - Display suggested description with character count (X/155)
+  - "Apply to editor" buttons for each suggestion
+  - Regenerate button
+
+- **SEO Metadata Editor**
+  - Meta title input with character counter and guidance (Ideal: 50-60 chars)
+  - Meta description textarea with character counter (Ideal: 140-155 chars)
+  - Handle field (read-only)
+  - Alt text placeholder (future phase)
+  - "Reset to Shopify data" button
+  - "Apply to Shopify" button
+
+### Right Panel (260px on desktop)
+- **DEO / SEO Insights Panel**
+  - Content depth (word count with label: Very short/Short/Moderate/Rich)
+  - Metadata completeness (SEO title and description presence indicators)
+  - Thin content warning (when applicable)
+  - Overall status summary
+  - Coming soon section (crawl health, indexability, entity coverage, SERP visibility)
+
+## Navigation
+
+- Breadcrumb trail: Projects → [Project Name] → Products → [Product Title]
+- Back link to Products list
+- Route: `/projects/[id]/products/[productId]`
+
+## User Flows
+
+1. **AI → Editor → Shopify Flow**
+   - User clicks "Generate Suggestions" in AI panel
+   - AI returns suggested title and description
+   - User clicks "Apply to editor" for each field (or both)
+   - User modifies suggestions in the editor as needed
+   - User clicks "Apply to Shopify" to push changes
+
+2. **Manual Edit Flow**
+   - User edits title/description directly in the editor
+   - User clicks "Apply to Shopify" to push changes
+
+3. **Reset Flow**
+   - User clicks "Reset to Shopify data" to restore original values
+
+## Dependencies
+
+- Reuses existing `aiApi.suggestProductMetadata` for AI suggestions
+- Reuses existing `shopifyApi.updateProductSeo` for Shopify updates
+- No backend changes required
+
+## Component Structure
+
+```
+apps/web/src/components/products/optimization/
+├── index.ts                      # Barrel exports
+├── ProductOptimizationLayout.tsx # 3-panel responsive layout
+├── ProductOverviewPanel.tsx      # Left panel content
+├── ProductAiSuggestionsPanel.tsx # AI suggestions with apply buttons
+├── ProductSeoEditor.tsx          # Title/description editor
+└── ProductDeoInsightsPanel.tsx   # DEO/SEO insights
+```
+
+Page route:
+```
+apps/web/src/app/projects/[id]/products/[productId]/page.tsx
+```
+
+## Responsive Behavior
+
+- **Mobile** (`<1024px`): Vertical stack (flex-col), all panels full width
+- **Desktop** (`≥1024px`): 3-column grid with sticky side panels
+
+Side panels use `lg:sticky lg:top-4` so they remain visible while scrolling the center content.
+
+## Extended Product Interface
+
+Added optional fields to `Product` interface in `apps/web/src/lib/products.ts`:
+
+```typescript
+interface Product {
+  // ... existing fields
+  handle?: string | null;
+  price?: number | null;
+  currency?: string | null;
+  shopifyStatus?: string | null;
+  lastOptimizedAt?: string | null;
+}
+```
+
+These fields are populated if available from the backend but gracefully degrade if not present.
+
+## Constraints & Non-Goals
+
+- **No backend changes**: All functionality uses existing APIs
+- **No Prisma schema changes**: New Product fields are optional and frontend-only for now
+- **Complements UX-1**: Works alongside the Products list, accessed via row click or direct URL
+

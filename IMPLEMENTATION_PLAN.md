@@ -5356,12 +5356,82 @@ Features:
 
 ---
 
-These Phases 23–30 plus Phase UX-1 extend your IMPLEMENTATION_PLAN.md and keep your roadmap cohesive:
+# PHASE UX-2 — Product Optimization Workspace
+
+**Goal:** Provide a dedicated per-product workspace to optimize Shopify product metadata using AI suggestions, a manual editor, and DEO insights.
+
+### UX-2.1. Scope
+
+- App: `apps/web` (Next.js, App Router).
+- Route: `/projects/[id]/products/[productId]`.
+- Components: New directory `apps/web/src/components/products/optimization/`.
+
+### UX-2.2. Requirements
+
+- **Frontend-only**: No Prisma changes, no new backend endpoints or services.
+- **Reuse existing APIs**:
+  - `productsApi.list(projectId)` for product data.
+  - `aiApi.suggestProductMetadata(productId)` for AI suggestions.
+  - `shopifyApi.updateProductSeo(productId, title, description)` for Shopify updates.
+- **Must not break**: Products list, AI modal, or sync flows from UX-1.
+
+### UX-2.3. Layout
+
+3-panel responsive layout:
+
+1. **Left Panel** – Product Overview:
+   - Thumbnail, title, handle/ID, price, Shopify status, last synced/optimized, status chip.
+
+2. **Center Panel** – Main workspace:
+   - AI Suggestions Panel: Generate suggestions, display with char counts, apply to editor, regenerate.
+   - SEO Editor: Title input, description textarea, handle (read-only), alt text placeholder, reset + apply buttons.
+
+3. **Right Panel** – DEO/SEO Insights:
+   - Content depth (word count), metadata completeness, thin-content flag, overall status, coming-soon roadmap.
+
+### UX-2.4. Components
+
+```
+apps/web/src/components/products/optimization/
+├── index.ts                      # Barrel exports
+├── ProductOptimizationLayout.tsx # 3-panel responsive layout
+├── ProductOverviewPanel.tsx      # Left panel content
+├── ProductAiSuggestionsPanel.tsx # AI suggestions with apply buttons
+├── ProductSeoEditor.tsx          # Title/description editor
+└── ProductDeoInsightsPanel.tsx   # DEO/SEO insights
+```
+
+### UX-2.5. Extended Product Interface
+
+Added optional fields to `Product` in `apps/web/src/lib/products.ts`:
+
+- `handle?: string | null`
+- `price?: number | null`
+- `currency?: string | null`
+- `shopifyStatus?: string | null`
+- `lastOptimizedAt?: string | null`
+
+Also moved `ProductStatus` type and `getProductStatus()` function to the shared lib file.
+
+### UX-2.6. Acceptance Criteria
+
+- [ ] Workspace loads for valid product with auth.
+- [ ] Breadcrumb and back navigation work correctly.
+- [ ] AI suggestions can be generated and applied into the editor.
+- [ ] Editor can apply SEO changes to Shopify with success/error feedback.
+- [ ] Insights panel shows content depth, metadata completeness, and thin-content signal.
+- [ ] Layout is fully responsive with no horizontal scrolling.
+- [ ] Documentation updated in `docs/UX_REDESIGN.md`.
+
+---
+
+These Phases 23–30 plus Phases UX-1 and UX-2 extend your IMPLEMENTATION_PLAN.md and keep your roadmap cohesive:
 
 - Phases 12–17: Core feature sets (automation, content, performance, competitors, local, social).
 - Phases 18–22: Security, subscription management, monitoring, fairness & limits.
 - Phases 23–30: Advanced AI-powered features gated behind add-ons for sustainable growth.
 - Phase UX-1: Targeted UX improvements to the Products page to improve day-to-day usability without backend changes.
+- Phase UX-2: Per-product optimization workspace with AI suggestions, manual editor, and DEO insights.
 
 ---
 
