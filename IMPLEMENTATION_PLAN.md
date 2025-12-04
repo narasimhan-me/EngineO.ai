@@ -1407,6 +1407,10 @@ Concretely:
 
 So: **implement CAPTCHA in Phase 1.6, directly after 1.5 and before Phase 2 (DEO Score system).**
 
+Looking ahead in Phase 3:
+
+**Phase 3.2 – Auto DEO Recompute (completed)** – wires the crawl pipeline into automatic DEO recomputation so that, after each crawl, DEO signals are collected, v1 scores are recomputed, snapshots are written, and freshness timestamps (including `lastDeoComputedAt`) stay up to date without manual triggers.
+
 If you'd like, next step I can:
 
 - Generate a **Patch Kit 1.6** like previous phases (with specific file paths + diffs for GPT-5.1/Claude), or
@@ -1882,35 +1886,30 @@ Wire this via:
 
 ### 3.5. Auto DEO Recompute (Phase 3.2)
 
-Wire DEO score recomputation into the crawl pipeline so DEO scores stay fresh automatically:
+Wire DEO score recomputation into the crawl pipeline so DEO scores stay fresh automatically.
 
-- After every crawl (scheduled or manual), collect DEO signals and recompute the score.
-- In production (`CrawlProcessor` worker): After `runFullProjectCrawl()`, call `DeoSignalsService.collectSignalsForProject()` then `DeoScoreService.computeAndPersistScoreFromSignals()`.
-- In local/dev: Same flow runs synchronously after each crawl in `CrawlSchedulerService` and `SeoScanService`.
-- Add `Project.lastDeoComputedAt` timestamp to track when DEO was last recomputed.
-- Store signals in `DeoScoreSnapshot.metadata` for debugging and historical analysis.
+**Scope (implemented):**
 
-**New Schema Field:**
-```prisma
-model Project {
-  // ...existing fields...
-  lastDeoComputedAt DateTime?
-}
-```
+- After every successful crawl (scheduled via `CrawlProcessor` or sync via `CrawlSchedulerService` / `SeoScanService`), collect DEO signals and recompute the v1 DEO score using the shared scoring engine.
+- Create a new `DeoScoreSnapshot` on every recompute, storing the overall score, component scores, timestamp, and the full `DeoScoreSignals` payload in the snapshot metadata for history and diagnostics.
+- Keep `Project.currentDeoScore`, `Project.currentDeoScoreComputedAt`, and `Project.lastDeoComputedAt` updated so the Overview and related views always read fresh DEO data from existing APIs.
+- In local/dev mode (no Redis), run the same crawl → signals → DEO recompute flow synchronously inside the API process after each crawl (scheduler-driven and manual `/seo-scan` endpoints).
 
-**Pipeline Flow:**
-```
-Crawl → Update lastCrawledAt → Collect Signals → Compute Score → Create Snapshot → Update lastDeoComputedAt
-```
+**Constraints:**
 
-**Files Modified:**
-- `crawl.processor.ts` - Add DEO recompute after crawl jobs
-- `crawl-scheduler.service.ts` - Add DEO recompute in sync mode
-- `seo-scan.service.ts` - Add DEO recompute after manual crawls (local/dev only)
-- `deo-score.service.ts` - Store signals in metadata, update lastDeoComputedAt
-- `schema.prisma` - Add lastDeoComputedAt field
+- No UI changes in this phase; existing pages simply pick up fresher scores and timestamps via the current endpoints.
+- No changes to the DEO v1 scoring formula or component weights – only orchestration is added.
+- No additional schema tables or breaking changes beyond the existing `Project.lastDeoComputedAt` timestamp and `DeoScoreSnapshot` model introduced in earlier phases.
 
-See `docs/CRAWL_PIPELINE.md` for detailed pipeline documentation.
+**Acceptance Criteria (met):**
+
+- A scheduled crawl in production enqueues a `crawl_queue` job, runs `runFullProjectCrawl(projectId)`, updates `Project.lastCrawledAt`, computes DEO signals, writes a new `DeoScoreSnapshot`, and updates `Project.lastDeoComputedAt` without manual intervention.
+- Manual crawls in local/dev (via SEO Scan endpoints) immediately trigger the same DEO recompute flow synchronously after the crawl completes.
+- Every recompute appends a new snapshot row, even if the resulting score matches the previous snapshot (no diffing or de-duplication in v1).
+- Logs clearly show the pipeline stages and timings for observability, including messages for crawl completion, signals computation, and DEO recompute completion per project.
+- `GET /projects/:id/deo-score` returns updated DEO scores and timestamps that align with recent crawls and recomputes, keeping the Overview and related pages effectively "self-updating".
+
+See `docs/CRAWL_PIPELINE.md` for detailed pipeline documentation and a full end-to-end flow description.
 
 ---
 
