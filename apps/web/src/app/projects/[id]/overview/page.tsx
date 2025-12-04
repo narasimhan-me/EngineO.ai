@@ -366,7 +366,7 @@ export default function ProjectOverviewPage() {
           <p className="mt-1 text-2xl font-bold text-gray-900">
             {deoScore.latestScore.overall}/100
             <span className="ml-2 text-xs font-medium text-gray-500">
-              v1 • computed {deoScore.latestScore.computedAt ? new Date(deoScore.latestScore.computedAt).toLocaleString() : 'recently'}
+              v1 • computed {deoScore.latestSnapshot?.computedAt ? new Date(deoScore.latestSnapshot.computedAt).toLocaleString() : 'recently'}
             </span>
           </p>
         ) : (
