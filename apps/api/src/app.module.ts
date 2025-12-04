@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -14,6 +15,7 @@ import { BillingModule } from './billing/billing.module';
 import { AdminModule } from './admin/admin.module';
 import { CaptchaModule } from './captcha/captcha.module';
 import { ContactModule } from './contact/contact.module';
+import { CrawlModule } from './crawl/crawl.module';
 import { RedisModule } from './infra/redis/redis.module';
 
 @Module({
@@ -22,6 +24,7 @@ import { RedisModule } from './infra/redis/redis.module';
       isGlobal: true,
       envFilePath: process.env.NODE_ENV === 'test' ? '.env.test' : '.env',
     }),
+    ScheduleModule.forRoot(),
     RedisModule,
     CaptchaModule,
     HealthModule,
@@ -37,6 +40,7 @@ import { RedisModule } from './infra/redis/redis.module';
     BillingModule,
     AdminModule,
     ContactModule,
+    CrawlModule,
   ],
   controllers: [],
   providers: [],

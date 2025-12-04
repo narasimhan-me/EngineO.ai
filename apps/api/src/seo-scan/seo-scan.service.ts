@@ -78,7 +78,87 @@ export class SeoScanService {
       },
     });
 
+    // Update project's lastCrawledAt
+    await this.prisma.project.update({
+      where: { id: projectId },
+      data: {
+        lastCrawledAt: crawlResult.scannedAt,
+      },
+    });
+
     return crawlResult;
+  }
+
+  /**
+   * Run a full project crawl for scheduler/worker contexts.
+   * In production this is invoked from the crawl queue worker; in local/dev it
+   * can be called directly by the scheduler without requiring a user context.
+   * Returns the crawl timestamp (scannedAt) when a crawl is performed,
+   * or null if the project has no crawlable domain or does not exist.
+   */
+  async runFullProjectCrawl(projectId: string): Promise<Date | null> {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        integrations: true,
+      },
+    });
+
+    if (!project) {
+      console.warn(`[SeoScanService] Project not found for crawl: ${projectId}`);
+      return null;
+    }
+
+    // Determine which domain to scan
+    // Priority: 1. Connected Shopify store, 2. Project domain
+    let domain: string | null = null;
+
+    const shopifyIntegration = project.integrations.find(
+      (i) => i.type === IntegrationType.SHOPIFY,
+    );
+
+    if (shopifyIntegration?.externalId) {
+      // Use Shopify store domain
+      domain = shopifyIntegration.externalId;
+    } else if (project.domain) {
+      domain = project.domain;
+    }
+
+    if (!domain) {
+      console.warn(
+        `[SeoScanService] No domain configured for project ${projectId} - skipping crawl`,
+      );
+      return null;
+    }
+
+    // For MVP, scan only the homepage
+    const url = `https://${domain}/`;
+    const scanResult = await this.scanPage(url);
+
+    // Store the crawl result
+    const crawlResult = await this.prisma.crawlResult.create({
+      data: {
+        projectId,
+        url: scanResult.url,
+        statusCode: scanResult.statusCode,
+        title: scanResult.title,
+        metaDescription: scanResult.metaDescription,
+        h1: scanResult.h1,
+        wordCount: scanResult.wordCount,
+        loadTimeMs: scanResult.loadTimeMs,
+        issues: scanResult.issues,
+      },
+    });
+
+    // Update project's lastCrawledAt
+    await this.prisma.project.update({
+      where: { id: projectId },
+      data: {
+        lastCrawledAt: crawlResult.scannedAt,
+      },
+    });
+
+    return crawlResult.scannedAt;
   }
 
   /**
@@ -272,6 +352,14 @@ export class SeoScanService {
         wordCount: scanResult.wordCount,
         loadTimeMs: scanResult.loadTimeMs,
         issues: scanResult.issues,
+      },
+    });
+
+    // Update project's lastCrawledAt
+    await this.prisma.project.update({
+      where: { id: product.projectId },
+      data: {
+        lastCrawledAt: crawlResult.scannedAt,
       },
     });
 

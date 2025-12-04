@@ -2,7 +2,7 @@
 import { Queue } from 'bullmq';
 import { redisConfig } from '../config/redis.config';
 
-// Only create the queue if Redis is configured
+// Only create the queues if Redis is configured
 export const deoScoreQueue: Queue | null =
   redisConfig.isEnabled && redisConfig.connection
     ? new Queue('deo_score_queue', {
@@ -11,8 +11,16 @@ export const deoScoreQueue: Queue | null =
       })
     : null;
 
+export const crawlQueue: Queue | null =
+  redisConfig.isEnabled && redisConfig.connection
+    ? new Queue('crawl_queue', {
+        connection: redisConfig.connection,
+        prefix: redisConfig.prefix,
+      })
+    : null;
+
 if (!redisConfig.isEnabled) {
   console.warn('[Queues] Redis not configured - queue functionality disabled');
 } else {
-  console.log('[Queues] Redis queue initialized with host:', redisConfig.connection?.host);
+  console.log('[Queues] Redis queues initialized with host:', redisConfig.connection?.host);
 }

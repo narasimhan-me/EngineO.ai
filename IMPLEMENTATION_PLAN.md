@@ -1863,6 +1863,23 @@ const score = Math.max(0, 100 - issues.length * 10);
 
 Optionally show an average project score.
 
+### 3.4. Crawl Scheduler (Phase 3.1)
+
+Add a backend-only crawl scheduler so projects are crawled automatically without manual refresh:
+
+- Use NestJS `@nestjs/schedule` with a cron expression `0 2 * * *` (nightly at 2:00 AM server time).
+- In production, enumerate all projects and enqueue one job per project onto `crawl_queue` (BullMQ) with payload `{ projectId }`.
+- In local/dev, skip Redis entirely and instead call a synchronous crawl runner (`SeoScanService.runFullProjectCrawl(projectId)`) directly for each project.
+- After each crawl (queued or sync), update `project.lastCrawledAt` so future phases can derive staleness indicators.
+- Do not trigger DEO recompute yet; Phase 3.2 will wire DEO score recalculation after crawls.
+
+Wire this via:
+
+- `CrawlSchedulerService` (cron orchestrator).
+- `crawl_queue` in `apps/api/src/queues/queues.ts`.
+- `CrawlProcessor` worker bound to `crawl_queue`.
+- `CrawlModule` imported into `AppModule` and worker runtime.
+
 ---
 
 # PHASE 4 — Multi‑Engine AI Metadata Engine (SEO + AEO + Product + Video)

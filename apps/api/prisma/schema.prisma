@@ -48,6 +48,7 @@ model Project {
   createdAt                  DateTime           @default(now())
   currentDeoScore            Int?
   currentDeoScoreComputedAt  DateTime?
+  lastCrawledAt              DateTime?
 
   integrations               Integration[]
   crawlResults               CrawlResult[]
