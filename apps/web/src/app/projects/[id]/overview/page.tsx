@@ -4,8 +4,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { isAuthenticated, removeToken, getToken } from '@/lib/auth';
-import { aiApi, projectsApi, seoScanApi } from '@/lib/api';
-import type { DeoScoreLatestResponse } from '@engineo/shared';
+import { projectsApi, seoScanApi } from '@/lib/api';
+import type { DeoScoreLatestResponse, DeoScoreSignals } from '@engineo/shared';
+import { DeoScoreCard } from '@/components/projects/DeoScoreCard';
+import { DeoComponentBreakdown } from '@/components/projects/DeoComponentBreakdown';
+import { DeoSignalsSummary } from '@/components/projects/DeoSignalsSummary';
+import { ProjectHealthCards } from '@/components/projects/ProjectHealthCards';
 
 interface IntegrationStatus {
   projectId: string;
@@ -94,24 +98,23 @@ export default function ProjectOverviewPage() {
   // SEO Scan state
   const [scanResults, setScanResults] = useState<CrawlResult[]>([]);
   const [scanning, setScanning] = useState(false);
-  const [loadingResults, setLoadingResults] = useState(false);
 
   // AI Suggestions state
   const [showSuggestionModal, setShowSuggestionModal] = useState(false);
   const [currentSuggestion, setCurrentSuggestion] = useState<MetadataSuggestion | null>(null);
-  const [loadingSuggestion, setLoadingSuggestion] = useState(false);
-  const [suggestingId, setSuggestingId] = useState<string | null>(null);
 
   // Project overview state
   const [overview, setOverview] = useState<ProjectOverview | null>(null);
   const [deoScore, setDeoScore] = useState<DeoScoreLatestResponse | null>(null);
-  const [deoScoreLoading, setDeoScoreLoading] = useState(false);
+  const [, setDeoScoreLoading] = useState(false);
   const [deoScoreRecomputing, setDeoScoreRecomputing] = useState(false);
+  const [deoSignals, setDeoSignals] = useState<DeoScoreSignals | null>(null);
+  const [deoSignalsLoading, setDeoSignalsLoading] = useState(false);
 
   const fetchIntegrationStatus = useCallback(async () => {
     try {
       setLoading(true);
-      setError(''); // Clear any previous errors
+      setError('');
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
       const token = getToken();
 
@@ -145,13 +148,10 @@ export default function ProjectOverviewPage() {
 
   const fetchScanResults = useCallback(async () => {
     try {
-      setLoadingResults(true);
       const results = await seoScanApi.results(projectId);
       setScanResults(results);
     } catch (err: unknown) {
       console.error('Error fetching scan results:', err);
-    } finally {
-      setLoadingResults(false);
     }
   }, [projectId]);
 
@@ -176,6 +176,18 @@ export default function ProjectOverviewPage() {
     }
   }, [projectId]);
 
+  const fetchDeoSignals = useCallback(async () => {
+    try {
+      setDeoSignalsLoading(true);
+      const data = await projectsApi.deoSignalsDebug(projectId);
+      setDeoSignals(data);
+    } catch (err: unknown) {
+      console.error('Error fetching DEO signals:', err);
+    } finally {
+      setDeoSignalsLoading(false);
+    }
+  }, [projectId]);
+
   const handleRecomputeDeoScore = async () => {
     try {
       setDeoScoreRecomputing(true);
@@ -185,6 +197,7 @@ export default function ProjectOverviewPage() {
         setSuccessMessage(`DEO Score recomputed: ${result.score}/100`);
         setTimeout(() => setSuccessMessage(''), 5000);
         await fetchDeoScore();
+        await fetchDeoSignals();
       } else {
         setError(result.message || 'Failed to recompute DEO score');
       }
@@ -205,13 +218,13 @@ export default function ProjectOverviewPage() {
     fetchScanResults();
     fetchOverview();
     fetchDeoScore();
+    fetchDeoSignals();
 
-    // Check if we just returned from Shopify OAuth
     if (searchParams.get('shopify') === 'connected') {
       setSuccessMessage('Successfully connected to Shopify!');
       setTimeout(() => setSuccessMessage(''), 5000);
     }
-  }, [projectId, searchParams, router, fetchIntegrationStatus, fetchScanResults, fetchOverview, fetchDeoScore]);
+  }, [projectId, searchParams, router, fetchIntegrationStatus, fetchScanResults, fetchOverview, fetchDeoScore, fetchDeoSignals]);
 
   const handleConnectShopify = () => {
     if (!shopDomain) {
@@ -238,49 +251,11 @@ export default function ProjectOverviewPage() {
       setSuccessMessage('SEO scan completed!');
       setTimeout(() => setSuccessMessage(''), 3000);
       await fetchScanResults();
-      await fetchOverview(); // Refresh overview stats after scan
+      await fetchOverview();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to run SEO scan');
     } finally {
       setScanning(false);
-    }
-  };
-
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-green-600 bg-green-100';
-    if (score >= 50) return 'text-yellow-600 bg-yellow-100';
-    return 'text-red-600 bg-red-100';
-  };
-
-  const getIssueLabel = (issue: string) => {
-    const labels: Record<string, string> = {
-      MISSING_TITLE: 'Missing Title',
-      TITLE_TOO_LONG: 'Title Too Long (>65 chars)',
-      TITLE_TOO_SHORT: 'Title Too Short (<30 chars)',
-      MISSING_META_DESCRIPTION: 'Missing Meta Description',
-      META_DESCRIPTION_TOO_LONG: 'Meta Description Too Long (>160 chars)',
-      META_DESCRIPTION_TOO_SHORT: 'Meta Description Too Short (<70 chars)',
-      MISSING_H1: 'Missing H1',
-      THIN_CONTENT: 'Thin Content (<300 words)',
-      SLOW_LOAD_TIME: 'Slow Load Time (>3s)',
-      HTTP_ERROR: 'HTTP Error',
-      FETCH_ERROR: 'Failed to Fetch',
-    };
-    return labels[issue] || issue;
-  };
-
-  const handleSuggestMetadata = async (crawlResultId: string) => {
-    try {
-      setSuggestingId(crawlResultId);
-      setLoadingSuggestion(true);
-      const suggestion = await aiApi.suggestMetadata(crawlResultId);
-      setCurrentSuggestion(suggestion);
-      setShowSuggestionModal(true);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to get AI suggestions');
-    } finally {
-      setLoadingSuggestion(false);
-      setSuggestingId(null);
     }
   };
 
@@ -317,380 +292,278 @@ export default function ProjectOverviewPage() {
 
   return (
     <div>
+      <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {status?.projectName || 'Project Overview'}
+          </h1>
+          <p className="text-gray-600">
+            DEO intelligence for your project across content, entities, technical, and visibility.
+          </p>
+        </div>
+      </div>
+
       {successMessage && (
-        <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
+        <div className="mb-4 rounded-md bg-green-50 p-3 text-sm text-green-700 border border-green-100">
           {successMessage}
         </div>
       )}
 
       {error && (
-        <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+        <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 border border-red-100">
           {error}
         </div>
       )}
 
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">{status.projectName}</h1>
-        <p className="text-gray-600">Project ID: {status.projectId}</p>
-      </div>
-      {/* DEO Score Preview */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium text-gray-500">DEO Score</h2>
-          <button
-            onClick={handleRecomputeDeoScore}
-            disabled={deoScoreRecomputing}
-            className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {deoScoreRecomputing ? (
-              <>
-                <svg className="animate-spin -ml-0.5 mr-1.5 h-3 w-3 text-purple-700" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Computing...
-              </>
-            ) : (
-              <>
-                <svg className="w-3 h-3 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Recompute
-              </>
-            )}
-          </button>
-        </div>
-        {deoScoreLoading ? (
-          <p className="mt-1 text-sm text-gray-500">Loading...</p>
-        ) : deoScore?.latestScore ? (
-          <p className="mt-1 text-2xl font-bold text-gray-900">
-            {deoScore.latestScore.overall}/100
-            <span className="ml-2 text-xs font-medium text-gray-500">
-              v1 • computed {deoScore.latestSnapshot?.computedAt ? new Date(deoScore.latestSnapshot.computedAt).toLocaleString() : 'recently'}
-            </span>
-          </p>
-        ) : (
-          <p className="mt-1 text-sm text-gray-500">
-            No DEO Score yet. Click &quot;Recompute&quot; to calculate it.
-          </p>
-        )}
-      </div>
-
-        {/* Project Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white shadow rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-500">SEO Score</h3>
-            <p className={`mt-1 text-2xl font-bold ${
-              overview?.avgSeoScore !== null && overview?.avgSeoScore !== undefined
-                ? overview.avgSeoScore >= 80
-                  ? 'text-green-600'
-                  : overview.avgSeoScore >= 50
-                    ? 'text-yellow-600'
-                    : 'text-red-600'
-                : 'text-gray-400'
-            }`}>
-              {overview?.avgSeoScore !== null && overview?.avgSeoScore !== undefined
-                ? overview.avgSeoScore
-                : '--'}
-            </p>
-            <p className="mt-1 text-xs text-gray-500">
-              {overview?.avgSeoScore !== null && overview?.avgSeoScore !== undefined
-                ? 'Average score'
-                : 'Run scans to see'}
-            </p>
-          </div>
-
-          <div className="bg-white shadow rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-500">Last Scan</h3>
-            <p className="mt-1 text-2xl font-bold text-gray-900">
-              {scanResults.length > 0
-                ? new Date(scanResults[0].scannedAt).toLocaleDateString()
-                : '--'}
-            </p>
-            <p className="mt-1 text-xs text-gray-500">
-              {scanResults.length > 0
-                ? `${overview?.crawlCount ?? 0} total scans`
-                : 'No scans yet'}
-            </p>
-          </div>
-
-          <div className="bg-white shadow rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-500">Issues Found</h3>
-            <p className={`mt-1 text-2xl font-bold ${
-              overview?.issueCount === 0 ? 'text-green-600' : 'text-red-600'
-            }`}>
-              {overview?.issueCount ?? 0}
-            </p>
-            <p className="mt-1 text-xs text-gray-500">
-              {overview?.issueCount === 0 ? 'No issues' : 'Across all scans'}
-            </p>
-          </div>
-
-          <div className="bg-white shadow rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-500">Products</h3>
-            <p className="mt-1 text-2xl font-bold text-gray-900">
-              {overview?.productCount ?? 0}
-            </p>
-            <p className="mt-1 text-xs text-gray-500">
-              {overview?.productsWithAppliedSeo
-                ? `${overview.productsWithAppliedSeo} with SEO`
-                : 'Synced from store'}
-            </p>
-          </div>
-        </div>
-
-        {/* SEO Scanner Section */}
-        <div className="bg-white shadow rounded-lg p-6 mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">SEO Scanner</h2>
-            <button
-              onClick={handleRunScan}
-              disabled={scanning}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {scanning ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Scanning...
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  Run SEO Scan
-                </>
-              )}
-            </button>
-          </div>
-
-          {loadingResults ? (
-            <p className="text-gray-500">Loading scan results...</p>
-          ) : scanResults.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <p>No scan results yet. Click &quot;Run SEO Scan&quot; to analyze your website.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">URL</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Score</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Issues</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Scanned</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {scanResults.map((result) => (
-                    <tr key={result.id}>
-                      <td className="px-4 py-3 text-sm text-gray-900 max-w-xs truncate">
-                        <a href={result.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                          {result.url}
-                        </a>
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          result.statusCode === 200 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {result.statusCode || 'Error'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${getScoreColor(result.score)}`}>
-                          {result.score}/100
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">
-                        {result.title || <span className="text-red-500 italic">Missing</span>}
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        {result.issues.length === 0 ? (
-                          <span className="text-green-600">No issues</span>
-                        ) : (
-                          <div className="flex flex-wrap gap-1">
-                            {result.issues.slice(0, 2).map((issue, idx) => (
-                              <span key={idx} className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded">
-                                {getIssueLabel(issue)}
-                              </span>
-                            ))}
-                            {result.issues.length > 2 && (
-                              <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
-                                +{result.issues.length - 2} more
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
-                        {new Date(result.scannedAt).toLocaleString()}
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <button
-                          onClick={() => handleSuggestMetadata(result.id)}
-                          disabled={loadingSuggestion && suggestingId === result.id}
-                          className="inline-flex items-center px-3 py-1.5 border border-purple-300 text-sm font-medium rounded-md text-purple-700 bg-purple-50 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {loadingSuggestion && suggestingId === result.id ? (
-                            <>
-                              <svg className="animate-spin -ml-0.5 mr-1.5 h-3 w-3 text-purple-700" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              Loading...
-                            </>
-                          ) : (
-                            <>
-                              <svg className="w-3 h-3 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                              </svg>
-                              Suggest
-                            </>
-                          )}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Connected Integrations Summary */}
-        {status.integrations.length > 0 && (
-          <div className="bg-white shadow rounded-lg p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Active Integrations</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {status.integrations.map((integration) => (
-                <div key={integration.type} className="border border-green-200 bg-green-50 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    <span className="font-medium text-green-800">{integration.type}</span>
-                  </div>
-                  <p className="text-sm text-gray-600">{integration.externalId}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Shopify Integration */}
-        <div className="bg-white shadow rounded-lg p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Shopify Integration</h2>
-
-          {status.shopify.connected ? (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center">
-                  <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-green-800 font-semibold">Connected</span>
-                </div>
-                <Link
-                  href={`/projects/${projectId}/products`}
-                  className="inline-flex items-center px-3 py-1.5 border border-green-600 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                >
-                  <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                  </svg>
-                  View Products
-                </Link>
+      {/* Top section: DEO Score + Components + Freshness */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="space-y-4">
+          <DeoScoreCard
+            score={deoScore?.latestScore ?? null}
+            lastComputedAt={deoScore?.latestSnapshot?.computedAt ?? null}
+          />
+          <DeoComponentBreakdown score={deoScore?.latestScore ?? null} />
+          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-gray-700">DEO Freshness</h3>
+                <p className="mt-1 text-xs text-gray-500">
+                  Recompute to refresh crawl and product signals when your site or catalog
+                  changes.
+                </p>
               </div>
-              <div className="text-sm text-gray-700 space-y-1">
-                <p><span className="font-medium">Store:</span> {status.shopify.shopDomain}</p>
-                {status.shopify.installedAt && (
-                  <p><span className="font-medium">Connected:</span> {new Date(status.shopify.installedAt).toLocaleDateString()}</p>
-                )}
-                {status.shopify.scope && (
-                  <p><span className="font-medium">Scopes:</span> {status.shopify.scope}</p>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <p className="text-gray-700 mb-4">Connect your Shopify store to sync products and apply AI-generated SEO optimizations.</p>
-
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="shopDomain" className="block text-sm font-medium text-gray-700 mb-2">
-                    Shopify Store Domain
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      id="shopDomain"
-                      value={shopDomain}
-                      onChange={(e) => setShopDomain(e.target.value)}
-                      placeholder="your-store"
-                      className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <span className="flex items-center text-gray-600 text-sm">.myshopify.com</span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Enter your Shopify store domain (e.g., &quot;my-store&quot; for my-store.myshopify.com)
-                  </p>
-                </div>
-
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={handleConnectShopify}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                  onClick={handleRecomputeDeoScore}
+                  disabled={deoScoreRecomputing}
+                  className="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                  Connect Shopify Store
+                  {deoScoreRecomputing ? (
+                    <>
+                      <svg
+                        className="-ml-0.5 mr-1.5 h-3.5 w-3.5 animate-spin text-white"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Recomputing...
+                    </>
+                  ) : (
+                    'Recompute DEO Score'
+                  )}
                 </button>
               </div>
             </div>
-          )}
+          </div>
         </div>
+        {/* Right column: Signals + Issues */}
+        <div className="space-y-4">
+          <DeoSignalsSummary signals={deoSignals} loading={deoSignalsLoading} />
+          <ProjectHealthCards signals={deoSignals} />
+        </div>
+      </div>
 
-        {/* Other Platform Integrations */}
-        <div className="bg-white shadow rounded-lg p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Other Platforms</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className={`border rounded-lg p-4 ${status.woocommerce.connected ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium text-gray-900">WooCommerce</span>
-                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">Coming Soon</span>
+      {/* Secondary section: Integrations + Crawl / Products overview */}
+      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          {/* Crawl details entry point */}
+          <div className="rounded-lg bg-white p-6 shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Crawl & DEO Issues</h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  View full crawl results, per-page issues, and detailed SEO/DEO diagnostics.
+                </p>
               </div>
-              <p className="text-sm text-gray-600">WordPress e-commerce integration</p>
-            </div>
-
-            <div className={`border rounded-lg p-4 ${status.bigcommerce.connected ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium text-gray-900">BigCommerce</span>
-                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">Coming Soon</span>
+              <div className="mt-4 flex items-center gap-2 sm:mt-0">
+                <button
+                  onClick={handleRunScan}
+                  disabled={scanning}
+                  className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {scanning ? (
+                    <>
+                      <svg
+                        className="-ml-0.5 mr-1.5 h-3.5 w-3.5 animate-spin text-gray-700"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Running crawl...
+                    </>
+                  ) : (
+                    <>
+                      <svg
+                        className="mr-1.5 h-3.5 w-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
+                      </svg>
+                      Run Crawl
+                    </>
+                  )}
+                </button>
+                <Link
+                  href={`/projects/${projectId}/issues`}
+                  className="inline-flex items-center rounded-md bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                >
+                  View Crawl Details
+                </Link>
               </div>
-              <p className="text-sm text-gray-600">BigCommerce store integration</p>
-            </div>
-
-            <div className={`border rounded-lg p-4 ${status.magento.connected ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium text-gray-900">Magento</span>
-                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">Coming Soon</span>
-              </div>
-              <p className="text-sm text-gray-600">Adobe Commerce / Magento integration</p>
-            </div>
-
-            <div className={`border rounded-lg p-4 ${status.customWebsite.connected ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium text-gray-900">Custom Website</span>
-                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">Coming Soon</span>
-              </div>
-              <p className="text-sm text-gray-600">Any website via sitemap crawling</p>
             </div>
           </div>
+
+          {/* Shopify Integration */}
+          <div className="rounded-lg bg-white p-6 shadow">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Shopify Integration</h2>
+
+            {status.shopify.connected ? (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-green-800 font-semibold">Connected</span>
+                  </div>
+                  <Link
+                    href={`/projects/${projectId}/products`}
+                    className="inline-flex items-center px-3 py-1.5 border border-green-600 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                  >
+                    <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                    View Products
+                  </Link>
+                </div>
+                <div className="text-sm text-gray-700 space-y-1">
+                  <p><span className="font-medium">Store:</span> {status.shopify.shopDomain}</p>
+                  {status.shopify.installedAt && (
+                    <p><span className="font-medium">Connected:</span> {new Date(status.shopify.installedAt).toLocaleDateString()}</p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <p className="text-gray-700 mb-4">Connect your Shopify store to sync products and apply AI-generated SEO optimizations.</p>
+
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="shopDomain" className="block text-sm font-medium text-gray-700 mb-2">
+                      Shopify Store Domain
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        id="shopDomain"
+                        value={shopDomain}
+                        onChange={(e) => setShopDomain(e.target.value)}
+                        placeholder="your-store"
+                        className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="flex items-center text-gray-600 text-sm">.myshopify.com</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleConnectShopify}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Connect Shopify Store
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right column: Project Stats */}
+        <div className="space-y-6">
+          <div className="rounded-lg bg-white p-6 shadow">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Project Stats</h2>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Total Crawls</span>
+                <span className="text-sm font-medium text-gray-900">{overview?.crawlCount ?? 0}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Issues Found</span>
+                <span className={`text-sm font-medium ${overview?.issueCount === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {overview?.issueCount ?? 0}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Products</span>
+                <span className="text-sm font-medium text-gray-900">{overview?.productCount ?? 0}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Products with SEO</span>
+                <span className="text-sm font-medium text-gray-900">{overview?.productsWithAppliedSeo ?? 0}</span>
+              </div>
+              {scanResults.length > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Last Scan</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    {new Date(scanResults[0].scannedAt).toLocaleDateString()}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Active Integrations */}
+          {status.integrations.length > 0 && (
+            <div className="rounded-lg bg-white p-6 shadow">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Active Integrations</h2>
+              <div className="space-y-3">
+                {status.integrations.map((integration) => (
+                  <div key={integration.type} className="flex items-center gap-2 text-sm">
+                    <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-gray-700">{integration.type}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* AI Metadata Suggestion Modal */}
