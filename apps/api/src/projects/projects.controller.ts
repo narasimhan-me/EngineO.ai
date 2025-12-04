@@ -13,8 +13,10 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ProjectsService, CreateProjectDto } from './projects.service';
 import { DeoScoreService, DeoSignalsService } from './deo-score.service';
+import { DeoIssuesService } from './deo-issues.service';
 import {
   DeoScoreLatestResponse,
+  DeoIssuesResponse,
   DeoScoreJobPayload,
   DeoScoreSignals,
 } from '@engineo/shared';
@@ -27,6 +29,7 @@ export class ProjectsController {
     private readonly projectsService: ProjectsService,
     private readonly deoScoreService: DeoScoreService,
     private readonly deoSignalsService: DeoSignalsService,
+    private readonly deoIssuesService: DeoIssuesService,
   ) {}
 
   /**
@@ -84,6 +87,18 @@ export class ProjectsController {
   @Get(':id/overview')
   async getProjectOverview(@Request() req: any, @Param('id') projectId: string) {
     return this.projectsService.getProjectOverview(projectId, req.user.id);
+  }
+
+  /**
+   * GET /projects/:id/deo-issues
+   * Returns aggregated DEO issues for a project.
+   */
+  @Get(':id/deo-issues')
+  async getDeoIssues(
+    @Request() req: any,
+    @Param('id') projectId: string,
+  ): Promise<DeoIssuesResponse> {
+    return this.deoIssuesService.getIssuesForProject(projectId, req.user.id);
   }
 
   /**

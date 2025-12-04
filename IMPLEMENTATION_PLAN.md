@@ -1411,6 +1411,8 @@ Looking ahead in Phase 3:
 
 **Phase 3.2 – Auto DEO Recompute (completed)** – wires the crawl pipeline into automatic DEO recomputation so that, after each crawl, DEO signals are collected, v1 scores are recomputed, snapshots are written, and freshness timestamps (including `lastDeoComputedAt`) stay up to date without manual triggers.
 
+**Phase 3B – DEO Issues Engine (completed)** – delivered a backend-only DEO Issues Engine that classifies problems into clear issue categories with a critical/warning/info severity model. The engine reads from existing crawl and product data plus DEO signals, counts affected surfaces, and exposes `GET /projects/:id/deo-issues` for future UX phases (project overview issue summary, product badges, and optimization workspace insights).
+
 If you'd like, next step I can:
 
 - Generate a **Patch Kit 1.6** like previous phases (with specific file paths + diffs for GPT-5.1/Claude), or
@@ -1884,6 +1886,20 @@ Wire this via:
 - `CrawlProcessor` worker bound to `crawl_queue`.
 - `CrawlModule` imported into `AppModule` and worker runtime.
 
+**Constraints:**
+
+- Backend-only change; no frontend/UI work is included in this phase.
+- Aside from the optional `Project.lastCrawledAt` timestamp, no additional schema changes are introduced.
+- DEO scoring formulas and worker behavior are not modified; Phase 3.1 is concerned only with scheduling and executing crawls.
+
+**Acceptance Criteria (met):**
+
+- A nightly cron (`0 2 * * *`) runs `CrawlSchedulerService.scheduleProjectCrawls()` and iterates over all projects.
+- In production with Redis configured, the scheduler enqueues one job per project onto `crawl_queue`, and `CrawlProcessor` consumes these jobs to run `runFullProjectCrawl(projectId)` without blocking the HTTP process.
+- In local/dev (or when Redis is unavailable), the scheduler falls back to calling `SeoScanService.runFullProjectCrawl(projectId)` synchronously per project.
+- `Project.lastCrawledAt` is updated after successful crawls (both queued and sync), and manual crawls update the same field for consistency.
+- Logs clearly show when the scheduler runs, how many projects are processed, and whether each project is handled via queue or sync mode.
+
 ### 3.5. Auto DEO Recompute (Phase 3.2)
 
 Wire DEO score recomputation into the crawl pipeline so DEO scores stay fresh automatically.
@@ -1910,6 +1926,40 @@ Wire DEO score recomputation into the crawl pipeline so DEO scores stay fresh au
 - `GET /projects/:id/deo-score` returns updated DEO scores and timestamps that align with recent crawls and recomputes, keeping the Overview and related pages effectively "self-updating".
 
 See `docs/CRAWL_PIPELINE.md` for detailed pipeline documentation and a full end-to-end flow description.
+
+### 3.6. DEO Issues Engine (Phase 3B)
+
+Introduce a backend-only DEO Issues Engine that turns raw DEO signals and crawl/product data into an actionable issue list per project:
+
+- Implement `DeoIssuesService` in the API to aggregate `CrawlResult` + `Product` rows and `DeoScoreSignals` into a set of issue categories:
+  - Missing Metadata
+  - Thin Content
+  - Low Entity Coverage
+  - Indexability Problems
+  - Answer Surface Weakness
+  - Brand Navigational Weakness
+  - Crawl Health / Errors
+  - Product Content Depth
+- Define shared types `DeoIssue` and `DeoIssuesResponse` in `packages/shared` with:
+  - `id`, `title`, `description`
+  - `severity`: `'critical' | 'warning' | 'info'`
+  - `count` plus optional previews of `affectedPages` / `affectedProducts` (each capped at ~20 items).
+- Add `GET /projects/:id/deo-issues` to `ProjectsController` to expose the issue list; issues are computed on-demand from latest crawl + product data and the current DEO signals.
+
+**Constraints:**
+
+- No new database schema changes in this phase; the engine reads from existing `CrawlResult`, `Product`, `Project`, and DEO snapshot/signal data only.
+- No UI work; UX-4 will consume the new endpoint to render issue summaries, badges, and detailed insights.
+- No changes to the DEO v1 scoring formula or component weights; issues are an interpretation layer on top of existing signals.
+- Issues are computed on-demand per request; no issue data is persisted in the database.
+
+**Acceptance Criteria (met):**
+
+- `GET /projects/:id/deo-issues` returns a `DeoIssuesResponse` containing `projectId`, `generatedAt`, and an array of `DeoIssue` entries.
+- All specified categories are implemented with severity thresholds and detection rules that match the UEP definition (including metrics like `entityCoverage`, `indexability`, `answerSurfacePresence`, `brandNavigationalStrength`, and `crawlHealth` where applicable).
+- Issue count values align with underlying `CrawlResult` and `Product` data for representative test projects (e.g., thin content counts match actual short pages/products).
+- The endpoint does not write any new rows or columns and remains backend-only; the existing DEO score APIs continue to function unchanged.
+- The implementation is documented in `docs/deo-issues-spec.md`, which describes the issue model, categories, thresholds, and data sources.
 
 ---
 
@@ -2365,6 +2415,19 @@ Use this snapshot and denormalized score wherever DEO Score is displayed (dashbo
   - The debug endpoint `GET /projects/:id/deo-signals/debug` continues to expose the current normalized signals, now including the Phase 2.4 crawl-derived metrics.
   - Manually validated Phase 2.4 via local DEO score recomputes (using the sync recompute endpoint and frontend button) by toggling metadata, thin content, and navigational pages and confirming expected changes in signals and overall DEO score.
 
+**Constraints:**
+
+- Backend-only changes; no new Prisma models or columns were introduced in this phase.
+- The DEO v1 scoring engine and weight configuration (`computeDeoScoreFromSignals`, `DEO_SCORE_WEIGHTS`) remained unchanged; Phase 2.4 only refines input signals.
+- All heuristics operate on existing `CrawlResult` and `Product` tables; no external data sources or APIs are required.
+
+**Acceptance Criteria (met):**
+
+- Crawl-derived technical, visibility, and entity detail signals (e.g., `crawlHealth`, `indexability`, `htmlStructuralQuality`, `thinContentQuality`, `entityHintCoverage`, `entityStructureAccuracy`, `entityLinkageDensity`) are computed from real data and exposed via `DeoSignalsService.collectSignalsForProject`.
+- The worker pipeline (`DeoScoreProcessor`) successfully consumes the enriched `DeoScoreSignals` and persists v1 DEO snapshots without errors.
+- The debug endpoint `GET /projects/:id/deo-signals/debug` returns normalized 0–1 values that move in the expected direction when titles, descriptions, headings, or content depth are adjusted on a small test project.
+- No schema migration is required for this phase; the application builds and runs against the existing database schema.
+
 **Phase 2.5 – Product Signals (Heuristic v1) (Completed)**
 
 - Extended `DeoSignalsService` so that **Product** metadata contributes to the Content and Entities components alongside crawled pages.
@@ -2387,6 +2450,19 @@ Use this snapshot and denormalized score wherever DEO Score is displayed (dashbo
   - The debug endpoint `GET /projects/:id/deo-signals/debug` returns the enriched signals, now including product-influenced Content and Entity metrics.
 
 - Updated `docs/deo-score-spec.md` with Phase 2.5 signal definitions, surface calculations, and weighted blending formulas.
+
+**Constraints:**
+
+- No new Prisma models or columns were added; Product signals reuse the existing `Product` table and relationships.
+- The DEO v1 scoring engine remains unchanged; Product-derived metrics are blended into existing Content and Entity inputs without altering weights.
+- Phase 2.5 does not change crawl behavior or introduce new worker queues; it only extends signal computation.
+
+**Acceptance Criteria (met):**
+
+- `DeoSignalsService.collectSignalsForProject(projectId)` incorporates both `CrawlResult` and `Product` data to populate content and entity metrics (coverage, depth, freshness, hint coverage, structure accuracy, linkage).
+- The relative influence of product metadata is visible in the debug signals and resulting DEO scores when product descriptions and SEO fields are edited on a test store.
+- The DEO worker (`DeoScoreProcessor`) continues to run successfully with the extended signals set and produces consistent v1 DEO scores for projects with and without products.
+- Documentation in `docs/deo-score-spec.md` accurately describes how pages and products are combined into the Content and Entity components.
 
 ---
 
@@ -5487,13 +5563,13 @@ Also moved `ProductStatus` type and `getProductStatus()` function to the shared 
 
 ### UX-2.6. Acceptance Criteria
 
-- [ ] Workspace loads for valid product with auth.
-- [ ] Breadcrumb and back navigation work correctly.
-- [ ] AI suggestions can be generated and applied into the editor.
-- [ ] Editor can apply SEO changes to Shopify with success/error feedback.
-- [ ] Insights panel shows content depth, metadata completeness, and thin-content signal.
-- [ ] Layout is fully responsive with no horizontal scrolling.
-- [ ] Documentation updated in `docs/UX_REDESIGN.md`.
+- [x] Workspace loads for valid product with auth.
+- [x] Breadcrumb and back navigation work correctly.
+- [x] AI suggestions can be generated and applied into the editor.
+- [x] Editor can apply SEO changes to Shopify with success/error feedback.
+- [x] Insights panel shows content depth, metadata completeness, and thin-content signal.
+- [x] Layout is fully responsive with no horizontal scrolling.
+- [x] Documentation updated in `docs/UX_REDESIGN.md`.
 
 ---
 
@@ -5564,6 +5640,50 @@ Also moved `ProductStatus` type and `getProductStatus()` function to the shared 
 - [x] No horizontal scroll under normal usage.
 - [x] On tablet/desktop: Layout remains consistent with UX-1 (side-by-side sidebar + content, horizontal row-cards).
 - [x] Documentation updated in `docs/UX_REDESIGN.md`.
+
+---
+
+# PHASE UX-3 — Project Overview Redesign
+
+**Goal:** Redesign the Project Overview page to be DEO-first, surfacing the latest DEO score, component breakdown, and key signals/health indicators in a single, easy-to-scan dashboard.
+
+### UX-3.1. Scope
+
+- **App:** `apps/web` (Next.js, App Router).
+- **Route:** `/projects/[id]` (Project Overview).
+- **Layout:**
+  - DEO Score card and component breakdown at the top.
+  - Signals summary and project health cards in the right column.
+  - Crawl & DEO Issues entry point and integrations overview in the secondary section.
+
+### UX-3.2. Constraints
+
+- Frontend-only phase; no new backend endpoints or Prisma schema changes.
+- Reuse existing APIs:
+  - DEO score: `GET /projects/:id/deo-score`.
+  - DEO signals (debug/summary): `GET /projects/:id/deo-signals/debug`.
+  - Project overview stats: `GET /projects/:id/overview`.
+  - Integration status: `GET /projects/:id/integration-status`.
+- Must not break existing flows on the Projects index or Products list; navigation and auth patterns remain unchanged.
+
+### UX-3.3. Implementation Summary
+
+- Introduced a **DEO Score card** that displays the latest overall DEO score and freshness timestamp.
+- Added a **component breakdown panel** (Content, Entities, Technical, Visibility) driven by the latest DEO snapshot.
+- Added a **Signals Summary** component and **Project Health cards** that visualize crawl health, indexability, thin content, and other key metrics from the DEO signals.
+- Reorganized the secondary section to surface:
+  - **Crawl & DEO Issues entry point** (Run Crawl button + link to issues/results).
+  - **Integrations overview**, including Shopify connection status and product links.
+- Ensured responsive layout behavior so the overview remains usable on mobile and desktop.
+
+### UX-3.4. Acceptance Criteria
+
+- [ ] Project Overview loads successfully for authenticated users and displays DEO score, component breakdown, and signals summary for projects with data.
+- [ ] When no DEO snapshot exists, the page renders a sensible empty state without errors.
+- [ ] The Crawl & DEO Issues area hooks into existing crawl endpoints and links to the issues/results views without breaking navigation.
+- [ ] Integration status (e.g., Shopify connected) is visible on the Overview and links to the relevant Products page.
+- [ ] The layout is responsive with no horizontal scrolling on mobile; desktop layout remains consistent with the redesign spec.
+- [ ] No new backend endpoints or schema changes were required; all data comes from existing project, DEO, and integration APIs.
 
 ---
 
