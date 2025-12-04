@@ -9,6 +9,40 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Starting seed...');
 
+  // Check if admin user exists
+  let admin = await prisma.user.findFirst({
+    where: {
+      email: 'admin@engineo.ai',
+    },
+  });
+
+  // Create admin user if it doesn't exist
+  if (!admin) {
+    console.log('👤 Creating admin user...');
+    const bcrypt = require('bcrypt');
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+    admin = await prisma.user.create({
+      data: {
+        email: 'admin@engineo.ai',
+        password: hashedPassword,
+        name: 'Admin User',
+        role: 'ADMIN',
+      },
+    });
+    console.log('✅ Admin user created:', admin.id);
+  } else {
+    // Ensure admin role
+    if (admin.role !== 'ADMIN') {
+      admin = await prisma.user.update({
+        where: { id: admin.id },
+        data: { role: 'ADMIN' },
+      });
+      console.log('✅ Updated user to ADMIN role');
+    } else {
+      console.log('✅ Admin user already exists:', admin.id);
+    }
+  }
+
   // Check if a user already exists
   let user = await prisma.user.findFirst({
     where: {

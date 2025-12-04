@@ -74,6 +74,23 @@ For each job:
 - New `CrawlResult` rows feed existing overview metrics and DEO signal collection.
 - No DEO recomputation is triggered automatically in this phase; Phase 3.2 will wire DEO score recompute on top of fresh crawls.
 
+## Redis Configuration
+
+BullMQ requires Redis to use the `noeviction` memory policy. If you see this warning in your logs:
+
+```
+IMPORTANT! Eviction policy is optimistic-volatile. It should be "noeviction"
+```
+
+This means your Redis instance may evict queue data when memory is full, potentially causing job loss.
+
+**To fix on Render:**
+1. Navigate to your Redis instance in the Render Dashboard
+2. Configure the `maxmemory-policy` to `noeviction`
+3. If Render doesn't allow this setting, consider upgrading to a larger Redis plan or using a provider like Upstash that supports `noeviction`
+
+**Why this matters:** With eviction policies like `volatile-lru`, Redis may delete queue jobs when under memory pressure, causing scheduled crawls to be silently dropped.
+
 ## Notes
 
 - `lastCrawledAt` is stored as an optional timestamp on the `Project` model.
