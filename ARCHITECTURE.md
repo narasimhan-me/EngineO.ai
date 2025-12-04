@@ -142,9 +142,9 @@ EngineO.ai uses a modern, cloud‑native infrastructure optimized for scale, cos
   - High‑performance storage
 
 #### Redis (Cache + Queues)
-- **Upstash Redis**
+- **Upstash Redis + BullMQ**
   - Low‑latency queue processing
-  - Durable queue storage for BullMQ
+  - Durable queue storage for BullMQ job queues
   - Global multi‑region availability
 
 #### Object Storage
@@ -182,12 +182,12 @@ graph TD
     B --> C[NestJS HTTP API - Render]
 
     C --> D[(PostgreSQL - Neon)]
-    C --> E[(Redis - Upstash Queues)]
+    C --> E[(Redis - Upstash + BullMQ Queues)]
     C --> F[AI Providers]
     C --> G[E-commerce Platforms]
     C --> H[Other Integrations]
 
-    E --> W[NestJS Worker Service]
+    E --> W[NestJS Worker Service (BullMQ)]
     W --> D
     W --> F
     W --> G
