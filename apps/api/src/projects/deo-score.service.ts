@@ -127,7 +127,7 @@ export class DeoScoreService {
 /**
  * Service that collects DEO signals for a project.
  *
- * Phase 2.3: Uses heuristic, data-driven signals derived from existing DB tables
+ * Phase 2.4: Uses heuristic, data-driven signals derived from existing DB tables
  * (CrawlResult, Product, Project) only. All signals are normalized in the 0–1 range.
  */
 @Injectable()
@@ -139,8 +139,8 @@ export class DeoSignalsService {
    *
    * Heuristics are intentionally simple and based only on existing data:
    * - Content: coverage, depth, freshness
-   * - Entities: coverage, accuracy, linkage (proto)
-   * - Technical: crawl health, indexability, placeholder CWV
+   * - Entities: hint coverage, structure accuracy, linkage density (heuristic v1)
+   * - Technical: crawl health, indexability, html structural quality, thin content quality, placeholder CWV
    * - Visibility: SERP presence, brand navigational strength, answer surfaces
    */
   async collectSignalsForProject(projectId: string): Promise<DeoScoreSignals> {
@@ -161,6 +161,7 @@ export class DeoSignalsService {
 
     const totalCrawls = crawlResults.length;
     const totalProducts = products.length;
+    const totalPages = totalCrawls;
 
     // ---------- Content signals ----------
 
@@ -234,168 +235,208 @@ export class DeoSignalsService {
           freshnessScores.length
         : 0;
 
-    // ---------- Technical & visibility helpers ----------
+    // ---------- Technical, entity & visibility helpers (Phase 2.4) ----------
 
-    let successfulCrawls = 0;
+    let healthyPages = 0;
     let indexablePages = 0;
-    let pagesWithStructuralIssues = 0;
+    let htmlIssuePages = 0;
+    let thinPages = 0;
+    let serpReadyPages = 0;
     let answerReadyPages = 0;
-    let pagesWithSeoMetadata = 0;
-    let productsWithSeoMetadata = 0;
+    let navPages = 0;
+
+    let entityHintPages = 0;
+    let entityIssuePages = 0;
+
+    let internalLinkSamples = 0;
+    let internalLinkSum = 0;
 
     for (const cr of crawlResults) {
       const issues = (cr.issues as string[]) ?? [];
+
       const hasHttpError =
         issues.includes('HTTP_ERROR') || issues.includes('FETCH_ERROR');
 
-      const isSuccess =
+      const isHealthy =
         cr.statusCode >= 200 && cr.statusCode < 400 && !hasHttpError;
 
-      if (isSuccess) {
-        successfulCrawls++;
+      if (isHealthy) {
+        healthyPages++;
       }
 
-      const hasThinContent = issues.includes('THIN_CONTENT');
-      const isIndexable = isSuccess && !hasThinContent;
+      const hasTitle = !!cr.title;
+      const hasMetaDescription = !!cr.metaDescription;
+      const hasH1 = !!cr.h1;
+
+      const hasThinFlag = issues.includes('THIN_CONTENT');
+      const wordCount = typeof cr.wordCount === 'number' ? cr.wordCount : null;
+      const isThinByWordCount = wordCount != null && wordCount < 150;
+      const isVeryShort = wordCount != null && wordCount < 100;
+      const isThin = hasThinFlag || isThinByWordCount;
+
+      if (isThin) {
+        thinPages++;
+      }
+
+      const hasHtmlIssue =
+        !hasTitle || !hasMetaDescription || !hasH1 || isVeryShort;
+
+      if (hasHtmlIssue) {
+        htmlIssuePages++;
+      }
+
+      const hasEntityStructureIssue =
+        !hasTitle || !hasMetaDescription || !hasH1 || isThin;
+
+      if (hasEntityStructureIssue) {
+        entityIssuePages++;
+      }
+
+      const isIndexable =
+        isHealthy && hasTitle && hasMetaDescription && !isThin;
 
       if (isIndexable) {
         indexablePages++;
       }
 
-      const hasStructuralIssues =
-        issues.includes('MISSING_TITLE') ||
-        issues.includes('MISSING_META_DESCRIPTION') ||
-        issues.includes('MISSING_H1') ||
-        hasThinContent;
-
-      if (hasStructuralIssues) {
-        pagesWithStructuralIssues++;
+      if (hasTitle && hasH1) {
+        entityHintPages++;
       }
 
-      if (cr.wordCount != null && cr.wordCount >= 400 && cr.h1) {
+      const hasSerpMetadata = hasTitle && hasMetaDescription && hasH1;
+
+      if (hasSerpMetadata) {
+        serpReadyPages++;
+      }
+
+      const isAnswerReady =
+        isHealthy && hasH1 && !hasThinFlag && wordCount != null && wordCount >= 400;
+
+      if (isAnswerReady) {
         answerReadyPages++;
       }
 
-      if (cr.title && cr.metaDescription) {
-        pagesWithSeoMetadata++;
+      const internalLinkCount = (cr as any).internalLinkCount as
+        | number
+        | undefined;
+
+      if (typeof internalLinkCount === 'number' && internalLinkCount >= 0) {
+        internalLinkSamples++;
+        internalLinkSum += internalLinkCount;
+      }
+
+      const url = cr.url.toLowerCase();
+      const pathStart = url.indexOf('/', url.indexOf('://') + 3);
+      const path =
+        pathStart === -1 ? '/' : url.substring(pathStart).split('?')[0];
+
+      const lowerPath = path.toLowerCase();
+      if (
+        lowerPath === '/' ||
+        lowerPath === '/home' ||
+        lowerPath.startsWith('/about') ||
+        lowerPath.startsWith('/contact') ||
+        lowerPath.startsWith('/pricing') ||
+        lowerPath.startsWith('/faq') ||
+        lowerPath.startsWith('/support')
+      ) {
+        navPages++;
       }
     }
 
-    for (const product of products) {
-      const titleSource = product.seoTitle ?? product.title;
-      const descriptionSource = product.seoDescription ?? product.description;
-      if (titleSource && descriptionSource) {
-        productsWithSeoMetadata++;
-      }
-    }
+    // ---------- Technical signals (Phase 2.4) ----------
 
-    // ---------- Technical signals ----------
-
-    // crawlHealth: % of crawl results that returned successful HTTP status and no HTTP/FETCH_ERROR
+    // crawlHealth: fraction of pages that are healthy (2xx/3xx, no HTTP/FETCH error)
     const crawlHealth =
-      totalCrawls > 0 ? successfulCrawls / totalCrawls : 0;
+      totalPages > 0 ? healthyPages / totalPages : 0;
 
-    // indexability: % of pages that are successful and not marked as THIN_CONTENT
+    // indexability: fraction of healthy pages with title + metaDescription and not thin
     const indexability =
-      totalCrawls > 0 ? indexablePages / totalCrawls : 0;
+      totalPages > 0 ? indexablePages / totalPages : 0;
+
+    // htmlStructuralQuality: 1 - (pages with structural issues / total pages)
+    const htmlStructuralQuality =
+      totalPages > 0
+        ? Math.max(0, Math.min(1, 1 - htmlIssuePages / totalPages))
+        : 0;
+
+    // thinContentQuality: 1 - (thin pages / total pages)
+    const thinContentQuality =
+      totalPages > 0
+        ? Math.max(0, Math.min(1, 1 - thinPages / totalPages))
+        : 0;
 
     // coreWebVitals: placeholder 0.5 until real CWV integration
     const coreWebVitals = 0.5;
 
-    // ---------- Entity signals (proto) ----------
+    // ---------- Entity signals (Phase 2.4 heuristic) ----------
 
-    const totalItemsForEntity = totalCrawls + totalProducts;
-    let entityHintCount = 0;
+    // entityHintCoverage: fraction of pages with title + H1
+    const entityHintCoverage =
+      totalPages > 0 ? entityHintPages / totalPages : 0;
 
-    for (const cr of crawlResults) {
-      if (cr.title && cr.h1) {
-        entityHintCount++;
-      }
-    }
-
-    for (const product of products) {
-      const titleSource = product.seoTitle ?? product.title;
-      const descriptionSource = product.seoDescription ?? product.description;
-      if (titleSource && descriptionSource) {
-        entityHintCount++;
-      }
-    }
-
-    // entityCoverage: % of pages/products with "entity hints" (title + h1 or SEO title + description)
-    const entityCoverage =
-      totalItemsForEntity > 0 ? entityHintCount / totalItemsForEntity : 0;
-
-    // entityAccuracy: 1 - (pages with structural issues / total pages), clamped to [0.3, 0.9]
-    let entityAccuracy: number;
-    if (totalCrawls > 0) {
-      const rawAccuracy = 1 - pagesWithStructuralIssues / totalCrawls;
-      entityAccuracy = Math.min(0.9, Math.max(0.3, rawAccuracy));
+    // entityStructureAccuracy: clamped inverse of entity structure issues
+    let entityStructureAccuracy: number;
+    if (totalPages > 0) {
+      const raw = 1 - entityIssuePages / totalPages;
+      entityStructureAccuracy = Math.min(0.9, Math.max(0.3, raw));
     } else {
-      entityAccuracy = 0.5;
+      entityStructureAccuracy = 0.5;
     }
 
-    // entityLinkage: simple proxy using average word count, normalized to 1200 words
-    const entityLinkage = Math.max(0, Math.min(1, avgWordCount / 1200));
+    // entityLinkageDensity: internal link density if available, otherwise word-count fallback
+    let entityLinkageDensity: number;
+    if (internalLinkSamples > 0) {
+      const avgInternalLinks = internalLinkSum / internalLinkSamples;
+      entityLinkageDensity = Math.min(avgInternalLinks / 20, 1);
+    } else {
+      entityLinkageDensity = Math.max(0, Math.min(1, avgWordCount / 1200));
+    }
 
-    // ---------- Visibility signals (proto) ----------
+    // Maintain v1 component inputs using new heuristics
+    const entityCoverage = entityHintCoverage;
+    const entityAccuracy = entityStructureAccuracy;
+    const entityLinkage = entityLinkageDensity;
 
-    // serpPresence: % of pages/products with SEO metadata (title + meta/description)
-    const totalItemsForVisibility = totalCrawls + totalProducts;
+    // ---------- Visibility signals (Phase 2.4 heuristic) ----------
+
+    // serpPresence: fraction of pages with title + metaDescription + H1
     const serpPresence =
-      totalItemsForVisibility > 0
-        ? (pagesWithSeoMetadata + productsWithSeoMetadata) /
-          totalItemsForVisibility
-        : 0;
+      totalPages > 0 ? serpReadyPages / totalPages : 0;
 
-    // brandNavigationalStrength: normalized count of brand-like pages (/, /home, /about, /contact, /pricing, /blog)
-    let brandNavigationalStrength = 0;
-    if (totalCrawls > 0) {
-      let brandPages = 0;
-      for (const cr of crawlResults) {
-        const url = cr.url.toLowerCase();
-
-        const pathStart = url.indexOf('/', url.indexOf('://') + 3);
-        const path =
-          pathStart === -1 ? '/' : url.substring(pathStart).split('?')[0];
-
-        const lowerPath = path.toLowerCase();
-        if (
-          lowerPath === '/' ||
-          lowerPath === '/home' ||
-          lowerPath.startsWith('/about') ||
-          lowerPath.startsWith('/contact') ||
-          lowerPath.startsWith('/pricing') ||
-          lowerPath.startsWith('/blog')
-        ) {
-          brandPages++;
-        }
-      }
-
-      // Normalize: 0 brand pages → 0, 1–3 pages → up to 1, 3+ saturated at 1
-      brandNavigationalStrength = Math.min(1, brandPages / 3);
-    }
-
-    // answerSurfacePresence: % of pages that look "answer-ready" (enough content + H1)
+    // answerSurfacePresence: fraction of pages that are healthy, not THIN_CONTENT, wordCount >= 400, and have H1
     const answerSurfacePresence =
-      totalCrawls > 0 ? answerReadyPages / totalCrawls : 0;
+      totalPages > 0 ? answerReadyPages / totalPages : 0;
+
+    // brandNavigationalStrength: normalized count of navigational pages
+    let brandNavigationalStrength = 0;
+    if (totalPages > 0) {
+      brandNavigationalStrength = Math.min(1, navPages / 3);
+    }
 
     return {
       // Content
       contentCoverage,
       contentDepth,
       contentFreshness,
-      // Entities (proto)
+      // Entities (v1 component inputs, derived from Phase 2.4 heuristics)
       entityCoverage,
       entityAccuracy,
       entityLinkage,
-      // Technical
+      // Technical (v1 component inputs)
       crawlHealth,
       coreWebVitals,
       indexability,
-      // Visibility (proto)
+      // Visibility
       serpPresence,
       answerSurfacePresence,
       brandNavigationalStrength,
+      // Detailed technical/entity signals (Phase 2.4)
+      htmlStructuralQuality,
+      thinContentQuality,
+      entityHintCoverage,
+      entityStructureAccuracy,
+      entityLinkageDensity,
     };
   }
 }

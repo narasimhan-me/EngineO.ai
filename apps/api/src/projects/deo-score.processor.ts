@@ -27,7 +27,7 @@ export class DeoScoreProcessor implements OnModuleInit, OnModuleDestroy {
         const { projectId } = job.data;
 
         try {
-          // Phase 2.2: Collect stub signals and compute v1 score
+          // Phase 2.4: Collect heuristic crawl-based signals and compute v1 score
           const signals = await this.deoSignalsService.collectSignalsForProject(projectId);
           const snapshot = await this.deoScoreService.computeAndPersistScoreFromSignals(
             projectId,

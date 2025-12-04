@@ -2287,13 +2287,34 @@ Use this snapshot and denormalized score wherever DEO Score is displayed (dashbo
 - Updated the worker pipeline (`DeoScoreProcessor`) to use real signal ingestion (via `collectSignalsForProject`) feeding into the v1 scoring engine (`computeAndPersistScoreFromSignals`).
 - Updated `docs/deo-score-spec.md` with Phase 2.3 heuristic v1 signal definitions, per-pillar heuristics, and the updated worker flow, including the debug endpoint.
 
-**Phase 2.4 – Follow-Up Tasks**
+**Phase 2.4 – Crawl Signals (Heuristic v1) (Completed)**
 
-- Integrate real crawling and indexability signals (expanded page fetch and metadata parsing) beyond the current single-page and heuristic assumptions.
-- Replace visibility heuristics with integrations against real visibility sources (e.g., SERP / Google Search Console placeholders) while keeping scope constrained.
-- Begin linking DEO entities to real schema extraction and early entity graph work (Phase 3 dependencies), evolving proto-entity metrics into graph-aware signals.
-- Add a DEO Score history endpoint (e.g., `GET /projects/:id/deo-score/history`) and wire it into dashboard trend visualizations.
-- Prepare for Phase 3.0 Entities by ensuring signals, storage, and worker flows can plug into a real entity graph and more advanced visibility pipelines.
+- Replaced remaining stubbed crawl-based signals in `DeoSignalsService` with real heuristics over existing `CrawlResult` and `Product` data (no schema changes, no external APIs).
+
+- Implemented **Technical signals** (normalized 0–1) derived from crawl data:
+  - `crawlHealth` – healthy pages (2xx/3xx, no HTTP_ERROR/FETCH_ERROR) divided by total crawled pages.
+  - `indexability` – healthy pages that also have `title` + `metaDescription` and are not marked `THIN_CONTENT`.
+  - `htmlStructuralQuality` – `1 - (issuePages / totalPages)` where issues include missing `title`, `metaDescription`, or `h1`, or `wordCount < 100`.
+  - `thinContentQuality` – `1 - (thinPages / totalPages)` where thin pages have `wordCount < 150` or `THIN_CONTENT` in issues.
+  - `coreWebVitals` – kept as a fixed placeholder value `0.5` pending later CWV integration.
+
+- Implemented enhanced **Visibility signals** using crawl-only data:
+  - `serpPresence` – fraction of pages with `title`, `metaDescription`, and `h1`.
+  - `answerSurfacePresence` – fraction of pages that are healthy, have `h1`, `wordCount >= 400`, and are not marked `THIN_CONTENT`.
+  - `brandNavigationalStrength` – `min(navPages / 3, 1)`, where navigational pages include `/`, `/home`, `/about`, `/contact`, `/pricing`, `/faq`, `/support`.
+
+- Implemented heuristic **Entity signals** (v1) without changing the underlying schema:
+  - `entityHintCoverage` – fraction of crawled pages with both `title` and `h1`.
+  - `entityStructureAccuracy` – clamped inverse of entity structure issues (missing `title`, missing `metaDescription`, missing `h1`, or thin content), with `raw = 1 - (entityIssuePages / totalPages)` and clamping to `[0.3, 0.9]` (default `0.5` when no pages exist).
+  - `entityLinkageDensity` – internal link density proxy using `internalLinkCount` when available (`min(avgInternalLinks / 20, 1)`), otherwise falling back to the existing word-count heuristic (`min(avgWordCount / 1200, 1)`).
+
+- Extended the shared `DeoScoreSignals` type (`packages/shared/src/deo-score.ts`) with the new Phase 2.4 fields (`htmlStructuralQuality`, `thinContentQuality`, `entityHintCoverage`, `entityStructureAccuracy`, `entityLinkageDensity`) while preserving the v1 scoring engine:
+  - `computeDeoScoreFromSignals` and `DEO_SCORE_WEIGHTS` remain unchanged.
+  - The v1 component inputs (`entityCoverage`, `entityAccuracy`, `entityLinkage`, `crawlHealth`, `coreWebVitals`, `indexability`, `serpPresence`, `answerSurfacePresence`, `brandNavigationalStrength`) are now populated from the new heuristics.
+
+- Kept the DEO pipeline shape stable:
+  - `DeoScoreProcessor` still pulls `DeoScoreJobPayload` from `deo_score_queue`, calls `DeoSignalsService.collectSignalsForProject(projectId)`, and passes signals into `DeoScoreService.computeAndPersistScoreFromSignals`.
+  - The debug endpoint `GET /projects/:id/deo-signals/debug` continues to expose the current normalized signals, now including the Phase 2.4 crawl-derived metrics.
 
 ---
 

@@ -19,12 +19,15 @@ interface MetadataOutput {
 export class AiService {
   private readonly apiKey: string;
   private readonly provider: 'openai' | 'anthropic' | 'gemini';
+  private readonly geminiModel: string;
 
   constructor(private configService: ConfigService) {
     this.apiKey = this.configService.get<string>('AI_API_KEY') || '';
     this.provider =
       (this.configService.get<string>('AI_PROVIDER') as 'openai' | 'anthropic' | 'gemini') ||
       'openai';
+    // Allow configurable Gemini model, default to gemini-1.5-flash for better rate limits
+    this.geminiModel = this.configService.get<string>('GEMINI_MODEL') || 'gemini-1.5-flash';
   }
 
   async generateMetadata(input: MetadataInput): Promise<MetadataOutput> {
@@ -142,7 +145,7 @@ Respond in JSON format only:
     }
 
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.geminiModel}:generateContent?key=${this.apiKey}`;
 
       const response = await fetch(url, {
         method: 'POST',

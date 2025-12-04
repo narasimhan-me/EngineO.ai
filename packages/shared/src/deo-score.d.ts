@@ -18,3 +18,23 @@ export type DeoScoreLatestResponse = {
     latestScore: DeoScoreBreakdown | null;
     latestSnapshot: DeoScoreSnapshot | null;
 };
+export type DeoScoreSignals = {
+    contentCoverage?: number | null;
+    contentDepth?: number | null;
+    contentFreshness?: number | null;
+    entityCoverage?: number | null;
+    entityAccuracy?: number | null;
+    entityLinkage?: number | null;
+    crawlHealth?: number | null;
+    coreWebVitals?: number | null;
+    indexability?: number | null;
+    serpPresence?: number | null;
+    answerSurfacePresence?: number | null;
+    brandNavigationalStrength?: number | null;
+    htmlStructuralQuality?: number | null;
+    thinContentQuality?: number | null;
+    entityHintCoverage?: number | null;
+    entityStructureAccuracy?: number | null;
+    entityLinkageDensity?: number | null;
+};
+export declare function computePlaceholderDeoScore(): DeoScoreBreakdown;

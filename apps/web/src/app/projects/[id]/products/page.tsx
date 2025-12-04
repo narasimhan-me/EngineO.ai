@@ -466,23 +466,36 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              {/* Suggested Metadata */}
+              {/* Suggested Metadata (Editable) */}
               <div className="mb-6">
                 <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                   <svg className="w-4 h-4 mr-1.5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                   </svg>
                   AI Suggested Metadata
+                  <span className="ml-2 text-xs text-gray-500 font-normal">(editable)</span>
                 </h4>
                 <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 space-y-4">
                   <div>
                     <div className="flex justify-between items-center mb-1">
-                      <label className="text-xs font-medium text-purple-700 uppercase">Suggested Title</label>
-                      <span className="text-xs text-gray-500">{currentSuggestion.suggested.title.length}/60 chars</span>
+                      <label className="text-xs font-medium text-purple-700 uppercase">SEO Title</label>
+                      <span className={`text-xs ${currentSuggestion.suggested.title.length > 60 ? 'text-red-500' : 'text-gray-500'}`}>
+                        {currentSuggestion.suggested.title.length}/60 chars
+                      </span>
                     </div>
-                    <p className="text-sm text-gray-900 bg-white rounded px-3 py-2 border border-purple-200">
-                      {currentSuggestion.suggested.title}
-                    </p>
+                    <input
+                      type="text"
+                      value={currentSuggestion.suggested.title}
+                      onChange={(e) => setCurrentSuggestion({
+                        ...currentSuggestion,
+                        suggested: {
+                          ...currentSuggestion.suggested,
+                          title: e.target.value,
+                        },
+                      })}
+                      className="w-full text-sm text-gray-900 bg-white rounded px-3 py-2 border border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="Enter SEO title..."
+                    />
                     <button
                       onClick={() => copyToClipboard(currentSuggestion.suggested.title, 'Title')}
                       className="mt-2 text-xs text-purple-600 hover:text-purple-800 flex items-center"
@@ -495,12 +508,24 @@ export default function ProductsPage() {
                   </div>
                   <div>
                     <div className="flex justify-between items-center mb-1">
-                      <label className="text-xs font-medium text-purple-700 uppercase">Suggested Description</label>
-                      <span className="text-xs text-gray-500">{currentSuggestion.suggested.description.length}/155 chars</span>
+                      <label className="text-xs font-medium text-purple-700 uppercase">SEO Description</label>
+                      <span className={`text-xs ${currentSuggestion.suggested.description.length > 155 ? 'text-red-500' : 'text-gray-500'}`}>
+                        {currentSuggestion.suggested.description.length}/155 chars
+                      </span>
                     </div>
-                    <p className="text-sm text-gray-900 bg-white rounded px-3 py-2 border border-purple-200">
-                      {currentSuggestion.suggested.description}
-                    </p>
+                    <textarea
+                      value={currentSuggestion.suggested.description}
+                      onChange={(e) => setCurrentSuggestion({
+                        ...currentSuggestion,
+                        suggested: {
+                          ...currentSuggestion.suggested,
+                          description: e.target.value,
+                        },
+                      })}
+                      rows={3}
+                      className="w-full text-sm text-gray-900 bg-white rounded px-3 py-2 border border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                      placeholder="Enter SEO description..."
+                    />
                     <button
                       onClick={() => copyToClipboard(currentSuggestion.suggested.description, 'Description')}
                       className="mt-2 text-xs text-purple-600 hover:text-purple-800 flex items-center"

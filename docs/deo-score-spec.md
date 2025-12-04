@@ -269,6 +269,38 @@ For debugging, a developer endpoint `GET /projects/:projectId/deo-signals/debug`
 
 Full-fidelity signals (including real entity graph and external visibility integrations) are deferred to later phases (Phase 3 and 4).
 
+## Phase 2.4 – Crawl Signals (Heuristic v1)
+
+Phase 2.4 upgrades `DeoSignalsService` to compute real crawl-based signals using only existing `CrawlResult` and `Product` data (no schema changes, no external APIs). All signals are normalized to the 0–1 range and continue to feed the v1 scoring engine via `DeoScoreSignals`.
+
+### Technical
+
+- `crawlHealth` – fraction of pages with HTTP status 2xx/3xx and no `HTTP_ERROR` or `FETCH_ERROR` in issues.
+- `indexability` – fraction of healthy pages that have both `title` and `metaDescription` and are not marked `THIN_CONTENT` (and are not extremely short).
+- `htmlStructuralQuality` – `1 - (issuePages / totalPages)`, where issue pages are missing `title`, `metaDescription`, or `h1`, or have `wordCount < 100`.
+- `thinContentQuality` – `1 - (thinPages / totalPages)`, where thin pages have `wordCount < 150` or include `THIN_CONTENT` in issues.
+- `coreWebVitals` – remains a fixed placeholder `0.5` until real CWV integration.
+
+### Visibility
+
+- `serpPresence` – fraction of pages that have `title`, `metaDescription`, and `h1`.
+- `answerSurfacePresence` – fraction of pages that are healthy, have `h1`, `wordCount >= 400`, and are not marked `THIN_CONTENT`.
+- `brandNavigationalStrength` – `min(navPages / 3, 1)`, where `navPages` are pages whose path is `/`, `/home`, `/about`, `/contact`, `/pricing`, `/faq`, or `/support`.
+
+### Entities (heuristic v1)
+
+- `entityHintCoverage` – fraction of crawled pages with both `title` and `h1`.
+- `entityStructureAccuracy` – clamped inverse of entity structure issues:
+  - `raw = 1 - (entityIssuePages / totalPages)` where entity issues include missing `title`, `metaDescription`, or `h1`, or thin content;
+  - `entityStructureAccuracy = clamp(raw, 0.3, 0.9)`; if no pages exist, defaults to `0.5`.
+- `entityLinkageDensity` – if an `internalLinkCount` field is available on `CrawlResult`, use `min(avgInternalLinks / 20, 1)`; otherwise fall back to the existing word-count heuristic `min(avgWordCount / 1200, 1)`.
+
+### Worker behavior
+
+- `DeoSignalsService.collectSignalsForProject(projectId)` now computes these enhanced signals from `CrawlResult` and `Product`.
+- `DeoScoreProcessor` continues to call `collectSignalsForProject` and pipe the result into `DeoScoreService.computeAndPersistScoreFromSignals`, preserving the v1 scoring engine and weights.
+- The debug endpoint `GET /projects/:projectId/deo-signals/debug` returns the enriched `DeoScoreSignals` object, including the new Phase 2.4 fields.
+
 ### Phase 2.4+ Plans
 
 - Allow per-project signal overrides and custom weighting.
