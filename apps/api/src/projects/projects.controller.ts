@@ -16,6 +16,7 @@ import { ProjectsService, CreateProjectDto, UpdateProjectDto } from './projects.
 import { DeoScoreService, DeoSignalsService } from './deo-score.service';
 import { DeoIssuesService } from './deo-issues.service';
 import { AutomationService } from './automation.service';
+import { EntitlementsService } from '../billing/entitlements.service';
 import {
   DeoScoreLatestResponse,
   DeoIssuesResponse,
@@ -33,6 +34,7 @@ export class ProjectsController {
     private readonly deoSignalsService: DeoSignalsService,
     private readonly deoIssuesService: DeoIssuesService,
     private readonly automationService: AutomationService,
+    private readonly entitlementsService: EntitlementsService,
   ) {}
 
   /**
@@ -51,6 +53,8 @@ export class ProjectsController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async createProject(@Request() req: any, @Body() dto: CreateProjectDto) {
+    // Check entitlements before creating project
+    await this.entitlementsService.ensureCanCreateProject(req.user.id);
     return this.projectsService.createProject(req.user.id, dto);
   }
 

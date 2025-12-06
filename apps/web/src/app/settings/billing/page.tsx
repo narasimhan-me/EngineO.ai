@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { billingApi } from '@/lib/api';
 import { isAuthenticated } from '@/lib/auth';
@@ -13,8 +13,8 @@ interface Plan {
   features: string[];
   limits: {
     projects: number;
-    scansPerMonth: number;
-    aiSuggestionsPerMonth: number;
+    crawledPages: number;
+    automationSuggestionsPerDay: number;
   };
 }
 
@@ -25,10 +25,24 @@ interface Subscription {
   currentPeriodEnd: string | null;
 }
 
-export default function BillingSettingsPage() {
+interface Entitlements {
+  plan: string;
+  limits: {
+    projects: number;
+    crawledPages: number;
+    automationSuggestionsPerDay: number;
+  };
+  usage: {
+    projects: number;
+  };
+}
+
+function BillingSettingsContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [entitlements, setEntitlements] = useState<Entitlements | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -40,17 +54,26 @@ export default function BillingSettingsPage() {
       return;
     }
 
+    // Check for success/canceled from Stripe redirect
+    if (searchParams.get('success') === 'true') {
+      setSuccess('Subscription updated successfully!');
+    } else if (searchParams.get('canceled') === 'true') {
+      setError('Checkout was canceled.');
+    }
+
     fetchData();
-  }, [router]);
+  }, [router, searchParams]);
 
   async function fetchData() {
     try {
-      const [plansData, subscriptionData] = await Promise.all([
+      const [plansData, subscriptionData, entitlementsData] = await Promise.all([
         billingApi.getPlans(),
         billingApi.getSubscription(),
+        billingApi.getEntitlements(),
       ]);
       setPlans(plansData);
       setSubscription(subscriptionData);
+      setEntitlements(entitlementsData);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load billing data');
     } finally {
@@ -58,38 +81,33 @@ export default function BillingSettingsPage() {
     }
   }
 
-  async function handleSubscribe(planId: string) {
+  async function handleUpgrade(planId: string) {
+    if (planId === 'free') return;
+
     setError('');
     setSuccess('');
     setUpdating(true);
 
     try {
-      await billingApi.subscribe(planId);
-      setSuccess(`Successfully subscribed to ${planId} plan!`);
-      // Refresh subscription data
-      const subscriptionData = await billingApi.getSubscription();
-      setSubscription(subscriptionData);
+      const { url } = await billingApi.createCheckoutSession(planId);
+      // Redirect to Stripe Checkout
+      window.location.href = url;
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to update subscription');
-    } finally {
+      setError(err instanceof Error ? err.message : 'Failed to start checkout');
       setUpdating(false);
     }
   }
 
-  async function handleCancel() {
+  async function handleManageBilling() {
     setError('');
-    setSuccess('');
     setUpdating(true);
 
     try {
-      await billingApi.cancel();
-      setSuccess('Subscription canceled. You will retain access until the end of your billing period.');
-      // Refresh subscription data
-      const subscriptionData = await billingApi.getSubscription();
-      setSubscription(subscriptionData);
+      const { url } = await billingApi.createPortalSession();
+      // Redirect to Stripe Billing Portal
+      window.location.href = url;
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to cancel subscription');
-    } finally {
+      setError(err instanceof Error ? err.message : 'Failed to open billing portal');
       setUpdating(false);
     }
   }
@@ -153,28 +171,44 @@ export default function BillingSettingsPage() {
             {subscription?.status || 'Active'}
           </span>
         </div>
+
+        {/* Usage Summary */}
+        {entitlements && (
+          <div className="mt-4 p-4 bg-gray-50 rounded-md">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Usage</h3>
+            <div className="text-sm text-gray-600">
+              <p>
+                Projects: {entitlements.usage.projects} / {formatLimit(entitlements.limits.projects)}
+              </p>
+            </div>
+          </div>
+        )}
+
         {subscription?.currentPeriodEnd && (
-          <p className="text-sm text-gray-500 mt-2">
+          <p className="text-sm text-gray-500 mt-4">
             {subscription.status === 'canceled' ? 'Access until: ' : 'Next billing date: '}
             {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
           </p>
         )}
+
+        {/* Manage Billing Button for paid plans */}
         {subscription?.plan !== 'free' && subscription?.status === 'active' && (
           <button
-            onClick={handleCancel}
+            onClick={handleManageBilling}
             disabled={updating}
-            className="mt-4 px-4 py-2 text-sm border border-red-300 text-red-700 rounded-md hover:bg-red-50 disabled:opacity-50"
+            className="mt-4 px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 disabled:opacity-50"
           >
-            {updating ? 'Processing...' : 'Cancel Subscription'}
+            {updating ? 'Processing...' : 'Manage Billing'}
           </button>
         )}
       </div>
 
       {/* Plans Grid */}
       <h2 className="text-xl font-semibold text-gray-900 mb-4">Available Plans</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {plans.map((plan) => {
           const isCurrent = subscription?.plan === plan.id;
+          const isDowngrade = subscription?.plan !== 'free' && plan.id === 'free';
           return (
             <div
               key={plan.id}
@@ -201,15 +235,15 @@ export default function BillingSettingsPage() {
                   {formatLimit(plan.limits.projects)} projects
                 </p>
                 <p className="text-xs text-gray-500">
-                  {formatLimit(plan.limits.scansPerMonth)} scans/mo
+                  {formatLimit(plan.limits.crawledPages)} crawled pages
                 </p>
                 <p className="text-xs text-gray-500">
-                  {formatLimit(plan.limits.aiSuggestionsPerMonth)} AI suggestions/mo
+                  {formatLimit(plan.limits.automationSuggestionsPerDay)} suggestions/day
                 </p>
               </div>
 
               <button
-                onClick={() => handleSubscribe(plan.id)}
+                onClick={() => isCurrent ? undefined : isDowngrade ? handleManageBilling() : handleUpgrade(plan.id)}
                 disabled={updating || isCurrent}
                 className={`w-full mt-4 px-4 py-2 text-sm rounded-md disabled:opacity-50 ${
                   isCurrent
@@ -217,12 +251,24 @@ export default function BillingSettingsPage() {
                     : 'bg-blue-600 text-white hover:bg-blue-700'
                 }`}
               >
-                {isCurrent ? 'Current Plan' : updating ? 'Processing...' : 'Select Plan'}
+                {isCurrent ? 'Current Plan' : updating ? 'Processing...' : isDowngrade ? 'Manage Billing' : 'Upgrade'}
               </button>
             </div>
           );
         })}
       </div>
     </div>
+  );
+}
+
+export default function BillingSettingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <p className="text-gray-600">Loading...</p>
+      </div>
+    }>
+      <BillingSettingsContent />
+    </Suspense>
   );
 }

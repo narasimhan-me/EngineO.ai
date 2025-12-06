@@ -1,13 +1,17 @@
+export type PlanId = 'free' | 'pro' | 'business';
+
+export interface PlanLimits {
+  projects: number; // -1 = unlimited
+  crawledPages: number; // -1 = unlimited
+  automationSuggestionsPerDay: number; // -1 = unlimited
+}
+
 export interface Plan {
-  id: string;
+  id: PlanId;
   name: string;
   price: number; // monthly price in cents
   features: string[];
-  limits: {
-    projects: number;
-    scansPerMonth: number;
-    aiSuggestionsPerMonth: number;
-  };
+  limits: PlanLimits;
 }
 
 export const PLANS: Plan[] = [
@@ -16,69 +20,50 @@ export const PLANS: Plan[] = [
     name: 'Free',
     price: 0,
     features: [
-      'Up to 2 projects',
-      '10 scans per month',
-      '5 AI suggestions per month',
+      '1 project',
+      '50 crawled pages',
+      '5 automation suggestions per day',
       'Basic SEO analysis',
     ],
     limits: {
-      projects: 2,
-      scansPerMonth: 10,
-      aiSuggestionsPerMonth: 5,
-    },
-  },
-  {
-    id: 'starter',
-    name: 'Starter',
-    price: 2900, // $29/month
-    features: [
-      'Up to 5 projects',
-      '100 scans per month',
-      '50 AI suggestions per month',
-      'Advanced SEO analysis',
-      'Email support',
-    ],
-    limits: {
-      projects: 5,
-      scansPerMonth: 100,
-      aiSuggestionsPerMonth: 50,
+      projects: 1,
+      crawledPages: 50,
+      automationSuggestionsPerDay: 5,
     },
   },
   {
     id: 'pro',
     name: 'Pro',
-    price: 7900, // $79/month
+    price: 2900, // $29/month
     features: [
-      'Up to 20 projects',
-      '500 scans per month',
-      '200 AI suggestions per month',
+      '5 projects',
+      '500 crawled pages',
+      '25 automation suggestions per day',
       'Advanced SEO analysis',
-      'Priority email support',
-      'API access',
+      'Priority support',
     ],
     limits: {
-      projects: 20,
-      scansPerMonth: 500,
-      aiSuggestionsPerMonth: 200,
+      projects: 5,
+      crawledPages: 500,
+      automationSuggestionsPerDay: 25,
     },
   },
   {
-    id: 'enterprise',
-    name: 'Enterprise',
-    price: 19900, // $199/month
+    id: 'business',
+    name: 'Business',
+    price: 9900, // $99/month
     features: [
       'Unlimited projects',
-      'Unlimited scans',
-      'Unlimited AI suggestions',
+      'Unlimited crawled pages',
+      'Unlimited automation suggestions',
       'Advanced SEO analysis',
-      'Dedicated support',
+      'Priority support',
       'API access',
-      'Custom integrations',
     ],
     limits: {
-      projects: -1, // -1 = unlimited
-      scansPerMonth: -1,
-      aiSuggestionsPerMonth: -1,
+      projects: -1,
+      crawledPages: -1,
+      automationSuggestionsPerDay: -1,
     },
   },
 ];
@@ -86,3 +71,9 @@ export const PLANS: Plan[] = [
 export function getPlanById(planId: string): Plan | undefined {
   return PLANS.find((p) => p.id === planId);
 }
+
+/** Stripe Price IDs - set via environment */
+export const STRIPE_PRICES: Record<Exclude<PlanId, 'free'>, string | undefined> = {
+  pro: process.env.STRIPE_PRICE_PRO,
+  business: process.env.STRIPE_PRICE_BUSINESS,
+};

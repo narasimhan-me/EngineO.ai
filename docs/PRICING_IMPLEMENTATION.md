@@ -68,11 +68,66 @@ model Subscription {
 
 ## 3. Pricing Tiers — Developer Definitions
 
-These reflect the launch pricing (from `PRICING_STRATEGY.md`).
-
 Define in: `apps/api/src/billing/plans.ts`
 
-### 3.1. Plan Structure
+### 3.1. Plan Structure (Current Implementation - BILLING-1)
+
+```typescript
+export type PlanId = 'free' | 'pro' | 'business';
+
+export interface PlanLimits {
+  projects: number;                    // -1 = unlimited
+  crawledPages: number;                // -1 = unlimited
+  automationSuggestionsPerDay: number; // -1 = unlimited
+}
+
+export interface Plan {
+  id: PlanId;
+  name: string;
+  price: number; // monthly price in cents
+  features: string[];
+  limits: PlanLimits;
+}
+```
+
+### 3.2. Current Plans (v1)
+
+```typescript
+export const PLANS: Plan[] = [
+  {
+    id: 'free',
+    name: 'Free',
+    price: 0,
+    features: ['1 project', '50 crawled pages', '5 automation suggestions per day', 'Basic SEO analysis'],
+    limits: { projects: 1, crawledPages: 50, automationSuggestionsPerDay: 5 },
+  },
+  {
+    id: 'pro',
+    name: 'Pro',
+    price: 2900, // $29/month
+    features: ['5 projects', '500 crawled pages', '25 automation suggestions per day', 'Advanced SEO analysis', 'Priority support'],
+    limits: { projects: 5, crawledPages: 500, automationSuggestionsPerDay: 25 },
+  },
+  {
+    id: 'business',
+    name: 'Business',
+    price: 9900, // $99/month
+    features: ['Unlimited projects', 'Unlimited crawled pages', 'Unlimited automation suggestions', 'Advanced SEO analysis', 'Priority support', 'API access'],
+    limits: { projects: -1, crawledPages: -1, automationSuggestionsPerDay: -1 },
+  },
+];
+```
+
+### 3.3. Stripe Price Mapping
+
+```typescript
+export const STRIPE_PRICES: Record<Exclude<PlanId, 'free'>, string | undefined> = {
+  pro: process.env.STRIPE_PRICE_PRO,
+  business: process.env.STRIPE_PRICE_BUSINESS,
+};
+```
+
+### 3.4. Legacy Plan Structure (for reference)
 
 ```typescript
 export type PlanID = 'starter' | 'pro' | 'agency';
@@ -86,40 +141,6 @@ export interface PlanEntitlements {
   reporting: 'basic' | 'advanced';
   support: 'standard' | 'priority';
 }
-```
-
-### 3.2. Launch Plans
-
-```typescript
-export const PLANS: Record<PlanID, PlanEntitlements> = {
-  starter: {
-    projects: 3,
-    items: 500,
-    tokens: 200_000,
-    automations: 'basic',
-    teamRoles: false,
-    reporting: 'basic',
-    support: 'standard',
-  },
-  pro: {
-    projects: 10,
-    items: 5000,
-    tokens: 2_000_000,
-    automations: 'advanced',
-    teamRoles: true,
-    reporting: 'advanced',
-    support: 'priority',
-  },
-  agency: {
-    projects: Infinity,
-    items: Infinity,
-    tokens: 10_000_000,
-    automations: 'advanced',
-    teamRoles: true,
-    reporting: 'advanced',
-    support: 'priority',
-  },
-};
 ```
 
 ---
@@ -168,46 +189,63 @@ In NestJS (`apps/api`):
 
 All API routes that modify data must validate entitlements.
 
-### 5.1. Middleware Location
+### 5.1. Service Location
 
-Create middleware: `apps/api/src/billing/entitlements.guard.ts`
+Implemented in: `apps/api/src/billing/entitlements.service.ts`
 
-### 5.2. Core Logic
-
-- Read user → subscription → plan
-- Load entitlements from `PLANS`
-- Check against:
-  - Project count
-  - Product/page count
-  - AI tokens used
-  - Automation depth
-  - Role access
-  - Reporting
-
-**Example pseudocode:**
+### 5.2. Current Implementation (EntitlementsService)
 
 ```typescript
 @Injectable()
-export class EntitlementsGuard implements CanActivate {
-  constructor(private prisma: PrismaService) {}
+export class EntitlementsService {
+  constructor(private readonly prisma: PrismaService) {}
 
-  async canActivate(ctx: ExecutionContext) {
-    const req = ctx.switchToHttp().getRequest();
-    const user = req.user;
-
+  async getUserPlan(userId: string): Promise<PlanId> {
     const subscription = await this.prisma.subscription.findUnique({
-      where: { userId: user.id },
+      where: { userId },
     });
+    if (!subscription || subscription.status !== 'active') {
+      return 'free';
+    }
+    const plan = getPlanById(subscription.plan);
+    return plan?.id ?? 'free';
+  }
 
-    const plan = PLANS[subscription.plan as PlanID];
+  async getEntitlementsSummary(userId: string): Promise<EntitlementsSummary> {
+    const planId = await this.getUserPlan(userId);
+    const plan = getPlanById(planId) || PLANS[0];
+    const projectCount = await this.prisma.project.count({ where: { userId } });
+    return {
+      plan: plan.id,
+      limits: plan.limits,
+      usage: { projects: projectCount },
+    };
+  }
 
-    req.entitlements = plan; // attach for route handlers
-    return true;
+  async ensureCanCreateProject(userId: string): Promise<void> {
+    const summary = await this.getEntitlementsSummary(userId);
+    if (summary.limits.projects !== -1 && summary.usage.projects >= summary.limits.projects) {
+      throw new ForbiddenException(
+        `Project limit reached. Your ${summary.plan} plan allows ${summary.limits.projects} project(s). Please upgrade.`
+      );
+    }
   }
 }
 ```
 
-**Use via:**
+### 5.3. Usage in Controllers
+
+```typescript
+// In ProjectsController
+@Post()
+@HttpCode(HttpStatus.CREATED)
+async createProject(@Request() req: any, @Body() dto: CreateProjectDto) {
+  await this.entitlementsService.ensureCanCreateProject(req.user.id);
+  return this.projectsService.createProject(req.user.id, dto);
+}
+```
+
+### 5.4. Legacy Guard Pattern (for reference)
 
 ```typescript
 @UseGuards(JwtAuthGuard, EntitlementsGuard)

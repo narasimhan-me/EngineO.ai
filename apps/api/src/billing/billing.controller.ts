@@ -1,10 +1,15 @@
-import { Controller, Get, Post, Body, UseGuards, Request, Headers } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Request, Headers, RawBodyRequest, Req } from '@nestjs/common';
 import { BillingService } from './billing.service';
+import { EntitlementsService } from './entitlements.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PlanId } from './plans';
 
 @Controller('billing')
 export class BillingController {
-  constructor(private readonly billingService: BillingService) {}
+  constructor(
+    private readonly billingService: BillingService,
+    private readonly entitlementsService: EntitlementsService,
+  ) {}
 
   /**
    * Get all available plans
@@ -24,7 +29,37 @@ export class BillingController {
   }
 
   /**
-   * Update subscription to a new plan
+   * Get current user's entitlements (plan limits and usage)
+   */
+  @Get('entitlements')
+  @UseGuards(JwtAuthGuard)
+  async getEntitlements(@Request() req: any) {
+    return this.entitlementsService.getEntitlementsSummary(req.user.id);
+  }
+
+  /**
+   * Create a Stripe Checkout session for upgrading
+   */
+  @Post('create-checkout-session')
+  @UseGuards(JwtAuthGuard)
+  async createCheckoutSession(
+    @Request() req: any,
+    @Body() body: { planId: PlanId },
+  ) {
+    return this.billingService.createCheckoutSession(req.user.id, body.planId);
+  }
+
+  /**
+   * Create a Stripe Billing Portal session for managing subscription
+   */
+  @Post('create-portal-session')
+  @UseGuards(JwtAuthGuard)
+  async createPortalSession(@Request() req: any) {
+    return this.billingService.createPortalSession(req.user.id);
+  }
+
+  /**
+   * Update subscription to a new plan (legacy/admin)
    */
   @Post('subscribe')
   @UseGuards(JwtAuthGuard)
@@ -33,7 +68,7 @@ export class BillingController {
   }
 
   /**
-   * Cancel subscription
+   * Cancel subscription (legacy - use portal instead)
    */
   @Post('cancel')
   @UseGuards(JwtAuthGuard)
@@ -43,13 +78,12 @@ export class BillingController {
 
   /**
    * Stripe webhook handler
-   * TODO: Add proper signature verification in production
    */
   @Post('webhook')
   async webhook(
-    @Body() body: any,
+    @Req() req: RawBodyRequest<Request>,
     @Headers('stripe-signature') signature: string,
   ) {
-    return this.billingService.handleWebhook(body, signature);
+    return this.billingService.handleWebhook(req.rawBody!, signature);
   }
 }

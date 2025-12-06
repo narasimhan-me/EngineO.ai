@@ -7,9 +7,10 @@ import { DeoScoreProcessor } from './deo-score.processor';
 import { DeoIssuesService } from './deo-issues.service';
 import { AutomationService } from './automation.service';
 import { AiModule } from '../ai/ai.module';
+import { BillingModule } from '../billing/billing.module';
 
 @Module({
-  imports: [AiModule],
+  imports: [AiModule, BillingModule],
   controllers: [ProjectsController],
   providers: [
     ProjectsService,

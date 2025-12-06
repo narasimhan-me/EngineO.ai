@@ -1,10 +1,22 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import Stripe from 'stripe';
 import { PrismaService } from '../prisma.service';
-import { PLANS, getPlanById, Plan } from './plans';
+import { PLANS, getPlanById, Plan, STRIPE_PRICES, PlanId } from './plans';
 
 @Injectable()
 export class BillingService {
-  constructor(private readonly prisma: PrismaService) {}
+  private stripe: Stripe | null = null;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+  ) {
+    const stripeSecretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
+    if (stripeSecretKey) {
+      this.stripe = new Stripe(stripeSecretKey, { apiVersion: '2023-10-16' });
+    }
+  }
 
   /**
    * Get all available plans
@@ -35,8 +47,110 @@ export class BillingService {
   }
 
   /**
-   * Create or update user's subscription
-   * In production, this would integrate with Stripe
+   * Create a Stripe Checkout session for upgrading
+   */
+  async createCheckoutSession(userId: string, planId: PlanId): Promise<{ url: string }> {
+    if (!this.stripe) {
+      throw new BadRequestException('Stripe is not configured');
+    }
+
+    if (planId === 'free') {
+      throw new BadRequestException('Cannot checkout for free plan');
+    }
+
+    const priceId = STRIPE_PRICES[planId];
+    if (!priceId) {
+      throw new BadRequestException(`Stripe price not configured for plan: ${planId}`);
+    }
+
+    // Get or create Stripe customer
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    let customerId = await this.getOrCreateStripeCustomer(userId, user.email);
+
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+
+    const session = await this.stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: 'subscription',
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${frontendUrl}/settings/billing?success=true`,
+      cancel_url: `${frontendUrl}/settings/billing?canceled=true`,
+      metadata: { userId, planId },
+    });
+
+    return { url: session.url! };
+  }
+
+  /**
+   * Create a Stripe Billing Portal session for managing subscription
+   */
+  async createPortalSession(userId: string): Promise<{ url: string }> {
+    if (!this.stripe) {
+      throw new BadRequestException('Stripe is not configured');
+    }
+
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { userId },
+    });
+
+    if (!subscription?.stripeCustomerId) {
+      throw new BadRequestException('No Stripe customer found');
+    }
+
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+
+    const session = await this.stripe.billingPortal.sessions.create({
+      customer: subscription.stripeCustomerId,
+      return_url: `${frontendUrl}/settings/billing`,
+    });
+
+    return { url: session.url };
+  }
+
+  /**
+   * Get or create a Stripe customer for a user
+   */
+  private async getOrCreateStripeCustomer(userId: string, email: string): Promise<string> {
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { userId },
+    });
+
+    if (subscription?.stripeCustomerId) {
+      return subscription.stripeCustomerId;
+    }
+
+    // Create new Stripe customer
+    const customer = await this.stripe!.customers.create({
+      email,
+      metadata: { userId },
+    });
+
+    // Store customer ID
+    if (subscription) {
+      await this.prisma.subscription.update({
+        where: { userId },
+        data: { stripeCustomerId: customer.id },
+      });
+    } else {
+      await this.prisma.subscription.create({
+        data: {
+          userId,
+          plan: 'free',
+          status: 'active',
+          stripeCustomerId: customer.id,
+        },
+      });
+    }
+
+    return customer.id;
+  }
+
+  /**
+   * Create or update user's subscription (legacy - kept for admin/testing)
    */
   async updateSubscription(userId: string, planId: string) {
     const plan = getPlanById(planId);
@@ -44,7 +158,6 @@ export class BillingService {
       throw new BadRequestException(`Invalid plan: ${planId}`);
     }
 
-    // Check if user exists
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -52,9 +165,6 @@ export class BillingService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-
-    // TODO: Integrate with Stripe for payment processing
-    // For now, just update the subscription in the database
 
     const existingSubscription = await this.prisma.subscription.findUnique({
       where: { userId },
@@ -88,7 +198,7 @@ export class BillingService {
   }
 
   /**
-   * Cancel user's subscription
+   * Cancel user's subscription (legacy - use portal instead)
    */
   async cancelSubscription(userId: string) {
     const subscription = await this.prisma.subscription.findUnique({
@@ -98,9 +208,6 @@ export class BillingService {
     if (!subscription) {
       throw new NotFoundException('No subscription found');
     }
-
-    // TODO: Integrate with Stripe to cancel subscription
-    // For now, just update status to canceled
 
     return this.prisma.subscription.update({
       where: { userId },
@@ -112,13 +219,130 @@ export class BillingService {
 
   /**
    * Handle Stripe webhook events
-   * TODO: Implement full webhook handling for production
    */
-  async handleWebhook(payload: any, signature: string) {
-    // TODO: Verify Stripe signature
-    // TODO: Handle different event types (subscription.created, subscription.updated, etc.)
-    // For now, just log the event
-    console.log('Received Stripe webhook:', payload.type);
+  async handleWebhook(payload: Buffer, signature: string) {
+    if (!this.stripe) {
+      console.warn('Stripe webhook received but Stripe is not configured');
+      return { received: true };
+    }
+
+    const webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET');
+    if (!webhookSecret) {
+      console.warn('Stripe webhook received but STRIPE_WEBHOOK_SECRET is not set');
+      return { received: true };
+    }
+
+    let event: Stripe.Event;
+    try {
+      event = this.stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+    } catch (err) {
+      console.error('Webhook signature verification failed:', err);
+      throw new BadRequestException('Webhook signature verification failed');
+    }
+
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        await this.handleCheckoutCompleted(session);
+        break;
+      }
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object as Stripe.Subscription;
+        await this.handleSubscriptionUpdated(subscription);
+        break;
+      }
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription;
+        await this.handleSubscriptionDeleted(subscription);
+        break;
+      }
+      default:
+        console.log(`Unhandled webhook event type: ${event.type}`);
+    }
+
     return { received: true };
+  }
+
+  private async handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+    const userId = session.metadata?.userId;
+    const planId = session.metadata?.planId;
+
+    if (!userId || !planId) {
+      console.error('Missing userId or planId in checkout session metadata');
+      return;
+    }
+
+    const subscriptionId = session.subscription as string;
+    const customerId = session.customer as string;
+
+    await this.prisma.subscription.upsert({
+      where: { userId },
+      update: {
+        plan: planId,
+        status: 'active',
+        stripeCustomerId: customerId,
+        stripeSubscriptionId: subscriptionId,
+        currentPeriodStart: new Date(),
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // ~30 days
+      },
+      create: {
+        userId,
+        plan: planId,
+        status: 'active',
+        stripeCustomerId: customerId,
+        stripeSubscriptionId: subscriptionId,
+        currentPeriodStart: new Date(),
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
+    });
+  }
+
+  private async handleSubscriptionUpdated(subscription: Stripe.Subscription) {
+    const customerId = subscription.customer as string;
+
+    // Find user by Stripe customer ID
+    const existingSub = await this.prisma.subscription.findFirst({
+      where: { stripeCustomerId: customerId },
+    });
+
+    if (!existingSub) {
+      console.warn(`No subscription found for Stripe customer: ${customerId}`);
+      return;
+    }
+
+    // Map Stripe status to our status
+    const status = subscription.status === 'active' ? 'active' :
+                   subscription.status === 'canceled' ? 'canceled' : 'past_due';
+
+    await this.prisma.subscription.update({
+      where: { id: existingSub.id },
+      data: {
+        status,
+        currentPeriodStart: new Date(subscription.current_period_start * 1000),
+        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+      },
+    });
+  }
+
+  private async handleSubscriptionDeleted(subscription: Stripe.Subscription) {
+    const customerId = subscription.customer as string;
+
+    const existingSub = await this.prisma.subscription.findFirst({
+      where: { stripeCustomerId: customerId },
+    });
+
+    if (!existingSub) {
+      return;
+    }
+
+    // Downgrade to free plan
+    await this.prisma.subscription.update({
+      where: { id: existingSub.id },
+      data: {
+        plan: 'free',
+        status: 'active',
+        stripeSubscriptionId: null,
+      },
+    });
   }
 }

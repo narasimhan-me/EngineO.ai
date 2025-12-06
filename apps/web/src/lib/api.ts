@@ -317,14 +317,30 @@ export const billingApi = {
   /** Get current user's subscription */
   getSubscription: () => fetchWithAuth('/billing/subscription'),
 
-  /** Subscribe to a plan */
+  /** Get current user's entitlements (plan limits and usage) */
+  getEntitlements: () => fetchWithAuth('/billing/entitlements'),
+
+  /** Create a Stripe Checkout session for upgrading */
+  createCheckoutSession: (planId: string) =>
+    fetchWithAuth('/billing/create-checkout-session', {
+      method: 'POST',
+      body: JSON.stringify({ planId }),
+    }),
+
+  /** Create a Stripe Billing Portal session for managing subscription */
+  createPortalSession: () =>
+    fetchWithAuth('/billing/create-portal-session', {
+      method: 'POST',
+    }),
+
+  /** Subscribe to a plan (legacy/admin) */
   subscribe: (planId: string) =>
     fetchWithAuth('/billing/subscribe', {
       method: 'POST',
       body: JSON.stringify({ planId }),
     }),
 
-  /** Cancel subscription */
+  /** Cancel subscription (legacy) */
   cancel: () =>
     fetchWithAuth('/billing/cancel', {
       method: 'POST',

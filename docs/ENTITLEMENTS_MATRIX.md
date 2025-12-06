@@ -28,15 +28,15 @@ This matrix pairs with:
 
 ---
 
-## 2. Plan Overview (Launch Pricing)
+## 2. Plan Overview (Current Implementation)
 
-For Launch (first 6+ months), we support:
+As of BILLING-1 (December 2025), we support:
 
-- **Starter** — $19/mo
-- **Pro** — $59/mo
-- **Agency** — $199/mo
+- **Free** — $0/mo (default for all new users)
+- **Pro** — $29/mo
+- **Business** — $99/mo
 
-Later phases will introduce Business and Enterprise.
+These are enforced via the `EntitlementsService` and `BillingService` with Stripe integration.
 
 ---
 
@@ -102,7 +102,18 @@ Each plan defines limits and access across:
 
 ## 4. Full Entitlements Matrix
 
-### 4.1 Core Resource Limits
+### 4.1 Core Resource Limits (v1 Implementation)
+
+| Feature | Free | Pro | Business |
+|---------|------|-----|----------|
+| Projects | 1 | 5 | Unlimited |
+| Crawled Pages | 50 | 500 | Unlimited |
+| Automation Suggestions/Day | 5 | 25 | Unlimited |
+| API Access | ❌ | ❌ | ✔ |
+
+**Note:** The above reflects the current `apps/api/src/billing/plans.ts` implementation.
+
+### 4.1.1 Legacy Tiers (Planned for Future)
 
 | Feature | Starter | Pro | Agency |
 |---------|---------|-----|--------|
@@ -202,19 +213,24 @@ Each plan's entitlement definition (in code and config) should specify:
 
 ## 5. Stripe Mapping
 
-Define mapping from Stripe → EngineO plan:
+### Current Implementation (v1)
 
-| Stripe Price ID | Internal Plan |
-|-----------------|---------------|
-| `starter_monthly` | `starter` |
-| `pro_monthly` | `pro` |
-| `agency_monthly` | `agency` |
+Stripe Price IDs are configured via environment variables:
 
-### Future tiers:
+| Environment Variable | Internal Plan |
+|---------------------|---------------|
+| `STRIPE_PRICE_PRO` | `pro` |
+| `STRIPE_PRICE_BUSINESS` | `business` |
+
+The `free` plan has no Stripe mapping (no payment required).
+
+### Legacy/Future tiers:
 
 | Stripe Price ID | Plan |
 |-----------------|------|
-| `business_monthly` | `business` |
+| `starter_monthly` | `starter` |
+| `pro_monthly` | `pro` |
+| `agency_monthly` | `agency` |
 | `enterprise_annual` | `enterprise` |
 
 ---
