@@ -14,16 +14,28 @@ This document defines the core branding elements for EngineO.ai.
 
 DEO (Discovery Engine Optimization) = SEO + AEO + PEO + VEO
 
-- **SEO** – Search Engine Optimization (Google, Bing, etc.)
-- **AEO** – Answer Engine Optimization (AI assistants and answer boxes)
-- **PEO** – Presence Engine Optimization (knowledge panels, profiles, entities)
-- **VEO** – Visibility Engine Optimization (multi-surface visibility across channels)
+- **SEO** – Search Engine Optimization (classic web search results)
+- **AEO** – Answer Engine Optimization (AI assistants, answer boxes, chat search)
+- **PEO** – Product Engine Optimization (on-site search, marketplaces, product feeds)
+- **VEO** – Video Engine Optimization (YouTube, Shorts, TikTok, and other video surfaces)
 
 ---
 
 ## 1. Brand Essence
 
-**EngineO.ai** is a **Discovery Engine Optimization (DEO) platform** for modern brands and e‑commerce merchants.
+**EngineO.ai** is a **Discovery Engine Optimization (DEO) platform** for modern brands, ecommerce, SaaS, and content-driven sites.
+
+**Core positioning:**
+
+- **Primary statement:** "Optimize any website for search & AI discovery."
+- Treats search engines and AI assistants as a single discovery surface.
+- Sits above your existing stack instead of replacing ecommerce platforms, CMSs, or custom sites.
+
+**Supported platforms (high level):**
+
+- Ecommerce stores (e.g., Shopify and other modern platforms).
+- CMS and marketing sites (blogs, docs, content hubs, landing pages).
+- Headless and custom web apps built on frameworks like Next.js.
 
 Keywords:
 
@@ -58,13 +70,13 @@ Writing guidelines:
 
 Primary tagline:
 
-> **“SEO on Autopilot.”**
+> **"Optimize any website for search & AI discovery."**
 
 Alternatives:
 
-- “Your AI engine for search growth.”
-- “Shopify SEO, automated.”
-- “Automate SEO. Accelerate sales.”
+- "Discovery Engine Optimization for search + AI."
+- "One DEO platform for products, content, and entities."
+- "Make your brand discoverable everywhere."
 
 ---
 
@@ -183,11 +195,11 @@ Cards:
 
 **Good:**
 
-> “Connect your Shopify store and let AI handle your SEO, from product descriptions to meta tags.”
+> "Connect your sites and storefronts and let AI handle your DEO — from metadata and entities to answer-ready content."
 
 **Less good:**
 
-> “Our enterprise-level AI solution leverages cutting-edge neural networks to optimize multiple on-page SEO factors.”
+> "Our enterprise-level AI solution leverages cutting-edge neural networks to optimize multiple on-page SEO factors."
 
 ---
 
