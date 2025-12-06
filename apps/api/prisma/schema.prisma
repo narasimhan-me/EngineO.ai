@@ -148,6 +148,7 @@ model Subscription {
   status               String    @default("active") // active, canceled, past_due, etc.
   currentPeriodStart   DateTime?
   currentPeriodEnd     DateTime?
+  lastStripeEventId    String?   // idempotency guard for Stripe webhooks
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 }

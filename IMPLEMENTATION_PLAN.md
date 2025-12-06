@@ -3150,6 +3150,28 @@ if (projectCount >= planConfig.maxProjects) {
 
 ---
 
+## Future Phase: BILLING-2 — Stripe Webhook Robustness v2 (Post-Launch)
+
+**Scope:**
+
+- Add a durable `stripe_webhook_events` table to persist all incoming Stripe webhook payloads.
+- Upsert events by `stripeEventId` to deduplicate Stripe retries and manual replays.
+- Introduce an async background processor (queue/worker) that reads from the event table/queue and applies subscription updates idempotently, using Stripe as the source of truth.
+- Support safe, repeatable replays of historical webhook events to repair subscription state after incidents.
+
+**Operational Add-Ons:**
+
+- Admin dashboard to inspect failed and pending webhook events and manually trigger reprocessing.
+- Daily reconciliation cron job that compares Stripe subscription state with local Subscription records and repairs any drift.
+
+**Reasoning:**
+
+- Becomes necessary once traffic and webhook volume grow beyond the launch baseline.
+- Eliminates risk of event loss during API/worker restarts or transient outages.
+- Enables richer billing workflows later (invoices, usage-based billing, add-ons) on top of a durable event log.
+
+---
+
 # PHASE 10C — Add Free Tier + Plan Limits & Enforcement
 
 **Goal:** Introduce a Free Tier that drives growth while protecting the platform from abuse. Includes new plan definitions, resource limits, backend enforcement logic, and upgrade UX.

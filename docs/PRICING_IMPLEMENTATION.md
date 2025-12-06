@@ -66,6 +66,55 @@ model Subscription {
 
 ---
 
+## Stripe Product & Price Setup (Phase BILLING-1 Step 1.1)
+
+Before any billing endpoints or webhooks are implemented, Stripe must be configured with products and prices that map cleanly to our internal plans.
+
+### Products & Prices in Stripe
+
+Create three products in the Stripe Dashboard (Test mode is fine for development):
+
+- **Starter** — entry plan for small stores
+- **Pro** — core plan for growing stores
+- **Agency** — high-usage plan for agencies and large teams
+
+For each product:
+
+1. Navigate to **Products → Add product**
+2. Set **Name** to `Starter`, `Pro`, or `Agency`
+3. Add a short description (for your own reference)
+4. Under **Price information**:
+   - Pricing model: **Standard pricing**
+   - Price: set the appropriate monthly price (e.g. `$19.00`, `$59.00`, `$199.00`)
+   - Billing period: **Monthly** (recurring)
+5. Save the product and copy the **Price ID** (starts with `price_...`)
+
+You should end up with three Price IDs:
+
+- `price_...` for **Starter**
+- `price_...` for **Pro**
+- `price_...` for **Agency**
+
+### Environment Variables (apps/api)
+
+Map those Stripe Price IDs into the API via environment variables:
+
+```bash
+STRIPE_PRICE_STARTER=price_starter_monthly_...
+STRIPE_PRICE_PRO=price_pro_monthly_...
+STRIPE_PRICE_AGENCY=price_agency_monthly_...
+```
+
+These are read in the backend by the Stripe configuration helper (`apps/api/src/config/stripe.config.ts`) which:
+
+- Validates that `STRIPE_SECRET_KEY`, `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_PRO`, and `STRIPE_PRICE_AGENCY` are defined
+- Logs a clear startup error if any are missing, pointing back to `docs/STRIPE_SETUP.md`
+- Initializes a shared `stripeClient` using `STRIPE_SECRET_KEY`
+
+At this step (BILLING-1 / 1.1), no Checkout sessions, Billing Portal, or webhook handlers are wired up yet — only configuration and validation are in place so later billing phases can assume Stripe is correctly provisioned.
+
+---
+
 ## 3. Pricing Tiers — Developer Definitions
 
 Define in: `apps/api/src/billing/plans.ts`
@@ -182,6 +231,38 @@ In NestJS (`apps/api`):
   - `currentPeriodEnd`
 - Reset token counters at the start of each billing cycle
 - Mark canceled subscriptions as read-only access
+
+### Webhook Handling v1 (Launch)
+
+For the initial launch, Stripe webhooks are processed inline in the API but remain idempotent and retry-safe.
+
+The handler at `POST /billing/webhook`:
+
+1. Uses the raw request body and `STRIPE_WEBHOOK_SECRET` to verify the Stripe signature.
+2. Parses the `Stripe.Event` and extracts customer/subscription details for relevant types:
+   - `customer.subscription.created`
+   - `customer.subscription.updated`
+   - `customer.subscription.deleted`
+
+The `Subscription` model includes:
+- `lastStripeEventId: string | null` — the last successfully applied Stripe event ID for that account.
+
+**Idempotency:**
+- Before applying an update, the code compares `subscription.lastStripeEventId` to `event.id`.
+- If they match, the event is treated as already processed and the handler returns 2xx without touching the DB.
+
+**On a new event:**
+1. Map Stripe price ID → internal plan using `STRIPE_PRICES`.
+2. Update `plan`, `status`, `currentPeriodStart`, `currentPeriodEnd`, `stripeSubscriptionId` and `stripeCustomerId` as needed.
+3. Persist `lastStripeEventId = event.id` only after a successful DB update.
+
+**Error and retry semantics:**
+- If any DB operation or business logic throws, the request fails with non-2xx.
+- Stripe automatically retries non-2xx responses, and repeated deliveries are safely ignored via `lastStripeEventId`.
+
+**Design note (v2 preview):**
+A post-launch hardening phase will introduce a durable webhook event table and async processor
+so we can "capture fast → process async" while keeping v1 simple and launch-ready.
 
 ---
 

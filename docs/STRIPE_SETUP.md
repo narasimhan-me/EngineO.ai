@@ -136,25 +136,93 @@ Webhooks allow Stripe to notify your application when events occur (e.g., succes
 
 Skip the dashboard webhook setup — we'll use Stripe CLI instead (see [Section 6](#6-install-stripe-cli-local-development)).
 
-### 4.2 For Production
+### 4.2 For Production (Detailed Steps)
 
-1. Go to **Developers → Webhooks**
-   Direct link: [dashboard.stripe.com/test/webhooks](https://dashboard.stripe.com/test/webhooks)
+1. **Navigate to Webhooks**
+   - Go to **Developers → Webhooks** in the left sidebar
+   - Direct link: [dashboard.stripe.com/test/webhooks](https://dashboard.stripe.com/test/webhooks)
+   - You'll see a page titled "Trigger reactions in your integration with Stripe events"
 
-2. Click **+ Add endpoint**
+2. **Click "+ Add destination"**
+   - This opens the webhook setup wizard with three steps:
+     1. Select events
+     2. Choose destination type
+     3. Configure your destination
 
-3. Configure the endpoint:
-   - **Endpoint URL:** `https://your-api-domain.com/billing/webhook`
-   - **Description:** `EngineO.ai Billing Webhooks`
+3. **Step 1: Select Events**
 
-4. Under **Select events to listen to**, click **+ Select events** and choose:
-   - `checkout.session.completed`
-   - `customer.subscription.updated`
-   - `customer.subscription.deleted`
+   You'll see a list of event categories. Find and select these specific events:
 
-5. Click **Add endpoint**
+   **From "Checkout" category (expand by clicking the arrow):**
+   - ✅ `checkout.session.completed` - Triggered when a customer completes checkout
 
-6. On the endpoint page, click **Reveal** under Signing secret and copy the value (e.g., `whsec_...`)
+   **From "Customer" category (expand by clicking the arrow, then expand "Subscription"):**
+   - ✅ `customer.subscription.created` - Triggered when a new subscription is created
+   - ✅ `customer.subscription.updated` - Triggered when subscription changes (plan change, renewal, etc.)
+   - ✅ `customer.subscription.deleted` - Triggered when subscription is canceled
+
+   > **Tip:** Use the search box at the top to quickly find events. Type "checkout.session" or "customer.subscription".
+
+   After selecting all 4 events, the "Selected events" tab should show **(4)**.
+
+   Click **Continue →** at the bottom right.
+
+4. **Step 2: Choose Destination Type**
+
+   Select **Webhook endpoint** (the default option).
+
+   Click **Continue →**.
+
+5. **Step 3: Configure Your Destination**
+
+   Fill in the endpoint details:
+
+   | Field | Value |
+   |-------|-------|
+   | **Endpoint URL** | `https://your-api-domain.com/billing/webhook` |
+   | **Description** | `EngineO.ai Billing Webhooks` (optional) |
+
+   **Examples:**
+   - Production: `https://api.engineo.ai/billing/webhook`
+   - Staging: `https://staging-api.engineo.ai/billing/webhook`
+   - Render: `https://your-app-name.onrender.com/billing/webhook`
+
+   Click **Add destination**.
+
+6. **Copy the Signing Secret**
+
+   After creating the webhook endpoint:
+
+   a. You'll be taken to the webhook endpoint details page
+   b. Look for **Signing secret** in the endpoint details
+   c. Click **Reveal** to show the secret
+   d. Copy the value (starts with `whsec_...`)
+   e. Save this as `STRIPE_WEBHOOK_SECRET` in your production environment variables
+
+   > **Important:** The signing secret is used to verify that webhook requests actually came from Stripe and weren't forged.
+
+### 4.3 Webhook Events Summary
+
+| Event | When It's Triggered | What We Do |
+|-------|---------------------|------------|
+| `checkout.session.completed` | Customer completes Stripe Checkout | Create/update subscription in database |
+| `customer.subscription.created` | New subscription starts | (Handled by checkout.session.completed) |
+| `customer.subscription.updated` | Subscription renewed, plan changed, or status changed | Update subscription status and period dates |
+| `customer.subscription.deleted` | Subscription canceled (after grace period) | Downgrade user to free plan |
+
+### 4.4 Verifying Webhook Setup
+
+After setting up the webhook:
+
+1. **In Stripe Dashboard**: Go to your webhook endpoint and check for:
+   - Status: **Enabled**
+   - Events: Should list all 4 selected events
+
+2. **Test the endpoint**: Click **Send test webhook** and select `checkout.session.completed`
+   - Your server should return a `200` response
+   - If you get errors, check your server logs
+
+3. **Monitor webhook deliveries**: The webhook page shows recent delivery attempts with status codes
 
 ---
 

@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import './config/stripe.config';
 
 async function bootstrap() {
   const appContext = await NestFactory.createApplicationContext(AppModule);

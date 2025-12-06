@@ -218,7 +218,7 @@ export class BillingService {
   }
 
   /**
-   * Handle Stripe webhook events
+   * Handle Stripe webhook events (v1 - inline, idempotent)
    */
   async handleWebhook(payload: Buffer, signature: string) {
     if (!this.stripe) {
@@ -246,14 +246,15 @@ export class BillingService {
         await this.handleCheckoutCompleted(session);
         break;
       }
+      case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
-        await this.handleSubscriptionUpdated(subscription);
+        await this.handleSubscriptionUpdated(subscription, event.id);
         break;
       }
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
-        await this.handleSubscriptionDeleted(subscription);
+        await this.handleSubscriptionDeleted(subscription, event.id);
         break;
       }
       default:
@@ -297,10 +298,17 @@ export class BillingService {
     });
   }
 
-  private async handleSubscriptionUpdated(subscription: Stripe.Subscription) {
+  private async handleSubscriptionUpdated(
+    subscription: Stripe.Subscription,
+    eventId: string,
+  ) {
     const customerId = subscription.customer as string;
 
-    // Find user by Stripe customer ID
+    if (!customerId) {
+      console.warn('Subscription update received without customer id');
+      return;
+    }
+
     const existingSub = await this.prisma.subscription.findFirst({
       where: { stripeCustomerId: customerId },
     });
@@ -310,22 +318,56 @@ export class BillingService {
       return;
     }
 
-    // Map Stripe status to our status
-    const status = subscription.status === 'active' ? 'active' :
-                   subscription.status === 'canceled' ? 'canceled' : 'past_due';
+    if (existingSub.lastStripeEventId === eventId) {
+      // Idempotent: this event has already been applied
+      return;
+    }
+
+    const firstItem = subscription.items?.data?.[0];
+    const price = firstItem?.price;
+    const priceId = typeof price === 'string' ? price : price?.id;
+    const mappedPlanId = this.mapPriceIdToPlanId(priceId);
+
+    const status = this.mapStripeSubscriptionStatus(subscription.status);
+    const currentPeriodStart = subscription.current_period_start
+      ? new Date(subscription.current_period_start * 1000)
+      : null;
+    const currentPeriodEnd = subscription.current_period_end
+      ? new Date(subscription.current_period_end * 1000)
+      : null;
+
+    const updateData: Record<string, unknown> = {
+      status,
+      currentPeriodStart,
+      currentPeriodEnd,
+      stripeSubscriptionId: subscription.id,
+      lastStripeEventId: eventId,
+    };
+
+    if (mappedPlanId) {
+      updateData.plan = mappedPlanId;
+    }
+
+    if (!existingSub.stripeCustomerId) {
+      updateData.stripeCustomerId = customerId;
+    }
 
     await this.prisma.subscription.update({
       where: { id: existingSub.id },
-      data: {
-        status,
-        currentPeriodStart: new Date(subscription.current_period_start * 1000),
-        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-      },
+      data: updateData,
     });
   }
 
-  private async handleSubscriptionDeleted(subscription: Stripe.Subscription) {
+  private async handleSubscriptionDeleted(
+    subscription: Stripe.Subscription,
+    eventId: string,
+  ) {
     const customerId = subscription.customer as string;
+
+    if (!customerId) {
+      console.warn('Subscription delete received without customer id');
+      return;
+    }
 
     const existingSub = await this.prisma.subscription.findFirst({
       where: { stripeCustomerId: customerId },
@@ -335,14 +377,62 @@ export class BillingService {
       return;
     }
 
-    // Downgrade to free plan
+    if (existingSub.lastStripeEventId === eventId) {
+      // Idempotent: this event has already been applied
+      return;
+    }
+
+    const currentPeriodEnd = subscription.current_period_end
+      ? new Date(subscription.current_period_end * 1000)
+      : existingSub.currentPeriodEnd;
+
+    // Downgrade to free plan and mark as canceled
     await this.prisma.subscription.update({
       where: { id: existingSub.id },
       data: {
         plan: 'free',
-        status: 'active',
+        status: 'canceled',
         stripeSubscriptionId: null,
+        currentPeriodEnd,
+        lastStripeEventId: eventId,
       },
     });
+  }
+
+  private mapPriceIdToPlanId(priceId: string | null | undefined): PlanId | null {
+    if (!priceId) {
+      return null;
+    }
+
+    const entries = Object.entries(STRIPE_PRICES) as [
+      Exclude<PlanId, 'free'>,
+      string | undefined,
+    ][];
+
+    for (const [planId, configuredPriceId] of entries) {
+      if (configuredPriceId && configuredPriceId === priceId) {
+        return planId as PlanId;
+      }
+    }
+
+    return null;
+  }
+
+  private mapStripeSubscriptionStatus(
+    subscriptionStatus: Stripe.Subscription.Status,
+  ): string {
+    switch (subscriptionStatus) {
+      case 'active':
+      case 'trialing':
+        return 'active';
+      case 'past_due':
+      case 'unpaid':
+        return 'past_due';
+      case 'canceled':
+      case 'incomplete_expired':
+        return 'canceled';
+      default:
+        return 'past_due';
+    }
   }
 }
