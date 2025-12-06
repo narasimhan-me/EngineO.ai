@@ -1,10 +1,17 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { IntegrationType } from '@prisma/client';
+import { IntegrationType, CrawlFrequency } from '@prisma/client';
 
 export interface CreateProjectDto {
   name: string;
   domain?: string;
+}
+
+export interface UpdateProjectDto {
+  name?: string;
+  domain?: string;
+  autoCrawlEnabled?: boolean;
+  crawlFrequency?: CrawlFrequency;
 }
 
 @Injectable()
@@ -49,6 +56,31 @@ export class ProjectsService {
         userId,
         name: dto.name,
         domain: dto.domain,
+      },
+    });
+  }
+
+  /**
+   * Update a project
+   */
+  async updateProject(projectId: string, userId: string, dto: UpdateProjectDto) {
+    const project = await this.getProject(projectId, userId);
+
+    // Validate crawlFrequency if provided
+    if (dto.crawlFrequency !== undefined) {
+      const validFrequencies = Object.values(CrawlFrequency);
+      if (!validFrequencies.includes(dto.crawlFrequency)) {
+        throw new BadRequestException(`Invalid crawlFrequency. Must be one of: ${validFrequencies.join(', ')}`);
+      }
+    }
+
+    return this.prisma.project.update({
+      where: { id: projectId },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.domain !== undefined && { domain: dto.domain }),
+        ...(dto.autoCrawlEnabled !== undefined && { autoCrawlEnabled: dto.autoCrawlEnabled }),
+        ...(dto.crawlFrequency !== undefined && { crawlFrequency: dto.crawlFrequency }),
       },
     });
   }
@@ -166,6 +198,11 @@ export class ProjectsService {
         : {
             connected: false,
           },
+      // Crawl settings
+      autoCrawlEnabled: project.autoCrawlEnabled,
+      crawlFrequency: project.crawlFrequency,
+      lastCrawledAt: project.lastCrawledAt,
+      lastDeoComputedAt: project.lastDeoComputedAt,
     };
   }
 

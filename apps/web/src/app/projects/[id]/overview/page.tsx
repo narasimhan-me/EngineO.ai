@@ -18,6 +18,8 @@ import { ProjectHealthCards } from '@/components/projects/ProjectHealthCards';
 import { IssuesSummaryCard } from '@/components/issues/IssuesSummaryCard';
 import { IssuesList } from '@/components/issues/IssuesList';
 
+type CrawlFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY';
+
 interface IntegrationStatus {
   projectId: string;
   projectName: string;
@@ -54,6 +56,24 @@ interface IntegrationStatus {
     url?: string;
     createdAt?: string;
   };
+  // Crawl settings
+  autoCrawlEnabled?: boolean;
+  crawlFrequency?: CrawlFrequency;
+  lastCrawledAt?: string | null;
+  lastDeoComputedAt?: string | null;
+}
+
+function formatCrawlFrequency(frequency: CrawlFrequency): string {
+  switch (frequency) {
+    case 'DAILY':
+      return 'Daily';
+    case 'WEEKLY':
+      return 'Weekly';
+    case 'MONTHLY':
+      return 'Monthly';
+    default:
+      return frequency;
+  }
 }
 
 interface CrawlResult {
@@ -607,6 +627,43 @@ export default function ProjectOverviewPage() {
               </div>
             </div>
           )}
+
+          {/* Auto Crawl Status */}
+          <div className="rounded-lg bg-white p-6 shadow">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold text-gray-900">Auto Crawl</h2>
+              <Link
+                href={`/projects/${projectId}/settings`}
+                className="text-xs text-blue-600 hover:text-blue-800"
+              >
+                Configure
+              </Link>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                {status.autoCrawlEnabled !== false ? (
+                  <>
+                    <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-sm text-gray-700">Enabled</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-sm text-gray-500">Disabled</span>
+                  </>
+                )}
+              </div>
+              {status.autoCrawlEnabled !== false && status.crawlFrequency && (
+                <p className="text-xs text-gray-500">
+                  Frequency: {formatCrawlFrequency(status.crawlFrequency)}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

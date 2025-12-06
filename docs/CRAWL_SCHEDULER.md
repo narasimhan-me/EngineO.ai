@@ -1,6 +1,6 @@
-# Crawl Scheduler (Phase 3.1)
+# Crawl Scheduler (Phase 3.1 + 3.3)
 
-EngineO.ai's crawl scheduler keeps crawl data fresh without manual intervention by running automatic crawls for every project on a nightly schedule.
+EngineO.ai's crawl scheduler keeps crawl data fresh without manual intervention by running automatic crawls for projects on a nightly schedule. As of Phase 3.3, each project can configure its own crawl frequency and enable/disable automatic crawling.
 
 ## Cron Schedule
 
@@ -30,6 +30,54 @@ EngineO.ai's crawl scheduler keeps crawl data fresh without manual intervention 
    - `SeoScanService.runFullProjectCrawl(projectId)` directly from the API process.
 3. After each crawl it updates `project.lastCrawledAt`.
 4. Behavior mirrors production (same crawl path and timestamp updates) but avoids Redis requirements for local development.
+
+## Per-Project Crawl Settings (Phase 3.3)
+
+Each project can configure its own crawl behavior via the Project Settings page.
+
+### Database Fields
+
+The `Project` model includes:
+
+```prisma
+autoCrawlEnabled  Boolean        @default(true)
+crawlFrequency    CrawlFrequency @default(DAILY)
+
+enum CrawlFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+```
+
+### Crawl Eligibility Logic
+
+During the nightly cron, `CrawlSchedulerService.isProjectDueForCrawl()` determines if a project should be crawled:
+
+1. **autoCrawlEnabled = false**: Project is skipped entirely.
+2. **No lastCrawledAt**: Project has never been crawled, so it's due.
+3. **Frequency check**: Calculate days since last crawl:
+   - DAILY: due if >= 1 day since last crawl
+   - WEEKLY: due if >= 7 days since last crawl
+   - MONTHLY: due if >= 30 days since last crawl
+
+### API Endpoints
+
+- **PUT /projects/:id** - Update project settings including `autoCrawlEnabled` and `crawlFrequency`
+- **GET /projects/:id/integration-status** - Returns crawl settings along with integration info
+
+### Frontend UI
+
+- **Project Settings page** (`/projects/:id/settings`): Toggle auto crawl, select frequency, view crawl status
+- **Project Overview page**: Shows auto crawl status badge with link to settings
+
+### Default Behavior
+
+New projects default to:
+- `autoCrawlEnabled: true`
+- `crawlFrequency: DAILY`
+
+This maintains backward compatibility - all existing projects continue to be crawled daily unless explicitly disabled.
 
 ## Queue Behavior
 

@@ -150,11 +150,13 @@ export const projectsApi = {
       body: JSON.stringify(data),
     }),
 
-  update: (id: string, data: { name?: string; domain?: string }) =>
+  update: (id: string, data: { name?: string; domain?: string; autoCrawlEnabled?: boolean; crawlFrequency?: 'DAILY' | 'WEEKLY' | 'MONTHLY' }) =>
     fetchWithAuth(`/projects/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
+
+  integrationStatus: (id: string) => fetchWithAuth(`/projects/${id}/integration-status`),
 
   delete: (id: string) =>
     fetchWithAuth(`/projects/${id}`, {

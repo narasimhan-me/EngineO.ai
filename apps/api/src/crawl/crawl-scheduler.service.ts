@@ -4,6 +4,9 @@ import { PrismaService } from '../prisma.service';
 import { SeoScanService } from '../seo-scan/seo-scan.service';
 import { DeoScoreService, DeoSignalsService } from '../projects/deo-score.service';
 import { crawlQueue } from '../queues/queues';
+import { CrawlFrequency } from '@prisma/client';
+
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 @Injectable()
 export class CrawlSchedulerService {
@@ -22,20 +25,66 @@ export class CrawlSchedulerService {
     return isProduction && !isLocalDev && !!crawlQueue;
   }
 
+  private isProjectDueForCrawl(
+    project: {
+      lastCrawledAt: Date | null;
+      autoCrawlEnabled: boolean | null;
+      crawlFrequency: CrawlFrequency | null;
+    },
+    now: Date,
+  ): boolean {
+    const autoCrawlEnabled = project.autoCrawlEnabled ?? true;
+    if (!autoCrawlEnabled) {
+      return false;
+    }
+
+    if (!project.lastCrawledAt) {
+      return true;
+    }
+
+    const diffDays = Math.floor(
+      (now.getTime() - project.lastCrawledAt.getTime()) / MS_PER_DAY,
+    );
+
+    const frequency = project.crawlFrequency ?? CrawlFrequency.DAILY;
+    const threshold =
+      frequency === CrawlFrequency.DAILY
+        ? 1
+        : frequency === CrawlFrequency.WEEKLY
+        ? 7
+        : 30;
+
+    return diffDays >= threshold;
+  }
+
   @Cron('0 2 * * *')
   async scheduleProjectCrawls() {
     const projects = await this.prisma.project.findMany({
-      select: { id: true },
+      select: {
+        id: true,
+        lastCrawledAt: true,
+        autoCrawlEnabled: true,
+        crawlFrequency: true,
+      },
     });
 
     const useQueue = this.shouldUseQueue();
     const mode = useQueue ? 'queue' : 'sync';
+    const now = new Date();
 
-    this.logger.log(
-      `[CrawlScheduler] Starting nightly crawl for ${projects.length} projects (mode=${mode})`,
+    const dueProjects = projects.filter((project) =>
+      this.isProjectDueForCrawl(project, now),
     );
 
-    for (const project of projects) {
+    this.logger.log(
+      `[CrawlScheduler] Nightly crawl: ${projects.length} projects evaluated, ${dueProjects.length} due for crawl (mode=${mode})`,
+    );
+
+    if (dueProjects.length === 0) {
+      return;
+    }
+
+    for (const project of dueProjects) {
       if (useQueue) {
         try {
           await crawlQueue!.add('project_crawl', { projectId: project.id });

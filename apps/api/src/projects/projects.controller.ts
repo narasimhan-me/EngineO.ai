@@ -7,11 +7,12 @@ import {
   HttpStatus,
   Param,
   Post,
+  Put,
   Request,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { ProjectsService, CreateProjectDto } from './projects.service';
+import { ProjectsService, CreateProjectDto, UpdateProjectDto } from './projects.service';
 import { DeoScoreService, DeoSignalsService } from './deo-score.service';
 import { DeoIssuesService } from './deo-issues.service';
 import {
@@ -69,6 +70,19 @@ export class ProjectsController {
   async deleteProject(@Request() req: any, @Param('id') projectId: string) {
     await this.projectsService.deleteProject(projectId, req.user.id);
     return { success: true, message: 'Project deleted successfully' };
+  }
+
+  /**
+   * PUT /projects/:id
+   * Update a project
+   */
+  @Put(':id')
+  async updateProject(
+    @Request() req: any,
+    @Param('id') projectId: string,
+    @Body() dto: UpdateProjectDto,
+  ) {
+    return this.projectsService.updateProject(projectId, req.user.id, dto);
   }
 
   /**

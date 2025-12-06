@@ -1413,6 +1413,14 @@ Looking ahead in Phase 3:
 
 **Phase 3B – DEO Issues Engine (completed)** – delivered a backend-only DEO Issues Engine that classifies problems into clear issue categories with a critical/warning/info severity model. The engine reads from existing crawl and product data plus DEO signals, counts affected surfaces, and exposes `GET /projects/:id/deo-issues` for future UX phases (project overview issue summary, product badges, and optimization workspace insights).
 
+**Phase 3.3 – Crawl Frequency + Project Settings (completed)** – adds per-project crawl control so users can configure automatic crawling behavior. Key deliverables:
+- `CrawlFrequency` enum (DAILY, WEEKLY, MONTHLY) and `autoCrawlEnabled` / `crawlFrequency` fields on Project model
+- `CrawlSchedulerService.isProjectDueForCrawl()` logic that respects each project's settings during the nightly cron
+- `PUT /projects/:id` endpoint for updating project settings
+- Project Settings page UI (`/projects/:id/settings`) with toggle and frequency dropdown
+- Auto Crawl status badge on Project Overview page
+- Updated documentation in `docs/CRAWL_SCHEDULER.md`
+
 If you'd like, next step I can:
 
 - Generate a **Patch Kit 1.6** like previous phases (with specific file paths + diffs for GPT-5.1/Claude), or

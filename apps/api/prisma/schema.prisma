@@ -24,6 +24,12 @@ enum IntegrationType {
   CUSTOM_WEBSITE
 }
 
+enum CrawlFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
 model User {
   id               String   @id @default(cuid())
   email            String   @unique
@@ -50,6 +56,8 @@ model Project {
   currentDeoScoreComputedAt  DateTime?
   lastCrawledAt              DateTime?
   lastDeoComputedAt          DateTime?
+  autoCrawlEnabled           Boolean            @default(true)
+  crawlFrequency             CrawlFrequency     @default(DAILY)
 
   integrations               Integration[]
   crawlResults               CrawlResult[]
