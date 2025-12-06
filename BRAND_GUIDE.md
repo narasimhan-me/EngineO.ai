@@ -203,4 +203,14 @@ Cards:
 
 ---
 
+## 10. Vertical Landing Pages — Shopify Edition
+
+- **Dedicated marketing page:** `/shopify`.
+- **Audience:** Shopify merchants and ecommerce operators.
+- **Positioning:** Same DEO platform, with messaging tailored to Shopify use cases.
+- The universal homepage remains platform-agnostic; Shopify-specific details live on this vertical landing page.
+- Content emphasizes DEO (search + AI) rather than SEO-only tooling.
+
+---
+
 END OF BRAND GUIDE
