@@ -48,6 +48,7 @@ export class BillingService {
 
   /**
    * Create a Stripe Checkout session for upgrading
+   * Phase 1.2 — Launch-ready checkout session endpoint.
    */
   async createCheckoutSession(userId: string, planId: PlanId): Promise<{ url: string }> {
     if (!this.stripe) {

@@ -3150,6 +3150,106 @@ if (projectCount >= planConfig.maxProjects) {
 
 ---
 
+## Phase 1.1 – Webhook Handling v1 (Launch)
+
+**Status:** Completed. Added idempotent webhook handling, retries, event persistence, and safety guards.
+
+**Summary:**
+
+- Webhook endpoint `POST /billing/webhook` validates Stripe signature and processes `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted`.
+- Added `lastStripeEventId` column to `Subscription` for idempotency: if the event ID matches, the handler returns early without re-applying changes.
+- Helper methods `mapPriceIdToPlanId()` and `mapStripeSubscriptionStatus()` normalize Stripe data to internal plan IDs and status values.
+- Webhook safely handles missing or unknown price IDs, logging warnings without crashing.
+- Added comprehensive webhook setup instructions in `docs/STRIPE_SETUP.md`.
+
+---
+
+## Phase 1.2 – Checkout Session Endpoint (Launch)
+
+**Status:** Completed.
+
+**Summary:**
+
+Backend now supports creation of Stripe Checkout Sessions for paid plans.
+
+**Endpoint:** `POST /billing/checkout`
+
+**Request:**
+```json
+{ "planId": "pro" | "business" }
+```
+
+**Response:**
+```json
+{ "url": "https://checkout.stripe.com/..." }
+```
+
+**Implementation Details:**
+
+1. Validates `planId` is not `free` and has a configured `STRIPE_PRICE_*` env var.
+2. Creates or retrieves a Stripe Customer for the authenticated user.
+3. Stores the `stripeCustomerId` in the `Subscription` table for future lookups.
+4. Creates a Stripe Checkout Session with metadata (`userId`, `planId`) for webhook correlation.
+5. Returns the session URL for frontend redirect.
+
+**Files Modified:**
+
+- `apps/api/src/billing/billing.service.ts` — `createCheckoutSession()` method.
+- `apps/api/src/billing/billing.controller.ts` — `POST /billing/checkout` route.
+- `apps/api/src/billing/plans.ts` — `STRIPE_PRICES` mapping.
+
+---
+
+## Phase 1.3 – Billing Portal Session Endpoint (Launch)
+
+**Status:** Completed.
+
+**Summary:**
+
+Backend now supports creation of Stripe Billing Portal sessions for subscription management.
+
+**Endpoint:** `POST /billing/portal`
+
+**Response:**
+```json
+{ "url": "https://billing.stripe.com/..." }
+```
+
+**Implementation Details:**
+
+1. Retrieves the authenticated user's subscription from the database.
+2. Validates the user has a `stripeCustomerId` (returns error if not).
+3. Creates a Stripe Billing Portal session with the customer ID.
+4. Sets `return_url` to redirect back to `/settings/billing` after portal actions.
+5. Returns the portal URL for frontend redirect.
+
+**What Users Can Do in Portal:**
+
+- View current subscription and billing history
+- Update payment method
+- Cancel subscription
+- Download invoices
+
+**Deferred to Future Phase:**
+
+- Custom portal branding (requires Stripe Dashboard configuration)
+- Restricting portal features (e.g., hiding cancel option)
+
+**Manual Testing Steps:**
+
+1. Subscribe to a paid plan via checkout
+2. Call `POST /billing/portal` with auth token
+3. Open the returned URL in a browser
+4. Verify you can view subscription details and manage payment methods
+5. After exiting portal, verify redirect back to `/settings/billing`
+
+**Files Modified:**
+
+- `apps/api/src/billing/billing.service.ts` — `createPortalSession()` method.
+- `apps/api/src/billing/billing.controller.ts` — `POST /billing/portal` route.
+
+---
+
 ## Future Phase: BILLING-2 — Stripe Webhook Robustness v2 (Post-Launch)
 
 **Scope:**
