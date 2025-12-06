@@ -364,7 +364,94 @@ Implemented via `ProductTourCTASection`:
 
 ---
 
-## 6. Navigation
+## 6. "What Is DEO?" Education Page
+
+**Route:** `/deo`
+**File:** `apps/web/src/app/(marketing)/deo/page.tsx`
+
+**Purpose:**
+
+- Establish EngineO.ai as the category leader and definitive source for DEO (Discovery Engine Optimization).
+- Educate visitors on what DEO is, why it matters, and how it differs from traditional SEO.
+- Provide a long-form educational resource that can rank for "What is DEO" queries and serve as a canonical reference.
+
+**Sections:**
+
+### DEO Hero
+- **Heading:** "What is DEO?"
+- **Subheading:** "Discovery Engine Optimization is SEO + AEO + PEO + VEO."
+- Short copy defining DEO as the practice of optimizing websites for discovery across search engines, AI assistants, and answer engines.
+- Visual placeholder for DEO diagram.
+- **CTAs:** See your DEO Score (`/signup`) and Learn More (anchor to next section).
+
+### Why DEO Exists
+- Copy explaining that traditional SEO was built for a world where Google was the only discovery channel.
+- Lists new discovery surfaces: ChatGPT, Gemini, Perplexity, voice assistants, in-app AI, vertical search systems.
+- Positions DEO as the framework for multi-channel visibility.
+
+### The Four DEO Pillars
+Lists the four optimization layers that make up DEO:
+1. **Content Quality** — deep, unique, authoritative content.
+2. **Entities & Semantics** — structured data, schema, entity linkage.
+3. **Technical Health** — crawlability, speed, indexability, mobile-readiness.
+4. **Visibility Signals** — mentions, citations, answer-surface appearance.
+
+### How AI "Sees" Your Website
+- Explains that AI models and retrieval systems extract entities, evaluate structure, and score answer-worthiness.
+- Notes that traditional SEO metrics (backlinks, keyword density) are less relevant than semantic clarity and entity coverage.
+- Positions DEO as the framework for AI-age visibility.
+
+### DEO Results
+Lists outcomes from implementing DEO:
+- Higher organic traffic.
+- Increased AI citations and mentions.
+- Improved answer-surface presence.
+- More consistent brand visibility across platforms.
+
+### DEO vs SEO Comparison Table
+A side-by-side comparison:
+- SEO: Keyword-focused → DEO: Entity & structure-focused.
+- SEO: SERP-only → DEO: Multi-platform discoverability.
+- SEO: Optimizes a few pages → DEO: Optimizes entire site.
+- SEO: Manual audits → DEO: Automated crawling & signals.
+- SEO: Human-written metadata → DEO: AI-suggested metadata.
+- SEO: Rank-based → DEO: Visibility-based.
+
+### How EngineO.ai Implements DEO
+- Full-site crawl and signal extraction.
+- DEO Score as the universal visibility metric.
+- Issues Engine for clear, actionable problem detection.
+- AI Optimization Workspaces — one for products, one for all content pages.
+- Automation layer — daily crawling, recompute, issue updates.
+- CMS-agnostic — works with Shopify, WordPress, Webflow, SaaS sites, blogs, custom stacks.
+
+### Who DEO Is For
+Lists target audiences:
+- SaaS companies.
+- Ecommerce brands.
+- Publishers & bloggers.
+- Agencies.
+- Local businesses.
+- Documentation-heavy sites.
+- Any website with more than ~10 pages.
+
+Positions DEO as the visibility foundation for the AI era.
+
+### DEO FAQs
+Answers:
+- Is DEO meant to replace SEO? → No — it expands SEO to include AI and non-SERP discovery systems.
+- Does DEO help with AI visibility? → Yes — DEO measures and improves answer-surface potential.
+- Do I need technical skills? → No — EngineO.ai automates most DEO evaluation.
+- Is DEO only for big websites? → No — DEO benefits any website with content meant to be found.
+
+### Final CTA
+- **Heading:** "Ready to see your DEO Score?"
+- Copy: "Get your visibility analysis and AI-powered fixes in seconds."
+- **CTA:** Start Free (`/signup`).
+
+---
+
+## 7. Navigation
 
 - Marketing navbar (`MarketingNavbar.tsx`) includes **Shopify** and **Websites** links.
 - Both vertical links are visible on desktop nav and in the mobile menu.

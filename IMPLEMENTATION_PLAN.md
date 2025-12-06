@@ -6217,7 +6217,70 @@ Create a full-length Product Tour page that walks visitors through every major c
 
 ---
 
-These Phases 23–30 plus Phases UX-1, UX-1.1, UX-2, UX-3, UX-4, UX-5, UX-Content-1, UX-Content-2, and MARKETING-1 through MARKETING-5 extend your IMPLEMENTATION_PLAN.md and keep your roadmap cohesive:
+## PHASE MARKETING-6 — "What Is DEO?" Education Page (Completed)
+
+### Phase Summary
+
+Create a long-form education page that establishes EngineO.ai as the category leader for DEO (Discovery Engine Optimization). This page explains what DEO is, why it matters, how it differs from traditional SEO, and positions EngineO.ai as the definitive platform for DEO implementation.
+
+### MARKETING-6.1 Scope
+
+- **Route:** `/deo`
+- **File:** `apps/web/src/app/(marketing)/deo/page.tsx`
+
+**Components (marketing/deo):**
+
+1. **DeoHero.tsx** — category-defining hero with DEO framing.
+2. **DeoWhySection.tsx** — why traditional SEO isn't enough.
+3. **DeoPillarsSection.tsx** — the four DEO pillars (Content, Entities, Technical, Visibility).
+4. **DeoAIVisibilitySection.tsx** — how AI models "see" websites.
+5. **DeoResultsSection.tsx** — outcomes from implementing DEO.
+6. **DeoComparisonTable.tsx** — side-by-side SEO vs DEO comparison.
+7. **DeoEngineSection.tsx** — how EngineO.ai implements DEO.
+8. **DeoAudienceSection.tsx** — who DEO is for.
+9. **DeoFAQSection.tsx** — common DEO questions.
+10. **CTASection.tsx** — final CTA block.
+
+**Content and structure:**
+
+- **Hero:** Heading: "What is DEO?" Subheading: "Discovery Engine Optimization is SEO + AEO + PEO + VEO." Short copy defining DEO as the practice of optimizing for discovery across search engines, AI assistants, and answer engines. Visual placeholder for DEO diagram. CTAs: See your DEO Score (`/signup`) and Learn More (anchor).
+
+- **Why DEO Exists:** Traditional SEO was built for a Google-only world. Lists new discovery surfaces (ChatGPT, Gemini, Perplexity, voice assistants, in-app AI, vertical search). Positions DEO as the framework for multi-channel visibility.
+
+- **The Four DEO Pillars:** Content Quality (deep, unique, authoritative content), Entities & Semantics (structured data, schema, entity linkage), Technical Health (crawlability, speed, indexability, mobile-readiness), Visibility Signals (mentions, citations, answer-surface appearance).
+
+- **How AI "Sees" Your Website:** AI models extract entities, evaluate structure, and score answer-worthiness. Traditional SEO metrics are less relevant than semantic clarity and entity coverage. DEO is the framework for AI-age visibility.
+
+- **DEO Results:** Higher organic traffic, increased AI citations, improved answer-surface presence, more consistent brand visibility across platforms.
+
+- **DEO vs SEO Comparison Table:** Side-by-side showing keyword-focused vs entity-focused, SERP-only vs multi-platform, few pages vs entire site, manual vs automated, human metadata vs AI-suggested, rank-based vs visibility-based.
+
+- **How EngineO.ai Implements DEO:** Full-site crawl, DEO Score, Issues Engine, AI Optimization Workspaces, automation layer, CMS-agnostic.
+
+- **Who DEO Is For:** SaaS companies, ecommerce brands, publishers & bloggers, agencies, local businesses, documentation-heavy sites, any website with 10+ pages.
+
+- **DEO FAQs:** Is DEO meant to replace SEO? Does DEO help with AI visibility? Do I need technical skills? Is DEO only for big websites?
+
+- **Final CTA:** Heading: "Ready to see your DEO Score?" Copy: "Get your visibility analysis and AI-powered fixes in seconds." CTA: Start Free (`/signup`).
+
+### MARKETING-6.2 Constraints
+
+- Frontend-only; no backend, crawling, or scoring logic changes.
+- Reuse existing marketing layout and Tailwind/shadcn/ui patterns from MARKETING-1 through MARKETING-5.
+- Keep copy aligned with BRANDING_GUIDE tone (clear, confident, modern, calm, outcome-focused; no emojis or hype).
+- Components live in a dedicated `deo/` subdirectory under marketing.
+
+### MARKETING-6.3 Acceptance Criteria (Completed)
+
+- [x] `/deo` renders as a long-form DEO education page using the new Deo* components.
+- [x] All required sections are present: hero, why DEO exists, four pillars, AI visibility, results, comparison table, how EngineO.ai implements DEO, audience, FAQs, and final CTA.
+- [x] Page is mobile responsive and visually consistent with other marketing pages.
+- [x] CTAs route correctly to `/signup`.
+- [x] `docs/MARKETING.md` documents the DEO education page structure and components.
+
+---
+
+These Phases 23–30 plus Phases UX-1, UX-1.1, UX-2, UX-3, UX-4, UX-5, UX-Content-1, UX-Content-2, and MARKETING-1 through MARKETING-6 extend your IMPLEMENTATION_PLAN.md and keep your roadmap cohesive:
 
 - Phases 12–17: Core feature sets (automation, content, performance, competitors, local, social).
 - Phases 18–22: Security, subscription management, monitoring, fairness & limits.
@@ -6235,6 +6298,7 @@ These Phases 23–30 plus Phases UX-1, UX-1.1, UX-2, UX-3, UX-4, UX-5, UX-Conten
 - Phase MARKETING-3: Pricing page with Free, Pro, and Business tiers mapped to DEO value.
 - Phase MARKETING-4: Websites vertical landing page for WordPress, Webflow, and all non-ecommerce sites.
 - Phase MARKETING-5: Full product tour/features page covering DEO Score, crawling, Issues Engine, Product and Content Workspaces, automation, and supported platforms.
+- Phase MARKETING-6: "What Is DEO?" education page establishing category leadership and explaining DEO concepts.
 
 ---
 
