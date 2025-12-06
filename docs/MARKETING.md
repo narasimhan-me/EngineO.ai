@@ -289,7 +289,82 @@ Answers:
 
 ---
 
-## 5. Navigation
+## 5. Product Tour / Features Page
+
+**Route:** `/features`
+**File:** `apps/web/src/app/(marketing)/features/page.tsx`
+
+**Purpose:**
+
+- Provide a full, storytelling-style walkthrough of the EngineO.ai platform.
+- Explain DEO (Discovery Engine Optimization), DEO Score, crawling, Issues Engine, and Workspaces.
+- Bridge ecommerce (Shopify / products) and general websites (WordPress, Webflow, custom).
+- Act as a high-intent conversion page from organic and paid traffic.
+
+**Sections:**
+
+### Product Tour Hero
+- **Heading:** "A complete visibility engine for your entire website."
+- Copy: "EngineO.ai crawls your site, analyzes signals, detects issues, computes a DEO Score, and gives you AI-powered workflows to fix anything blocking your visibility."
+- "One platform. Every page. All your discovery signals."
+- **CTAs:** Start Free (`/signup`) and Try Demo (`/contact`).
+
+### What EngineO.ai Actually Does + DEO Score
+Implemented via `ProductTourDEOSection`:
+- Clarifies that EngineO.ai is not an SEO tool, but a DEO platform for the search + AI era.
+- Steps: Crawls your entire website, Extracts visibility signals, Computes a DEO Score, Detects issues, Generates AI fixes, Automates rescans and recompute, Helps you optimize products/pages/blogs/collections.
+- Shows four DEO components: Content Quality, Entities & Semantic Signals, Technical Health, Visibility Strength.
+- Emphasizes that the DEO Score is a single number representing site-wide visibility.
+- Includes a placeholder visualization for a DEO Score dial/card.
+
+### Full-Site Crawling Engine
+Implemented via `ProductTourCrawlSection`:
+- Lists URL types crawled: product pages, collections/categories, blog posts, landing pages, home, documentation, custom routes, hub pages, navigation pages.
+- Copy: "We crawl your entire website automatically. No setup. No plugins. No code."
+- Includes a "Crawl graph" visual placeholder card.
+
+### Issues Engine
+Implemented via `ProductTourIssuesSection`:
+- Issues detected: Missing metadata, Thin content, Weak structure, Answer-surface gaps, Low entity coverage, Crawl failures, Navigation gaps, Shallow product content, Broken links.
+- Each issue explains: What it is, Why it matters, How to fix it, Which pages/products are affected.
+- CTA button: "View all issues" leading into the app.
+
+### Product Optimization Workspace
+Implemented via `ProductTourProductWorkspace`:
+- For ecommerce stores: Product overview, AI metadata suggestions, SEO + DEO insights, Shopify sync, Variant-aware crawling, Issue badges, Optimization history (future).
+- Includes a screenshot placeholder for the Product Workspace.
+
+### Content Optimization Workspace
+Implemented via `ProductTourContentWorkspace`:
+- For all non-product pages: Title + description editing, AI suggestions, Thin content detector, Entity structure insights, Crawl health, Page-level issue list.
+- Support for: WordPress, Webflow, Wix, Squarespace, Ghost, Custom sites.
+- Includes a screenshot placeholder for the Content Workspace.
+
+### DEO Automation
+Implemented via `ProductTourAutomation`:
+- Copy: "Your website changes. Your visibility shouldn't break."
+- EngineO.ai automates: Scheduled crawls, DEO recompute, Issue re-evaluation, Drift detection (Shopify metadata changes), Trend snapshots (coming soon).
+
+### Supported Platforms
+Implemented via `ProductTourPlatforms`:
+- Small section linking out to the Websites / CMS vertical page.
+- Platforms listed: WordPress, Webflow, Wix, Squarespace, Shopify, Ghost, Custom, Static headless sites.
+- CTA: "View supported platforms" linking to `/websites`.
+
+### DEO vs SEO
+Implemented via `ProductTourSEOComparison`:
+- Clarifies: SEO focuses on keywords and SERP ranking. DEO focuses on visibility across search engines, AI assistants, and answer engines.
+- EngineO.ai evaluates: Discovery surface, Entity relevance, Answer readiness, Crawl accessibility.
+- Positions EngineO.ai as the visibility layer for the AI era.
+
+### Final CTA
+Implemented via `ProductTourCTASection`:
+- Copy: "Everything you need to understand and improve your website. Get your DEO Score, issues, and AI-powered fixes in minutes."
+- CTA button: Start Free (`/signup`).
+
+---
+
+## 6. Navigation
 
 - Marketing navbar (`MarketingNavbar.tsx`) includes **Shopify** and **Websites** links.
 - Both vertical links are visible on desktop nav and in the mobile menu.

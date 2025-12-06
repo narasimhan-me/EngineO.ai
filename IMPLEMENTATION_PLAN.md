@@ -6147,7 +6147,77 @@ Create a dedicated vertical landing page for WordPress, Webflow, and all non-eco
 
 ---
 
-These Phases 23–30 plus Phases UX-1, UX-1.1, UX-2, UX-3, UX-4, UX-5, UX-Content-1, UX-Content-2, and MARKETING-1 through MARKETING-4 extend your IMPLEMENTATION_PLAN.md and keep your roadmap cohesive:
+## PHASE MARKETING-5 — Full Product Tour Page (Completed)
+
+### Phase Summary
+
+Create a full-length Product Tour page that walks visitors through every major capability of EngineO.ai, demonstrates the DEO Score system, explains signals, issues, crawling, automation, and AI Workspaces, and bridges ecommerce and general site optimization — all using the on-brand DEO narrative.
+
+### MARKETING-5.1 Scope
+
+- **Route:** `/features`
+- **File:** `apps/web/src/app/(marketing)/features/page.tsx`
+
+**Components (marketing):**
+
+1. **ProductTourHero.tsx** — hero copy + primary CTAs.
+2. **ProductTourDEOSection.tsx** — "What EngineO.ai actually does" and DEO Score explanation.
+3. **ProductTourCrawlSection.tsx** — full-site crawling engine and crawl graph placeholder.
+4. **ProductTourIssuesSection.tsx** — Issues Engine overview and "View all issues" CTA.
+5. **ProductTourProductWorkspace.tsx** — Product Optimization Workspace section with screenshot placeholder.
+6. **ProductTourContentWorkspace.tsx** — Content Optimization Workspace section with screenshot placeholder.
+7. **ProductTourAutomation.tsx** — DEO automation capabilities.
+8. **ProductTourPlatforms.tsx** — supported platforms list linking to `/websites`.
+9. **ProductTourSEOComparison.tsx** — DEO vs SEO category clarification.
+10. **ProductTourCTASection.tsx** — final CTA block.
+
+**Content and structure:**
+
+- **Hero:** Heading: "A complete visibility engine for your entire website." Body lines describing crawling, signals, DEO Score, AI-powered workflows, and "One platform. Every page. All your discovery signals." CTAs: Start Free (`/signup`) and Try Demo (`/contact`).
+
+- **What EngineO.ai Actually Does:** Make clear that EngineO.ai is a DEO platform, not a traditional SEO tool. Enumerate the seven steps: crawl, extract signals, compute DEO Score, detect issues, generate AI fixes, automate rescans/recompute, and help optimize products/pages/blogs/collections.
+
+- **DEO Score:** Explain the four DEO components (Content Quality, Entities & Semantic Signals, Technical Health, Visibility Strength). Emphasize that DEO Score is a single visibility number across search engines and AI assistants. Include a DEO Score dial/card placeholder visualization.
+
+- **Full-Site Crawling Engine:** List crawled URL types: product, collection/category, blog posts, landing pages, home, documentation, custom routes, hub pages, navigation pages. Copy: "We crawl your entire website automatically. No setup. No plugins. No code." Include a "Crawl graph" placeholder.
+
+- **Issues Engine:** Enumerate issues: missing metadata, thin content, weak structure, answer-surface gaps, low entity coverage, crawl failures, navigation gaps, shallow product content, broken links. Clarify that each issue explains what it is, why it matters, how to fix it, and which pages/products are affected. Include a "View all issues" CTA into the app.
+
+- **Product Optimization Workspace:** Call out: product overview, AI metadata suggestions, SEO + DEO insights, Shopify sync, variant-aware crawling, issue badges, optimization history (future). Include a screenshot placeholder.
+
+- **Content Optimization Workspace:** Call out: title/description editing, AI suggestions, thin content detector, entity structure insights, crawl health, page-level issues. Mention support for WordPress, Webflow, Wix, Squarespace, Ghost, and custom sites. Include a screenshot placeholder.
+
+- **DEO Automation:** Copy: "Your website changes. Your visibility shouldn't break." List automation capabilities: scheduled crawls, DEO recompute, issue re-evaluation, drift detection (Shopify metadata changes), trend snapshots (coming soon).
+
+- **Supported Platforms:** List: WordPress, Webflow, Wix, Squarespace, Shopify, Ghost, Custom, Static headless sites. CTA: "View supported platforms" linking to `/websites`.
+
+- **DEO vs SEO:** Explain that SEO focuses on keywords and SERP ranking, while DEO focuses on visibility across search engines, AI assistants, and answer engines. Note that EngineO.ai evaluates discovery surface, entity relevance, answer readiness, and crawl accessibility.
+
+- **Final CTA:** Copy: "Everything you need to understand and improve your website. Get your DEO Score, issues, and AI-powered fixes in minutes." CTA: Start Free (`/signup`).
+
+### MARKETING-5.2 Constraints
+
+- Frontend-only; no backend, crawling, or scoring logic changes.
+- Reuse existing marketing layout (`apps/web/src/app/(marketing)/layout.tsx`) and Tailwind/shadcn/ui patterns from MARKETING-1 through MARKETING-4.
+- Keep copy aligned with BRANDING_GUIDE tone (clear, confident, modern, calm, outcome-focused; no emojis or hype).
+- Maintain separation of concerns:
+  - Homepage (`/`) remains universal positioning.
+  - `/shopify` focuses on Shopify merchants.
+  - `/websites` focuses on websites/CMS.
+  - `/features` becomes the canonical full Product Tour.
+
+### MARKETING-5.3 Acceptance Criteria (Completed)
+
+- [x] `/features` renders as a full Product Tour page using the new ProductTour* components.
+- [x] All required sections are present: hero, what EngineO.ai does, DEO Score, crawling, Issues Engine, Product Workspace, Content Workspace, automation, supported platforms, DEO vs SEO, and final CTA.
+- [x] Visual placeholder blocks exist for crawl graph, DEO Score, and both workspace screenshots.
+- [x] Page is mobile responsive and visually consistent with other marketing pages.
+- [x] CTAs route correctly to `/signup`, `/contact`, and `/websites` where applicable.
+- [x] `docs/MARKETING.md` documents the Product Tour / Features page structure and components.
+
+---
+
+These Phases 23–30 plus Phases UX-1, UX-1.1, UX-2, UX-3, UX-4, UX-5, UX-Content-1, UX-Content-2, and MARKETING-1 through MARKETING-5 extend your IMPLEMENTATION_PLAN.md and keep your roadmap cohesive:
 
 - Phases 12–17: Core feature sets (automation, content, performance, competitors, local, social).
 - Phases 18–22: Security, subscription management, monitoring, fairness & limits.
@@ -6164,6 +6234,7 @@ These Phases 23–30 plus Phases UX-1, UX-1.1, UX-2, UX-3, UX-4, UX-5, UX-Conten
 - Phase MARKETING-2: Dedicated Shopify landing page for ecommerce merchants.
 - Phase MARKETING-3: Pricing page with Free, Pro, and Business tiers mapped to DEO value.
 - Phase MARKETING-4: Websites vertical landing page for WordPress, Webflow, and all non-ecommerce sites.
+- Phase MARKETING-5: Full product tour/features page covering DEO Score, crawling, Issues Engine, Product and Content Workspaces, automation, and supported platforms.
 
 ---
 
