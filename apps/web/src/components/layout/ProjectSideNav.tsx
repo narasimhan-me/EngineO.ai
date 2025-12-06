@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { GuardedLink } from '@/components/navigation/GuardedLink';
 import { useParams, usePathname } from 'next/navigation';
 
 const navItems = [
@@ -38,7 +38,7 @@ export default function ProjectSideNav({ onNavigate }: ProjectSideNavProps) {
           const active = isActive(item.path);
           return (
             <li key={item.path}>
-              <Link
+              <GuardedLink
                 href={`/projects/${projectId}/${item.path}`}
                 onClick={onNavigate}
                 className={`block rounded-md px-3 py-2 text-sm transition-colors ${
@@ -48,7 +48,7 @@ export default function ProjectSideNav({ onNavigate }: ProjectSideNavProps) {
                 }`}
               >
                 {item.label}
-              </Link>
+              </GuardedLink>
             </li>
           );
         })}

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { isAuthenticated } from '@/lib/auth';
 import { projectsApi } from '@/lib/api';
+import { useUnsavedChanges } from '@/components/unsaved-changes/UnsavedChangesProvider';
 
 type CrawlFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 
@@ -87,6 +88,9 @@ export default function ProjectSettingsPage() {
   const [autoSuggestThinContent, setAutoSuggestThinContent] = useState(false);
   const [autoSuggestDailyCap, setAutoSuggestDailyCap] = useState(50);
 
+  // Unsaved changes guard
+  const { setHasUnsavedChanges } = useUnsavedChanges();
+
   const fetchIntegrationStatus = useCallback(async () => {
     try {
       setLoading(true);
@@ -143,6 +147,11 @@ export default function ProjectSettingsPage() {
       autoSuggestMissingMetadata !== status.autoSuggestMissingMetadata ||
       autoSuggestThinContent !== status.autoSuggestThinContent ||
       autoSuggestDailyCap !== status.autoSuggestDailyCap);
+
+  // Sync local hasChanges with global unsaved changes context
+  useEffect(() => {
+    setHasUnsavedChanges(!!hasChanges);
+  }, [hasChanges, setHasUnsavedChanges]);
 
   if (loading) {
     return (

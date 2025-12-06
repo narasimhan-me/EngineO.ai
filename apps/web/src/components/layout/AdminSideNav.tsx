@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { GuardedLink } from '@/components/navigation/GuardedLink';
 import { usePathname } from 'next/navigation';
 
 const navItems = [
@@ -30,7 +30,7 @@ export default function AdminSideNav({ onNavigate }: AdminSideNavProps) {
           const active = isActive(item.path);
           return (
             <li key={item.path}>
-              <Link
+              <GuardedLink
                 href={item.path}
                 onClick={onNavigate}
                 className={`block rounded-md px-3 py-2 text-sm transition-colors ${
@@ -40,7 +40,7 @@ export default function AdminSideNav({ onNavigate }: AdminSideNavProps) {
                 }`}
               >
                 {item.label}
-              </Link>
+              </GuardedLink>
             </li>
           );
         })}
