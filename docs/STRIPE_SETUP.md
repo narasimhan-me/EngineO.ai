@@ -179,13 +179,20 @@ Skip the dashboard webhook setup — we'll use Stripe CLI instead (see [Section 
 
    | Field | Value |
    |-------|-------|
-   | **Endpoint URL** | `https://your-api-domain.com/billing/webhook` |
+   | **Endpoint URL** | See table below |
    | **Description** | `EngineO.ai Billing Webhooks` (optional) |
 
-   **Examples:**
-   - Production: `https://api.engineo.ai/billing/webhook`
-   - Staging: `https://staging-api.engineo.ai/billing/webhook`
-   - Render: `https://your-app-name.onrender.com/billing/webhook`
+   **EngineO.ai Webhook URLs:**
+
+   | Environment | Stripe Mode | Webhook URL |
+   |-------------|-------------|-------------|
+   | **Production** | Live | `https://api.engineo.ai/billing/webhook` |
+   | **Staging** | Test | `https://engineo-api-staging.onrender.com/billing/webhook` |
+
+   > **Important:**
+   > - Use **Test mode** in Stripe for staging, **Live mode** for production
+   > - Each environment needs its own webhook endpoint with its own signing secret
+   > - You'll need to create **two separate webhook endpoints** in Stripe Dashboard
 
    Click **Add destination**.
 
@@ -621,32 +628,59 @@ Click **Save** at the bottom of the page.
 
 ### 12.3 Create Live Webhook Endpoint
 
-Repeat [Section 4.2](#42-for-production) with your production URL.
+Create a **Live mode** webhook endpoint in Stripe Dashboard:
+
+1. Switch to **Live mode** in Stripe Dashboard (toggle in top-right)
+2. Go to **Developers → Webhooks**
+3. Click **+ Add destination**
+4. Select the same 4 events as before (see [Section 4.2](#42-for-production-detailed-steps))
+5. Use the production webhook URL: `https://api.engineo.ai/billing/webhook`
+6. Copy the Live mode signing secret
 
 ### 12.4 Update Production Environment Variables
 
-**In your production environment** (e.g., Render, Vercel, or your hosting platform):
+**Production (api.engineo.ai on Render):**
 
 ```bash
-# Production Stripe Configuration
-# Get from: https://dashboard.stripe.com/apikeys (Live mode)
+# Production Stripe Configuration (LIVE MODE)
+# Get from: https://dashboard.stripe.com/apikeys (Live mode toggle ON)
 STRIPE_SECRET_KEY=sk_live_...
 
-# Get from webhook endpoint (see Section 12.3)
+# Get from Live mode webhook endpoint (see Section 12.3)
 STRIPE_WEBHOOK_SECRET=whsec_...
 
 # Get from Products page in Live mode (see Section 12.2)
 STRIPE_PRICE_PRO=price_...       # Live Pro price ID
 STRIPE_PRICE_BUSINESS=price_...  # Live Business price ID
 
-# Your production frontend URL
+# Production frontend URL
 FRONTEND_URL=https://app.engineo.ai
 ```
 
-**Where to set these:**
-- **Render:** Dashboard → Your API Service → Environment → Add Environment Variable
-- **Vercel:** Project Settings → Environment Variables
-- **Other platforms:** Check your platform's documentation for environment variable configuration
+**Staging (engineo-api-staging.onrender.com on Render):**
+
+```bash
+# Staging Stripe Configuration (TEST MODE)
+# Get from: https://dashboard.stripe.com/test/apikeys
+STRIPE_SECRET_KEY=sk_test_...
+
+# Get from Test mode webhook endpoint
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Get from Products page in Test mode
+STRIPE_PRICE_PRO=price_...       # Test Pro price ID
+STRIPE_PRICE_BUSINESS=price_...  # Test Business price ID
+
+# Staging frontend URL
+FRONTEND_URL=https://engineo-staging.vercel.app
+```
+
+**Where to set these (Render):**
+1. Go to [Render Dashboard](https://dashboard.render.com)
+2. Select your API service (`engineo-api` or `engineo-api-staging`)
+3. Click **Environment** in the left sidebar
+4. Add each variable as a new Environment Variable
+5. Click **Save Changes** - the service will redeploy automatically
 
 **Important:**
 - Never commit production keys to version control
