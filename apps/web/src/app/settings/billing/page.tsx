@@ -18,25 +18,6 @@ interface Plan {
   };
 }
 
-interface Subscription {
-  plan: string;
-  status: string;
-  currentPeriodStart: string | null;
-  currentPeriodEnd: string | null;
-}
-
-interface Entitlements {
-  plan: string;
-  limits: {
-    projects: number;
-    crawledPages: number;
-    automationSuggestionsPerDay: number;
-  };
-  usage: {
-    projects: number;
-  };
-}
-
 interface BillingSummary {
   plan: string;
   status: string;
