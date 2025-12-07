@@ -3170,7 +3170,7 @@ if (projectCount >= planConfig.maxProjects) {
 
 **Summary:**
 
-Backend now supports creation of Stripe Checkout Sessions for paid plans.
+Backend now supports creation of Stripe Checkout Sessions for paid plans, while enforcing a one active subscription per user rule to avoid duplicate Stripe subscriptions.
 
 **Endpoint:** `POST /billing/checkout`
 
@@ -3187,10 +3187,12 @@ Backend now supports creation of Stripe Checkout Sessions for paid plans.
 **Implementation Details:**
 
 1. Validates `planId` is not `free` and has a configured `STRIPE_PRICE_*` env var.
-2. Creates or retrieves a Stripe Customer for the authenticated user.
-3. Stores the `stripeCustomerId` in the `Subscription` table for future lookups.
-4. Creates a Stripe Checkout Session with metadata (`userId`, `planId`) for webhook correlation.
-5. Returns the session URL for frontend redirect.
+2. Checks if user already has an active Stripe subscription (`stripeSubscriptionId` is not null and status is `active` or `past_due`).
+3. If an active subscription exists, short-circuits and returns a Billing Portal URL instead of creating a new Checkout Session.
+4. Creates or retrieves a Stripe Customer for the authenticated user.
+5. Stores the `stripeCustomerId` in the `Subscription` table for future lookups.
+6. Creates a Stripe Checkout Session with metadata (`userId`, `planId`) for webhook correlation.
+7. Returns the session URL for frontend redirect.
 
 **Files Modified:**
 

@@ -68,6 +68,9 @@ export class BillingService {
   /**
    * Create a Stripe Checkout session for upgrading
    * Phase 1.2 — Launch-ready checkout session endpoint.
+   * Enforces "one active subscription per user":
+   *   - If the user already has an active Stripe subscription, return a Billing Portal URL instead of creating a new subscription.
+   *   - Otherwise, create a new Checkout Session for the first paid upgrade.
    */
   async createCheckoutSession(userId: string, planId: PlanId): Promise<{ url: string }> {
     if (!this.stripe) {
@@ -76,6 +79,12 @@ export class BillingService {
 
     if (planId === 'free') {
       throw new BadRequestException('Cannot checkout for free plan');
+    }
+
+    const existingActiveSubscription = await this.findActiveSubscriptionForUser(userId);
+    if (existingActiveSubscription) {
+      // User already has an active Stripe subscription: send them to Billing Portal instead of creating another.
+      return this.createPortalSession(userId);
     }
 
     // Get price ID from environment variables via ConfigService
@@ -134,6 +143,24 @@ export class BillingService {
     });
 
     return { url: session.url };
+  }
+
+  /**
+   * Find an active Stripe-backed subscription for a user.
+   * Active (v1) means:
+   *   - There is a non-null stripeSubscriptionId, and
+   *   - status is one of ['active', 'past_due'].
+   * This is used to enforce "one active subscription per user" when creating
+   * new Checkout Sessions.
+   */
+  private async findActiveSubscriptionForUser(userId: string) {
+    return this.prisma.subscription.findFirst({
+      where: {
+        userId,
+        stripeSubscriptionId: { not: null },
+        status: { in: ['active', 'past_due'] },
+      },
+    });
   }
 
   /**
