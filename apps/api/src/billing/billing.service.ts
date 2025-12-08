@@ -56,9 +56,15 @@ export class BillingService {
       this.getSubscription(userId),
       this.entitlementsService.getEntitlementsSummary(userId),
     ]);
+
+    const planId = entitlements.plan;
+    // Free plan users always show "active" status (no subscription state to track)
+    const status =
+      planId === 'free' ? 'active' : (subscription.status ?? 'active');
+
     return {
-      plan: entitlements.plan,
-      status: subscription.status ?? 'active',
+      plan: planId,
+      status,
       limits: entitlements.limits,
       usage: entitlements.usage,
       currentPeriodEnd: subscription.currentPeriodEnd ?? null,

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { billingApi } from '@/lib/api';
 import { isAuthenticated } from '@/lib/auth';
+import { useFeedback } from '@/components/feedback/FeedbackProvider';
 
 interface Plan {
   id: string;
@@ -42,6 +43,8 @@ function BillingSettingsContent() {
   const [success, setSuccess] = useState('');
   const [updating, setUpdating] = useState(false);
 
+  const feedback = useFeedback();
+
   useEffect(() => {
     if (!isAuthenticated()) {
       router.push('/login');
@@ -50,9 +53,13 @@ function BillingSettingsContent() {
 
     // Check for success/canceled from Stripe redirect
     if (searchParams.get('success') === 'true') {
-      setSuccess('Subscription updated successfully!');
+      const message = 'Subscription updated successfully!';
+      setSuccess(message);
+      feedback.showSuccess(message);
     } else if (searchParams.get('canceled') === 'true') {
-      setError('Checkout was canceled.');
+      const message = 'Checkout was canceled.';
+      setError(message);
+      feedback.showWarning(message);
     }
 
     fetchData();
@@ -67,7 +74,10 @@ function BillingSettingsContent() {
       setPlans(plansData);
       setSummary(summaryData);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load billing data');
+      const message =
+        err instanceof Error ? err.message : 'Failed to load billing data';
+      setError(message);
+      feedback.showError(message);
     } finally {
       setLoading(false);
     }
@@ -85,7 +95,10 @@ function BillingSettingsContent() {
       // Redirect to Stripe Checkout
       window.location.href = url;
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to start checkout');
+      const message =
+        err instanceof Error ? err.message : 'Failed to start checkout';
+      setError(message);
+      feedback.showError(message);
       setUpdating(false);
     }
   }
@@ -99,7 +112,10 @@ function BillingSettingsContent() {
       // Redirect to Stripe Billing Portal
       window.location.href = url;
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to open billing portal');
+      const message =
+        err instanceof Error ? err.message : 'Failed to open billing portal';
+      setError(message);
+      feedback.showError(message);
       setUpdating(false);
     }
   }
@@ -157,17 +173,19 @@ function BillingSettingsContent() {
           <span className="text-2xl font-bold text-gray-900 capitalize">
             {effectivePlanId}
           </span>
-          <span
-            className={`px-2 py-1 text-xs font-medium rounded-full ${
-              effectiveStatus === 'active'
-                ? 'bg-green-100 text-green-800'
-                : effectiveStatus === 'canceled'
-                ? 'bg-yellow-100 text-yellow-800'
-                : 'bg-gray-100 text-gray-800'
-            }`}
-          >
-            {effectiveStatus}
-          </span>
+          {effectivePlanId !== 'free' && (
+            <span
+              className={`px-2 py-1 text-xs font-medium rounded-full ${
+                effectiveStatus === 'active'
+                  ? 'bg-green-100 text-green-800'
+                  : effectiveStatus === 'canceled'
+                  ? 'bg-yellow-100 text-yellow-800'
+                  : 'bg-gray-100 text-gray-800'
+              }`}
+            >
+              {effectiveStatus}
+            </span>
+          )}
         </div>
 
         {/* Usage Summary */}

@@ -145,7 +145,7 @@ Plans implemented via `PricingTable`:
 - Critical issues only
 - Product Workspace (1 product)
 - Content Workspace (view-only)
-- 5 AI suggestions per month
+- 5 AI suggestions per day
 - CTA: Start Free (`/signup`)
 
 **Pro — $29/mo (Most Popular)**

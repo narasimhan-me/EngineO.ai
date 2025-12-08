@@ -17,6 +17,7 @@ import { DeoSignalsSummary } from '@/components/projects/DeoSignalsSummary';
 import { ProjectHealthCards } from '@/components/projects/ProjectHealthCards';
 import { IssuesSummaryCard } from '@/components/issues/IssuesSummaryCard';
 import { IssuesList } from '@/components/issues/IssuesList';
+import { useFeedback } from '@/components/feedback/FeedbackProvider';
 
 type CrawlFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 
@@ -142,6 +143,8 @@ export default function ProjectOverviewPage() {
   const [deoIssuesError, setDeoIssuesError] = useState<string | null>(null);
   const [showIssuesPanel, setShowIssuesPanel] = useState(false);
 
+  const feedback = useFeedback();
+
   const fetchIntegrationStatus = useCallback(async () => {
     try {
       setLoading(true);
@@ -241,15 +244,22 @@ export default function ProjectOverviewPage() {
       setError('');
       const result = await projectsApi.recomputeDeoScoreSync(projectId);
       if (result.computed) {
-        setSuccessMessage(`DEO Score recomputed: ${result.score}/100`);
+        const message = `DEO Score recomputed: ${result.score}/100`;
+        setSuccessMessage(message);
+        feedback.showSuccess(message);
         setTimeout(() => setSuccessMessage(''), 5000);
         await fetchDeoScore();
         await fetchDeoSignals();
       } else {
-        setError(result.message || 'Failed to recompute DEO score');
+        const message = result.message || 'Failed to recompute DEO score';
+        setError(message);
+        feedback.showError(message);
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to recompute DEO score');
+      const message =
+        err instanceof Error ? err.message : 'Failed to recompute DEO score';
+      setError(message);
+      feedback.showError(message);
     } finally {
       setDeoScoreRecomputing(false);
     }
@@ -327,8 +337,9 @@ export default function ProjectOverviewPage() {
           (body.code === 'ENTITLEMENTS_LIMIT_REACHED' ||
             body.error === 'ENTITLEMENTS_LIMIT_REACHED')
         ) {
+          let limitMessage: string;
           if (typeof body.message === 'string' && body.message) {
-            setError(body.message);
+            limitMessage = body.message;
           } else {
             const plan =
               body && typeof body.plan === 'string' ? body.plan : 'current';
@@ -336,15 +347,15 @@ export default function ProjectOverviewPage() {
               body && typeof body.allowed === 'number' ? body.allowed : undefined;
             if (allowed !== undefined) {
               const plural = allowed === 1 ? 'page' : 'pages';
-              setError(
-                `You've reached the ${plan} plan crawl limit (${allowed} ${plural} per crawl). Upgrade your plan to run more crawls.`,
-              );
+              limitMessage = `You've reached the ${plan} plan crawl limit (${allowed} ${plural} per crawl). Upgrade your plan to run more crawls.`;
             } else {
-              setError(
-                "You've reached your current plan's crawl limit. Upgrade your plan to run additional crawls.",
-              );
+              limitMessage =
+                "You've reached your current plan's crawl limit. Upgrade your plan to run additional crawls.";
             }
           }
+
+          setError(limitMessage);
+          feedback.showLimit(limitMessage, '/settings/billing');
           return;
         }
         if (res.status === 401 || res.status === 403) {
@@ -358,12 +369,17 @@ export default function ProjectOverviewPage() {
         throw new Error(message);
       }
 
-      setSuccessMessage('Crawl started. Results will appear shortly.');
+      const message = 'Crawl started. Results will appear shortly.';
+      setSuccessMessage(message);
+      feedback.showSuccess(message);
       setTimeout(() => setSuccessMessage(''), 3000);
       await fetchScanResults();
       await fetchOverview();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to run SEO crawl');
+      const message =
+        err instanceof Error ? err.message : 'Failed to run SEO crawl';
+      setError(message);
+      feedback.showError(message);
     } finally {
       setScanning(false);
     }
@@ -371,7 +387,9 @@ export default function ProjectOverviewPage() {
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    setSuccessMessage(`${label} copied to clipboard!`);
+    const message = `${label} copied to clipboard!`;
+    setSuccessMessage(message);
+    feedback.showSuccess(message);
     setTimeout(() => setSuccessMessage(''), 2000);
   };
 

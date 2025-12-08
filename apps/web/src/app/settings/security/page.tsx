@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { usersApi, twoFactorApi } from '@/lib/api';
 import { isAuthenticated } from '@/lib/auth';
+import { useFeedback } from '@/components/feedback/FeedbackProvider';
 
 interface User {
   id: string;
@@ -32,6 +33,8 @@ export default function SecuritySettingsPage() {
   const [isEnabling, setIsEnabling] = useState(false);
   const [isDisabling, setIsDisabling] = useState(false);
 
+  const feedback = useFeedback();
+
   useEffect(() => {
     if (!isAuthenticated()) {
       router.push('/login');
@@ -46,7 +49,10 @@ export default function SecuritySettingsPage() {
       const userData = await usersApi.me();
       setUser(userData);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load user data');
+      const message =
+        err instanceof Error ? err.message : 'Failed to load user data';
+      setError(message);
+      feedback.showError(message);
     } finally {
       setLoading(false);
     }
@@ -61,7 +67,12 @@ export default function SecuritySettingsPage() {
       const data = await twoFactorApi.setupInit();
       setSetupData(data);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to initialize 2FA setup');
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Failed to initialize 2FA setup';
+      setError(message);
+      feedback.showError(message);
     } finally {
       setIsSettingUp(false);
     }
@@ -75,13 +86,21 @@ export default function SecuritySettingsPage() {
 
     try {
       await twoFactorApi.enable(verificationCode);
-      setSuccess('Two-factor authentication has been enabled successfully!');
+      const message =
+        'Two-factor authentication has been enabled successfully!';
+      setSuccess(message);
+      feedback.showSuccess(message);
       setSetupData(null);
       setVerificationCode('');
       // Refresh user data to show updated status
       await fetchUser();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to enable 2FA. Please check your code and try again.');
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Failed to enable 2FA. Please check your code and try again.';
+      setError(message);
+      feedback.showError(message);
     } finally {
       setIsEnabling(false);
     }
@@ -94,11 +113,16 @@ export default function SecuritySettingsPage() {
 
     try {
       await twoFactorApi.disable();
-      setSuccess('Two-factor authentication has been disabled.');
+      const message = 'Two-factor authentication has been disabled.';
+      setSuccess(message);
+      feedback.showSuccess(message);
       // Refresh user data to show updated status
       await fetchUser();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to disable 2FA');
+      const message =
+        err instanceof Error ? err.message : 'Failed to disable 2FA';
+      setError(message);
+      feedback.showError(message);
     } finally {
       setIsDisabling(false);
     }

@@ -6,7 +6,7 @@ import Link from 'next/link';
 
 import type { DeoIssue } from '@engineo/shared';
 import { isAuthenticated } from '@/lib/auth';
-import { projectsApi, productsApi, aiApi, shopifyApi } from '@/lib/api';
+import { projectsApi, productsApi, aiApi, shopifyApi, ApiError } from '@/lib/api';
 import type { Product } from '@/lib/products';
 import { getProductStatus } from '@/lib/products';
 import {
@@ -18,17 +18,20 @@ import {
   type ProductMetadataSuggestion,
   type AutomationSuggestion,
 } from '@/components/products/optimization';
+import { useFeedback } from '@/components/feedback/FeedbackProvider';
 
 export default function ProductOptimizationPage() {
   const router = useRouter();
   const params = useParams();
   const projectId = params.id as string;
   const productId = params.productId as string;
+  const feedback = useFeedback();
 
   // Loading and error states
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [isAiLimitError, setIsAiLimitError] = useState(false);
 
   // Data states
   const [projectName, setProjectName] = useState<string | null>(null);
@@ -109,16 +112,49 @@ export default function ProductOptimizationPage() {
     try {
       setLoadingSuggestion(true);
       setError('');
+      setIsAiLimitError(false);
 
       const result = await aiApi.suggestProductMetadata(product.id);
       setSuggestion(result);
+
+      feedback.showSuccess('AI suggestion generated for this product.');
     } catch (err: unknown) {
       console.error('Error fetching AI suggestion:', err);
-      setError(err instanceof Error ? err.message : 'Failed to get AI suggestions');
+
+      // Handle daily AI limit reached with a clear, friendly message.
+      if (err instanceof ApiError && err.code === 'AI_DAILY_LIMIT_REACHED') {
+        const limitMessage =
+          "Daily AI limit reached. You've used all 5 AI suggestions available on the Free plan. Your limit resets tomorrow, or upgrade to continue.";
+        setIsAiLimitError(true);
+        setError(limitMessage);
+        feedback.showLimit(limitMessage, '/settings/billing');
+        return;
+      }
+
+      // Generic provider/model failure – show a non-technical error and surface the
+      // "AI unavailable" state in the panel.
+      setIsAiLimitError(false);
+      const message =
+        'AI suggestions are temporarily unavailable. Please try again later.';
+      setError(message);
+      feedback.showError(message);
+      if (product) {
+        setSuggestion({
+          productId: product.id,
+          current: {
+            title: product.seoTitle || product.title,
+            description: product.seoDescription || product.description || '',
+          },
+          suggested: {
+            title: '',
+            description: '',
+          },
+        });
+      }
     } finally {
       setLoadingSuggestion(false);
     }
-  }, [product]);
+  }, [product, feedback]);
 
   const handleApplyToShopify = useCallback(async () => {
     if (!product) return;
@@ -146,14 +182,18 @@ export default function ProductOptimizationPage() {
       setInitialDescription(editorDescription);
 
       setSuccessMessage('SEO updated in Shopify successfully!');
+      feedback.showSuccess('SEO updated in Shopify successfully!');
       setTimeout(() => setSuccessMessage(''), 5000);
     } catch (err: unknown) {
       console.error('Error applying to Shopify:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update SEO in Shopify');
+      const message =
+        err instanceof Error ? err.message : 'Failed to update SEO in Shopify';
+      setError(message);
+      feedback.showError(message);
     } finally {
       setApplyingToShopify(false);
     }
-  }, [product, editorTitle, editorDescription]);
+  }, [product, editorTitle, editorDescription, feedback]);
 
   const handleReset = useCallback(() => {
     setEditorTitle(initialTitle);
@@ -245,7 +285,17 @@ export default function ProductOptimizationPage() {
       {/* Error message */}
       {error && (
         <div className="mb-6 rounded border border-red-400 bg-red-100 p-4 text-red-700">
-          {error}
+          <p>{error}</p>
+          {isAiLimitError && (
+            <p className="mt-2">
+              <Link
+                href="/settings/billing"
+                className="font-semibold text-red-800 underline hover:text-red-900"
+              >
+                Upgrade your plan to unlock more AI suggestions.
+              </Link>
+            </p>
+          )}
         </div>
       )}
 

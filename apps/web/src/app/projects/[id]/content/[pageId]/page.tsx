@@ -6,10 +6,11 @@ import Link from 'next/link';
 
 import type { DeoIssue } from '@engineo/shared';
 import { isAuthenticated } from '@/lib/auth';
-import { projectsApi, aiApi } from '@/lib/api';
+import { projectsApi, aiApi, ApiError } from '@/lib/api';
 import type { ContentPage } from '@/lib/content';
 import { getContentStatus, getPageTypeLabel } from '@/lib/content';
 import { ContentDeoInsightsPanel } from '@/components/content/ContentDeoInsightsPanel';
+import { useFeedback } from '@/components/feedback/FeedbackProvider';
 
 interface MetadataSuggestion {
   crawlResultId: string;
@@ -44,6 +45,8 @@ export default function ContentWorkspacePage() {
   // AI states
   const [suggestion, setSuggestion] = useState<MetadataSuggestion | null>(null);
   const [loadingSuggestion, setLoadingSuggestion] = useState(false);
+
+  const feedback = useFeedback();
 
   const fetchData = useCallback(async () => {
     try {
@@ -105,13 +108,25 @@ export default function ContentWorkspacePage() {
 
       const result = await aiApi.suggestMetadata(page.id);
       setSuggestion(result);
+
+      feedback.showSuccess('AI suggestion generated for this page.');
     } catch (err: unknown) {
       console.error('Error fetching AI suggestion:', err);
-      setError(err instanceof Error ? err.message : 'Failed to get AI suggestions');
+      if (err instanceof ApiError && err.code === 'AI_DAILY_LIMIT_REACHED') {
+        const limitMessage =
+          "Daily AI limit reached. You've used all AI suggestions available on your current plan. Your limit resets tomorrow, or upgrade to continue.";
+        setError(limitMessage);
+        feedback.showLimit(limitMessage, '/settings/billing');
+      } else {
+        const message =
+          'AI suggestions are temporarily unavailable. Please try again later.';
+        setError(message);
+        feedback.showError(message);
+      }
     } finally {
       setLoadingSuggestion(false);
     }
-  }, [page]);
+  }, [page, feedback]);
 
   const handleReset = useCallback(() => {
     setEditorTitle(initialTitle);
@@ -134,13 +149,17 @@ export default function ContentWorkspacePage() {
     async (text: string, label: string) => {
       try {
         await navigator.clipboard.writeText(text);
-        setSuccessMessage(`${label} copied to clipboard!`);
+        const message = `${label} copied to clipboard!`;
+        setSuccessMessage(message);
+        feedback.showSuccess(message);
         setTimeout(() => setSuccessMessage(''), 3000);
       } catch {
-        setError('Failed to copy to clipboard');
+        const message = 'Failed to copy to clipboard';
+        setError(message);
+        feedback.showError(message);
       }
     },
-    []
+    [feedback],
   );
 
   useEffect(() => {

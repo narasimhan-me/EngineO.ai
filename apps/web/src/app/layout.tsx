@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { UnsavedChangesProvider } from '@/components/unsaved-changes/UnsavedChangesProvider';
+import { FeedbackProvider } from '@/components/feedback/FeedbackProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -23,7 +24,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} min-h-screen bg-gray-50`}>
-        <UnsavedChangesProvider>{children}</UnsavedChangesProvider>
+        <UnsavedChangesProvider>
+          <FeedbackProvider>{children}</FeedbackProvider>
+        </UnsavedChangesProvider>
       </body>
     </html>
   );

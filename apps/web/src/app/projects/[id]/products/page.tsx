@@ -7,8 +7,16 @@ import Link from 'next/link';
 import type { DeoIssue } from '@engineo/shared';
 import { ProductTable } from '@/components/products/ProductTable';
 import { isAuthenticated, getToken } from '@/lib/auth';
-import { productsApi, projectsApi, shopifyApi, seoScanApi, aiApi } from '@/lib/api';
+import {
+  productsApi,
+  projectsApi,
+  shopifyApi,
+  seoScanApi,
+  aiApi,
+  ApiError,
+} from '@/lib/api';
 import type { Product } from '@/lib/products';
+import { useFeedback } from '@/components/feedback/FeedbackProvider';
 
 interface ProductMetadataSuggestion {
   productId: string;
@@ -54,6 +62,8 @@ export default function ProductsPage() {
 
   // Apply to Shopify state
   const [applyingToShopify, setApplyingToShopify] = useState(false);
+
+  const feedback = useFeedback();
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -116,11 +126,16 @@ export default function ProductsPage() {
       setSyncing(true);
       setError('');
       const result = await shopifyApi.syncProducts(projectId);
-      setSuccessMessage(`Synced ${result.synced} products (${result.created} new, ${result.updated} updated)`);
+      const message = `Synced ${result.synced} products (${result.created} new, ${result.updated} updated)`;
+      setSuccessMessage(message);
       setTimeout(() => setSuccessMessage(''), 5000);
+      feedback.showSuccess(message);
       await fetchProducts();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to sync products');
+      const message =
+        err instanceof Error ? err.message : 'Failed to sync products';
+      setError(message);
+      feedback.showError(message);
     } finally {
       setSyncing(false);
     }
@@ -131,10 +146,16 @@ export default function ProductsPage() {
       setScanningId(productId);
       setError('');
       await seoScanApi.scanProduct(productId);
-      setSuccessMessage('Product page scanned! View results on the project SEO Scanner.');
+      const message =
+        'Product page scanned! View results on the project SEO Scanner.';
+      setSuccessMessage(message);
       setTimeout(() => setSuccessMessage(''), 5000);
+      feedback.showSuccess(message);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to scan product');
+      const message =
+        err instanceof Error ? err.message : 'Failed to scan product';
+      setError(message);
+      feedback.showError(message);
     } finally {
       setScanningId(null);
     }
@@ -148,7 +169,19 @@ export default function ProductsPage() {
       setCurrentSuggestion(suggestion);
       setShowSuggestionModal(true);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to get AI suggestions');
+      console.error('Error fetching AI suggestions:', err);
+
+      if (err instanceof ApiError && err.code === 'AI_DAILY_LIMIT_REACHED') {
+        const limitMessage =
+          "You've used all 5 AI suggestions for today on the Free plan. Your limit will reset tomorrow, or you can upgrade to keep optimizing.";
+        setError(limitMessage);
+        feedback.showLimit(limitMessage, '/settings/billing');
+      } else {
+        const message =
+          'AI suggestions are temporarily unavailable. Please try again later.';
+        setError(message);
+        feedback.showError(message);
+      }
     } finally {
       setLoadingSuggestion(false);
       setSuggestingId(null);
@@ -157,7 +190,9 @@ export default function ProductsPage() {
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    setSuccessMessage(`${label} copied to clipboard!`);
+    const message = `${label} copied to clipboard!`;
+    setSuccessMessage(message);
+    feedback.showSuccess(message);
     setTimeout(() => setSuccessMessage(''), 2000);
   };
 
@@ -192,14 +227,19 @@ export default function ProductsPage() {
         ),
       );
 
-      setSuccessMessage('SEO updated in Shopify successfully!');
+      const message = 'SEO updated in Shopify successfully!';
+      setSuccessMessage(message);
+      feedback.showSuccess(message);
       setTimeout(() => setSuccessMessage(''), 5000);
 
       // Close modal
       setShowSuggestionModal(false);
       setCurrentSuggestion(null);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to update SEO in Shopify');
+      const message =
+        err instanceof Error ? err.message : 'Failed to update SEO in Shopify';
+      setError(message);
+      feedback.showError(message);
     } finally {
       setApplyingToShopify(false);
     }

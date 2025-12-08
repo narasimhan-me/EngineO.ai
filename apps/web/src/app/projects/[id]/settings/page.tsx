@@ -6,6 +6,7 @@ import { isAuthenticated } from '@/lib/auth';
 import { projectsApi } from '@/lib/api';
 import { useUnsavedChanges } from '@/components/unsaved-changes/UnsavedChangesProvider';
 import FriendlyError from '@/components/ui/FriendlyError';
+import { useFeedback } from '@/components/feedback/FeedbackProvider';
 
 type CrawlFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 
@@ -91,6 +92,7 @@ export default function ProjectSettingsPage() {
 
   // Unsaved changes guard
   const { setHasUnsavedChanges } = useUnsavedChanges();
+  const feedback = useFeedback();
 
   const fetchIntegrationStatus = useCallback(async () => {
     try {
@@ -130,12 +132,17 @@ export default function ProjectSettingsPage() {
         autoSuggestThinContent,
         autoSuggestDailyCap,
       });
-      setSuccessMessage('Settings saved successfully');
+      const message = 'Settings saved successfully';
+      setSuccessMessage(message);
+      feedback.showSuccess(message);
       setTimeout(() => setSuccessMessage(''), 3000);
       await fetchIntegrationStatus();
     } catch (err: unknown) {
       console.error('Error saving settings:', err);
-      setError(err instanceof Error ? err.message : 'Failed to save settings');
+      const message =
+        err instanceof Error ? err.message : 'Failed to save settings';
+      setError(message);
+      feedback.showError(message);
     } finally {
       setSaving(false);
     }

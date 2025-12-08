@@ -19,18 +19,13 @@ export interface GeminiGenerateResponse {
   [key: string]: unknown;
 }
 
-interface GeminiModel {
-  name: string;
-  supportedGenerationMethods?: string[];
-}
-
 interface GeminiApiError extends Error {
   status?: number;
 }
 
 export const DEFAULT_GEMINI_MODEL_PRIORITY: string[] = [
-  'gemini-2.5-flash',
   'gemini-2.5-flash-lite',
+  'gemini-2.5-flash',
   'gemini-2.5-pro',
   'gemini-2.0-flash',
   'gemini-1.5-flash',
@@ -42,14 +37,27 @@ export function isRetryableGeminiError(err: unknown): boolean {
   const status =
     anyErr && typeof anyErr.status === 'number' ? anyErr.status : undefined;
 
+  // Network / transport errors from fetch lack a numeric status but are safe to retry
+  if (typeof status !== 'number') {
+    return true;
+  }
+
+  // Quota / rate limit
   if (status === 429) {
     return true;
   }
 
-  if (typeof status === 'number' && status >= 500 && status <= 599) {
+  // Model/permission issues that may be model-specific
+  if (status === 403 || status === 404) {
     return true;
   }
 
+  // Provider-side transient failures
+  if (status >= 500 && status <= 599) {
+    return true;
+  }
+
+  // 4xx request errors (e.g., invalid input) are treated as non-retryable
   return false;
 }
 
@@ -109,25 +117,67 @@ export class GeminiClient {
         ? this.fallbackChain
         : this.desiredModels) || this.desiredModels;
 
+    // High-level observability for each generate call
+    // eslint-disable-next-line no-console
+    console.log('[Gemini] generateWithFallback start', {
+      fallbackChain: chain,
+      chainLength: chain.length,
+    });
+
     let lastError: unknown;
 
-    for (const model of chain) {
+    for (let attemptIndex = 0; attemptIndex < chain.length; attemptIndex++) {
+      const model = chain[attemptIndex];
+
+      // eslint-disable-next-line no-console
+      console.log('[Gemini] generateWithFallback attempt', {
+        model,
+        attemptIndex,
+      });
+
       try {
-        return await this.callModel(model, request);
+        const result = await this.callModel(model, request);
+
+        // eslint-disable-next-line no-console
+        console.log('[Gemini] generateWithFallback success', {
+          model,
+          attemptIndex,
+          usedFallback: attemptIndex > 0,
+        });
+
+        return result;
       } catch (error) {
         lastError = error;
-        if (isRetryableGeminiError(error)) {
+        const retryable = isRetryableGeminiError(error);
+
+        if (retryable && attemptIndex < chain.length - 1) {
           // eslint-disable-next-line no-console
-          console.warn(
-            `[Gemini] Model ${model} failed with retryable error; attempting next model in chain.`,
-          );
+          console.warn('[Gemini] Retryable model error; failing over to next model', {
+            model,
+            attemptIndex,
+          });
           continue;
         }
 
-        // Non-retryable error: bubble up immediately.
+        // Non-retryable, or retryable but at end of chain: stop here.
+        // eslint-disable-next-line no-console
+        console.error(
+          '[Gemini] generateWithFallback terminating due to non-retryable error or end of chain',
+          {
+            model,
+            attemptIndex,
+            retryable,
+          },
+        );
         throw error;
       }
     }
+
+    // eslint-disable-next-line no-console
+    console.error('[Gemini] generateWithFallback exhausted all models', {
+      fallbackChain: chain,
+      attempts: chain.length,
+    });
 
     throw lastError ?? new Error('[Gemini] All models in fallback chain failed.');
   }
@@ -169,27 +219,53 @@ export class GeminiClient {
         return;
       }
 
-      const data = (await response.json()) as { models?: GeminiModel[] };
+      const data = (await response.json()) as {
+        models?: Array<{
+          name: string;
+          supportedGenerationMethods?: string[];
+        }>;
+      };
       const models = data.models ?? [];
 
       const usable = models.filter((model) =>
         (model.supportedGenerationMethods || []).includes('generateContent'),
       );
 
-      this.availableModels = usable.map((m) => m.name);
+      // Normalize model names from "models/gemini-1.5-flash" → "gemini-1.5-flash"
+      this.availableModels = usable.map((m) =>
+        m.name.startsWith('models/') ? m.name.replace(/^models\//, '') : m.name,
+      );
 
       const availableSet = new Set(this.availableModels);
-      const chain = this.desiredModels.filter((m) => availableSet.has(m));
+      let chain = this.desiredModels.filter((m) => availableSet.has(m));
 
+      const safeDefault = 'gemini-1.5-flash';
       if (chain.length === 0) {
-        // eslint-disable-next-line no-console
-        console.warn(
-          '[Gemini] No desired models found in available models; using full desired priority list as fallback chain.',
-        );
-        this.fallbackChain = this.desiredModels;
-      } else {
-        this.fallbackChain = chain;
+        // No desired models are currently available – select a safe default if possible.
+        if (availableSet.has(safeDefault)) {
+          chain = [safeDefault];
+          // eslint-disable-next-line no-console
+          console.warn(
+            '[Gemini] No desired models matched available models. Falling back to safe default model:',
+            safeDefault,
+          );
+        } else {
+          // eslint-disable-next-line no-console
+          console.warn(
+            '[Gemini] No desired models matched available models and safe default is unavailable. Using desired priority list as-is; calls may still fail.',
+          );
+          chain = this.desiredModels;
+        }
       }
+
+      this.fallbackChain = chain;
+
+      // eslint-disable-next-line no-console
+      console.log('[Gemini] Model discovery complete', {
+        desiredModels: this.desiredModels,
+        availableModels: this.availableModels,
+        fallbackChain: this.fallbackChain,
+      });
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('[Gemini] Error while listing models:', error);
@@ -205,6 +281,9 @@ export class GeminiClient {
     request: GeminiGenerateRequest,
   ): Promise<GeminiGenerateResponse> {
     const url = `https://generativelanguage.googleapis.com/${this.apiVersion}/models/${model}:generateContent?key=${this.apiKey}`;
+
+    // eslint-disable-next-line no-console
+    console.log('[Gemini] Calling generateContent with model:', model);
 
     const response = await fetch(url, {
       method: 'POST',

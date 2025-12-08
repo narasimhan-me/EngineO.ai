@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import { Injectable, ForbiddenException, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { getPlanById, PlanId, PlanLimits, PLANS } from './plans';
 
@@ -55,6 +55,111 @@ export class EntitlementsService {
         projects: projectCount,
       },
     };
+  }
+
+  /**
+   * Get the AI suggestion daily limit for a user based on their plan.
+   */
+  async getAiSuggestionLimit(userId: string): Promise<{
+    planId: PlanId;
+    limit: number;
+  }> {
+    const planId = await this.getUserPlan(userId);
+    const plan = getPlanById(planId) || PLANS[0];
+
+    return {
+      planId: plan.id,
+      limit: plan.limits.automationSuggestionsPerDay,
+    };
+  }
+
+  /**
+   * Get the number of AI usage events for a user, workspace (project), and feature
+   * for the current UTC day.
+   */
+  async getDailyAiUsage(
+    userId: string,
+    projectId: string,
+    feature: string,
+  ): Promise<number> {
+    const now = new Date();
+    const startOfDayUtc = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    );
+
+    return this.prisma.aiUsageEvent.count({
+      where: {
+        userId,
+        projectId,
+        feature,
+        createdAt: {
+          gte: startOfDayUtc,
+        },
+      },
+    });
+  }
+
+  /**
+   * Ensure the user has not exceeded their daily AI suggestion limit for a given feature.
+   * Throws a TooManyRequestsException (429) when the limit is reached.
+   */
+  async ensureWithinDailyAiLimit(
+    userId: string,
+    projectId: string,
+    feature: string,
+  ): Promise<{ planId: PlanId; limit: number; dailyCount: number }> {
+    const { planId, limit } = await this.getAiSuggestionLimit(userId);
+    const dailyCount = await this.getDailyAiUsage(userId, projectId, feature);
+
+    // -1 means unlimited
+    if (limit === -1) {
+      return { planId, limit, dailyCount };
+    }
+
+    if (dailyCount >= limit) {
+      // eslint-disable-next-line no-console
+      console.log('[AI][ProductOptimize] ai.optimize.limit_reached', {
+        userId,
+        projectId,
+        feature,
+        planId,
+        dailyCount,
+        limit,
+      });
+
+      throw new HttpException(
+        {
+          message:
+            "Daily AI limit reached. You've used all 5 AI suggestions available on the Free plan. Your limit resets tomorrow, or upgrade to continue.",
+          error: 'AI_DAILY_LIMIT_REACHED',
+          code: 'AI_DAILY_LIMIT_REACHED',
+          feature,
+          plan: planId,
+          allowed: limit,
+          current: dailyCount,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    return { planId, limit, dailyCount };
+  }
+
+  /**
+   * Record an AI usage event for a user, workspace (project), and feature.
+   */
+  async recordAiUsage(
+    userId: string,
+    projectId: string,
+    feature: string,
+  ): Promise<void> {
+    await this.prisma.aiUsageEvent.create({
+      data: {
+        userId,
+        projectId,
+        feature,
+      },
+    });
   }
 
   /**

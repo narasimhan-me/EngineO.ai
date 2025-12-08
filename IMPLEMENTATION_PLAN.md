@@ -3487,6 +3487,245 @@ Consolidate and modernize the AI collaboration protocol documentation to ensure 
 
 ---
 
+## Phase 1.7 – AI Infrastructure Hardening & Observability
+
+**Status:** Completed
+
+**Goal:**
+
+Improve Gemini client reliability by fixing model name mismatch issues, add observability logging for AI product optimization, and improve frontend error handling for AI failures.
+
+**Summary:**
+
+1. **gemini.client.ts** — Model discovery improvements:
+   - Fixed model name normalization: Gemini API returns `models/gemini-1.5-flash` but we were comparing against `gemini-1.5-flash`
+   - Added `models/` prefix stripping during discovery
+   - Added safe default fallback to `gemini-1.5-flash` when no desired models match
+   - Added detailed logging for model discovery completion (desiredModels, availableModels, fallbackChain)
+   - Added logging for each generateContent call with model name
+   - Removed unused `GeminiModel` interface (inlined type)
+
+2. **ai.controller.ts** — Observability for product optimization:
+   - Wrapped `suggestProductMetadata` in try-catch for structured error logging
+   - Added `[AI][ProductOptimize] suggestion_result` log with productId, projectId, success flag
+   - Added `[AI][ProductOptimize] suggestion_error` log on failure
+
+3. **Product optimization page** — Improved error handling:
+   - Changed error message from raw error to friendly "AI suggestions are temporarily unavailable. Please try again later."
+   - On AI failure, sets suggestion state with empty suggested values so UI remains functional
+   - Preserves current product metadata in suggestion state for display
+
+**Files Modified:**
+
+- `apps/api/src/ai/gemini.client.ts` — Model name normalization, safe default fallback, observability logging
+- `apps/api/src/ai/ai.controller.ts` — Try-catch with structured logging for product metadata suggestions
+- `apps/web/src/app/projects/[id]/products/[productId]/page.tsx` — Friendly error message, graceful UI degradation
+
+**Manual Verification:**
+
+1. Start the API and observe `[Gemini] Model discovery complete` log with normalized model names
+2. Trigger AI product optimization and verify `[AI][ProductOptimize] suggestion_result` appears in logs
+3. Simulate AI failure (e.g., invalid API key) and verify friendly error message appears in frontend
+4. Verify the product optimization page remains functional even when AI is unavailable
+
+---
+
+## Phase 1.8 – Gemini Retry Logic & Fallback Observability
+
+**Status:** Completed
+
+**Goal:**
+
+Enhance the Gemini client's retry logic to handle more error scenarios and add comprehensive observability logging for the fallback chain execution.
+
+**Summary:**
+
+1. **isRetryableGeminiError** — Expanded retry conditions:
+   - Network/transport errors (no numeric status) are now retryable
+   - Added 403 and 404 as retryable (model-specific permission/availability issues)
+   - 429 (rate limit) and 5xx (server errors) remain retryable
+   - 4xx request errors (e.g., invalid input) are non-retryable
+   - Clearer comments documenting each condition
+
+2. **generateWithFallback** — Improved observability:
+   - Added `[Gemini] generateWithFallback start` log with chain info
+   - Added `[Gemini] generateWithFallback attempt` log for each model attempt with attemptIndex
+   - Added `[Gemini] generateWithFallback success` log with model, attemptIndex, and usedFallback flag
+   - Changed to index-based loop for better attempt tracking
+   - Added `[Gemini] generateWithFallback terminating` error log when stopping
+   - Added `[Gemini] generateWithFallback exhausted all models` error log at chain end
+   - Improved logic: only continue if retryable AND not at end of chain
+
+**Files Modified:**
+
+- `apps/api/src/ai/gemini.client.ts` — Expanded retry logic and fallback observability
+
+**Manual Verification:**
+
+1. Start the API and trigger AI generation to see `generateWithFallback start/attempt/success` logs
+2. Simulate model failures (e.g., via network issues) and verify fallback to next model with proper logging
+3. Verify that non-retryable errors (4xx) terminate immediately with appropriate error log
+4. Confirm `usedFallback: true` appears in success log when a fallback model was used
+
+---
+
+## Phase 1.9 – AI Usage Tracking Per-Project
+
+**Status:** Completed
+
+**Goal:**
+
+Track AI usage events at the project level in addition to user level, enabling per-workspace usage analytics and ensuring usage is always recorded when the AI provider is called (even on failure).
+
+**Summary:**
+
+1. **Prisma schema** — Added `projectId` to `AiUsageEvent`:
+   - Added `project` relation and `projectId` field to `AiUsageEvent` model
+   - Added `aiUsageEvents` relation to `Project` model
+   - Added index on `[projectId, feature, createdAt]` for efficient per-project queries
+
+2. **entitlements.service.ts** — Updated AI usage methods:
+   - `getDailyAiUsage(userId, projectId, feature)` — Now filters by projectId
+   - `ensureWithinDailyAiLimit(userId, projectId, feature)` — Added projectId parameter
+   - `recordAiUsage(userId, projectId, feature)` — Now records projectId with each event
+   - Updated limit_reached log to include projectId
+
+3. **ai.controller.ts** — Improved usage recording logic:
+   - Pass `product.projectId` to all entitlements methods
+   - Added `providerCalled` and `recordedUsage` flags for accurate tracking
+   - Record usage immediately after successful AI call
+   - Record usage on failure if provider was called but usage wasn't yet recorded
+   - Updated dailyCount in logs to reflect actual recorded count
+
+**Files Modified:**
+
+- `apps/api/prisma/schema.prisma` — Added projectId to AiUsageEvent, added relation to Project
+- `apps/api/src/billing/entitlements.service.ts` — Added projectId to getDailyAiUsage, ensureWithinDailyAiLimit, recordAiUsage
+- `apps/api/src/ai/ai.controller.ts` — Pass projectId to entitlements, improved usage recording logic
+
+**Database Migration Required:**
+
+Run `npx prisma migrate dev` to add the `projectId` column and index to `AiUsageEvent`.
+
+**Manual Verification:**
+
+1. Run Prisma migration to update schema
+2. Trigger AI product optimization and verify `AiUsageEvent` records include `projectId`
+3. Verify daily limit is enforced per user (across all projects)
+4. Check logs show correct `dailyCount` values after usage is recorded
+5. Simulate AI provider failure and verify usage is still recorded
+
+---
+
+## Phase 1.10 – AI Limit Error UX with Upgrade Link
+
+**Status:** Completed
+
+**Goal:**
+
+Improve the user experience when the daily AI suggestion limit is reached by showing a clear error message with a direct link to upgrade their plan.
+
+**Summary:**
+
+1. **Product optimization page** — Enhanced AI limit error handling:
+   - Added `isAiLimitError` state to track when error is specifically an AI limit error
+   - Set `isAiLimitError: true` when `AI_DAILY_LIMIT_REACHED` error is received
+   - Reset `isAiLimitError: false` on new fetch attempts and for other error types
+   - Error message now displays in a `<p>` tag for proper formatting
+   - Added conditional upgrade link (`/settings/billing`) when `isAiLimitError` is true
+   - Upgrade link styled with red color scheme matching error banner
+
+**Files Modified:**
+
+- `apps/web/src/app/projects/[id]/products/[productId]/page.tsx` — Added isAiLimitError state, upgrade link in error display
+
+**Manual Verification:**
+
+1. Use AI suggestions until daily limit is reached (5 for free plan)
+2. Verify error message shows "Daily AI limit reached..." text
+3. Verify "Upgrade your plan to unlock more AI suggestions" link appears below error
+4. Click the upgrade link and verify it navigates to `/settings/billing`
+5. Trigger a different error (e.g., network failure) and verify upgrade link does NOT appear
+
+---
+
+## Phase 1.11 – FeedbackProvider & Toast Notifications
+
+**Status:** Completed
+
+**Goal:**
+
+Create a unified toast notification system for consistent user feedback across all pages, with special support for entitlement limit errors that include upgrade links.
+
+**Summary:**
+
+1. **FeedbackProvider component** — Global toast notification system:
+   - Created `apps/web/src/components/feedback/FeedbackProvider.tsx`
+   - Context-based provider pattern with `useFeedback()` hook
+   - Five toast variants: `success`, `error`, `info`, `warning`, `limit`
+   - Auto-dismissing toasts (5s for success/info/warning, 8s for error/limit)
+   - `showLimit()` method includes optional upgrade link for entitlement errors
+   - Toast styling: colored backgrounds matching variant type
+   - Accessible: uses `aria-live="assertive"` and `role="alert"`
+   - Positioned bottom-right on mobile, top-right on desktop
+
+2. **Layout integration** — Provider wrapped in app layout:
+   - Updated `apps/web/src/app/layout.tsx`
+   - `FeedbackProvider` wraps all children inside `UnsavedChangesProvider`
+
+3. **Page integrations** — Consistent feedback across 7+ pages:
+   - `projects/[id]/products/[productId]/page.tsx` — AI suggestions, Shopify updates, limit errors
+   - `projects/[id]/products/page.tsx` — Products list operations
+   - `projects/[id]/overview/page.tsx` — Project overview actions
+   - `projects/[id]/content/[pageId]/page.tsx` — Content page optimization
+   - `projects/[id]/settings/page.tsx` — Project settings updates
+   - `settings/security/page.tsx` — Security settings (password changes, etc.)
+   - `settings/billing/page.tsx` — Billing operations
+
+4. **API Error integration** — Special handling for AI limits:
+   - When `AI_DAILY_LIMIT_REACHED` error occurs, calls `feedback.showLimit()`
+   - Limit toast includes "Upgrade" link to `/settings/billing`
+   - Generic errors use `feedback.showError()` for standard error display
+
+**Files Created:**
+
+- `apps/web/src/components/feedback/FeedbackProvider.tsx` — Toast provider, context, and UI component
+
+**Files Modified:**
+
+- `apps/web/src/app/layout.tsx` — Added FeedbackProvider wrapper
+- `apps/web/src/app/projects/[id]/products/[productId]/page.tsx` — Integrated useFeedback hook
+- `apps/web/src/app/projects/[id]/products/page.tsx` — Integrated useFeedback hook
+- `apps/web/src/app/projects/[id]/overview/page.tsx` — Integrated useFeedback hook
+- `apps/web/src/app/projects/[id]/content/[pageId]/page.tsx` — Integrated useFeedback hook
+- `apps/web/src/app/projects/[id]/settings/page.tsx` — Integrated useFeedback hook
+- `apps/web/src/settings/security/page.tsx` — Integrated useFeedback hook
+- `apps/web/src/settings/billing/page.tsx` — Integrated useFeedback hook
+
+**API Methods:**
+
+```typescript
+interface FeedbackContextValue {
+  show: (variant, message, options?) => void;
+  showSuccess: (message) => void;
+  showError: (message) => void;
+  showInfo: (message) => void;
+  showWarning: (message) => void;
+  showLimit: (message, actionHref?) => void;
+}
+```
+
+**Manual Verification:**
+
+1. Visit any page and trigger a success action — verify green toast appears
+2. Trigger an error action — verify red toast appears with 8s duration
+3. Use AI suggestions until daily limit reached — verify yellow "limit" toast with "Upgrade" link
+4. Click "Upgrade" link — verify navigation to `/settings/billing`
+5. Verify toasts auto-dismiss after their duration
+6. Verify dismiss (X) button manually closes toasts
+
+---
+
 ## Future Phase: BILLING-2 — Stripe Webhook Robustness v2 (Post-Launch)
 
 **Scope:**
@@ -6424,7 +6663,7 @@ Implement a dedicated pricing page that clearly communicates EngineO.ai's tiers,
     - 1 project, 100 crawled pages, weekly crawl.
     - DEO Score (v1), critical issues only.
     - Product Workspace (1 product), Content Workspace (view-only).
-    - 5 AI suggestions per month.
+    - 5 AI suggestions per day.
   - **Pro — $29/mo (Most Popular)**
     - 5 projects, 5,000 crawled pages, daily crawl.
     - Full Issues Engine, full Product & Content Workspaces.

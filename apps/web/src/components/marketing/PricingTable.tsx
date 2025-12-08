@@ -31,7 +31,7 @@ const plans: Plan[] = [
       'Critical issues only',
       'Product Workspace (1 product)',
       'Content Workspace (view-only)',
-      '5 AI suggestions per month',
+      '5 AI suggestions per day',
     ],
   },
   {
@@ -120,7 +120,7 @@ const comparisonFeatures: {
   },
   {
     label: 'AI suggestions',
-    free: '5 / month',
+    free: '5 / day',
     pro: 'Unlimited',
     business: 'Unlimited',
   },

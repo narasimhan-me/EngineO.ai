@@ -2,6 +2,7 @@ import { Controller, Post, Body, UseGuards, Request, BadRequestException } from 
 import { AiService } from './ai.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PrismaService } from '../prisma.service';
+import { EntitlementsService } from '../billing/entitlements.service';
 
 class MetadataDto {
   crawlResultId: string;
@@ -19,6 +20,7 @@ export class AiController {
   constructor(
     private readonly aiService: AiService,
     private readonly prisma: PrismaService,
+    private readonly entitlementsService: EntitlementsService,
   ) {}
 
   @Post('metadata')
@@ -88,25 +90,94 @@ export class AiController {
       throw new BadRequestException('Access denied');
     }
 
-    // Generate AI suggestions based on product data
-    const suggestions = await this.aiService.generateMetadata({
-      url: `Product: ${product.title}`,
-      currentTitle: product.seoTitle || product.title,
-      currentDescription: product.seoDescription || product.description || undefined,
-      pageTextSnippet: product.description || undefined,
-      targetKeywords: dto.targetKeywords,
+    // Enforce daily AI suggestion limit before calling provider
+    const { planId, limit, dailyCount } =
+      await this.entitlementsService.ensureWithinDailyAiLimit(
+        userId,
+        product.projectId,
+        'product_optimize',
+      );
+
+    // eslint-disable-next-line no-console
+    console.log('[AI][ProductOptimize] ai.optimize.started', {
+      userId,
+      projectId: product.projectId,
+      productId: dto.productId,
+      planId,
+      limit,
+      dailyCount,
     });
 
-    return {
-      productId: dto.productId,
-      current: {
-        title: product.seoTitle || product.title,
-        description: product.seoDescription || product.description,
-      },
-      suggested: {
-        title: suggestions.title,
-        description: suggestions.description,
-      },
-    };
+    let providerCalled = false;
+    let recordedUsage = false;
+
+    try {
+      providerCalled = true;
+
+      // Generate AI suggestions based on product data
+      const suggestions = await this.aiService.generateMetadata({
+        url: `Product: ${product.title}`,
+        currentTitle: product.seoTitle || product.title,
+        currentDescription: product.seoDescription || product.description || undefined,
+        pageTextSnippet: product.description || undefined,
+        targetKeywords: dto.targetKeywords,
+      });
+
+      const hasUsableSuggestion =
+        !!(suggestions.title && suggestions.title.trim()) ||
+        !!(suggestions.description && suggestions.description.trim());
+
+      await this.entitlementsService.recordAiUsage(
+        userId,
+        product.projectId,
+        'product_optimize',
+      );
+      recordedUsage = true;
+
+      // Basic observability for Optimize feature
+      // eslint-disable-next-line no-console
+      console.log('[AI][ProductOptimize] ai.optimize.success', {
+        userId,
+        projectId: product.projectId,
+        productId: dto.productId,
+        planId,
+        limit,
+        dailyCount: dailyCount + 1,
+        hasUsableSuggestion,
+      });
+
+      return {
+        productId: dto.productId,
+        current: {
+          title: product.seoTitle || product.title,
+          description: product.seoDescription || product.description,
+        },
+        suggested: {
+          title: suggestions.title,
+          description: suggestions.description,
+        },
+      };
+    } catch (error) {
+      if (providerCalled && !recordedUsage) {
+        await this.entitlementsService.recordAiUsage(
+          userId,
+          product.projectId,
+          'product_optimize',
+        );
+        recordedUsage = true;
+      }
+
+      // eslint-disable-next-line no-console
+      console.error('[AI][ProductOptimize] ai.optimize.failed', {
+        userId,
+        projectId: product.projectId,
+        productId: dto.productId,
+        planId,
+        limit,
+        dailyCount: dailyCount + (providerCalled ? 1 : 0),
+        error,
+      });
+      throw error;
+    }
   }
 }
