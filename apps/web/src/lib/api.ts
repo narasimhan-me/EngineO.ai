@@ -82,7 +82,13 @@ async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
       const body = await response.json().catch(() => null);
       const error = buildApiError(response, body);
 
-      if (response.status === 401 || response.status === 403) {
+      const isEntitlementsError =
+        error.code === 'ENTITLEMENTS_LIMIT_REACHED' ||
+        (body &&
+          typeof (body as Record<string, unknown>).error === 'string' &&
+          (body as Record<string, unknown>).error === 'ENTITLEMENTS_LIMIT_REACHED');
+
+      if ((response.status === 401 || response.status === 403) && !isEntitlementsError) {
         if (typeof window !== 'undefined') {
           const next = window.location.pathname + window.location.search;
           redirectToSignIn(next);

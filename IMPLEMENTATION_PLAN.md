@@ -3318,6 +3318,165 @@ Ensure that Stripe subscription state (plan + status) is the single source of tr
 
 ---
 
+## Phase 1.5 – Entitlements Enforcement & Crawl Trigger (Launch)
+
+**Status:** Completed
+
+**Goal:**
+
+Enforce plan-based entitlements across key product surfaces (projects, crawls, automation suggestions) and provide a unified crawl trigger endpoint with queue support.
+
+**Scope:**
+
+1. **Generic Entitlement Enforcement** — Create a reusable `enforceEntitlement()` method that validates limits for any feature type (projects, crawl, suggestions) before allowing resource-consuming actions.
+2. **Crawl Trigger Endpoint** — Add `POST /projects/:id/crawl/run` that validates ownership, enforces crawl entitlements, and routes to queue (production) or synchronous (local/dev) execution.
+3. **Automation Suggestion Caps** — Integrate entitlements into `AutomationService` so that daily suggestion limits respect plan-based caps.
+4. **Frontend Error Handling** — Ensure ENTITLEMENTS_LIMIT_REACHED errors do not trigger login redirects and display user-friendly upgrade messages.
+
+**Implementation Details:**
+
+### 1. EntitlementsService Generic Enforcement
+
+Added `EntitlementFeature` type and `enforceEntitlement()` method in `entitlements.service.ts`:
+
+```typescript
+type EntitlementFeature = 'projects' | 'crawl' | 'suggestions';
+
+async enforceEntitlement(
+  userId: string,
+  feature: EntitlementFeature,
+  current: number,
+  allowedOverride?: number,
+): Promise<void>
+```
+
+- Maps feature to the appropriate limit field in `ENTITLEMENTS_MATRIX`
+- Throws `ForbiddenException` with structured payload (`code`, `plan`, `allowed`, `current`, `feature`, `message`) when limit exceeded
+- Refactored `ensureCanCreateProject()` to use this method
+
+### 2. Crawl Trigger Endpoint
+
+Added `POST /projects/:id/crawl/run` in `projects.controller.ts`:
+
+```typescript
+@Post(':id/crawl/run')
+async runCrawl(@Request() req: any, @Param('id') projectId: string)
+```
+
+- Validates project ownership via `projectsService.getProject()`
+- Enforces crawl entitlement via `entitlementsService.enforceEntitlement(userId, 'crawl', 1)`
+- Queue mode (production): Adds job to `crawlQueue` and returns `{ mode: 'queue', status: 'enqueued' }`
+- Sync mode (local/dev): Calls `seoScanService.startScan()` directly and returns crawl result
+
+### 3. SEO Scan Controller Enforcement
+
+Updated `seo-scan.controller.ts`:
+- Imported `BillingModule` in `seo-scan.module.ts`
+- Injected `EntitlementsService` into controller
+- Added crawl enforcement before `startScan()` execution
+
+### 4. Automation Service Suggestion Caps
+
+Updated `automation.service.ts`:
+- Injected `EntitlementsService` to retrieve plan limits
+- Applies `Math.min(projectDailyCap, planLimit)` to calculate effective daily cap
+- Respects `-1` (unlimited) plan values
+
+### 5. Frontend Entitlement Error Handling
+
+Updated `apps/web/src/lib/api.ts`:
+- Added check for `ENTITLEMENTS_LIMIT_REACHED` error code
+- Prevents automatic redirect to login on 403 when it's an entitlements error
+- Allows error to propagate to calling component for proper display
+
+Updated `apps/web/src/app/projects/[id]/overview/page.tsx`:
+- Updated `handleRunScan()` to use new `/projects/:id/crawl/run` endpoint
+- Added structured error handling for entitlement errors with dynamic messaging
+- Displays plan name, allowed limit, and upgrade prompt to user
+
+**Files Modified:**
+
+- `apps/api/src/billing/entitlements.service.ts` — Added `EntitlementFeature` type and `enforceEntitlement()` method
+- `apps/api/src/billing/billing.module.ts` — Already exports EntitlementsService
+- `apps/api/src/seo-scan/seo-scan.module.ts` — Added BillingModule import
+- `apps/api/src/seo-scan/seo-scan.controller.ts` — Added EntitlementsService injection and crawl enforcement
+- `apps/api/src/projects/automation.service.ts` — Added EntitlementsService for plan-based suggestion caps
+- `apps/api/src/projects/projects.module.ts` — Added SeoScanService provider
+- `apps/api/src/projects/projects.controller.ts` — Added `POST /projects/:id/crawl/run` endpoint with SeoScanService injection
+- `apps/web/src/lib/api.ts` — Added ENTITLEMENTS_LIMIT_REACHED check to prevent login redirects
+- `apps/web/src/app/projects/[id]/overview/page.tsx` — Updated handleRunScan with new endpoint and entitlement error handling
+
+**Error Response Format:**
+
+When entitlements are exceeded, API returns:
+
+```json
+{
+  "code": "ENTITLEMENTS_LIMIT_REACHED",
+  "plan": "free",
+  "allowed": 1,
+  "current": 1,
+  "feature": "projects",
+  "message": "You've reached the Free plan limit (1 project). Upgrade your plan to add more."
+}
+```
+
+**Manual Testing Steps:**
+
+1. Create a user on the Free plan
+2. Create the maximum allowed projects (1 for Free)
+3. Attempt to create another project → should receive ENTITLEMENTS_LIMIT_REACHED error
+4. Verify error message displays in UI with upgrade prompt (not login redirect)
+5. Run a crawl on an existing project → should succeed if within limits
+6. Verify automation suggestions respect plan-based daily caps
+
+**Launch Acceptance Criteria:**
+
+- Project creation blocked with user-friendly message when at plan limit
+- Crawl trigger works via queue in production, sync in development
+- Automation suggestions respect plan-based daily caps
+- Frontend displays structured error messages without login redirects
+- Error payloads include `code`, `plan`, `allowed`, `current`, `feature`, and `message` fields
+
+---
+
+## Phase 1.6 – AI Collaboration Protocol v3.0 Update
+
+**Status:** Completed
+
+**Goal:**
+
+Consolidate and modernize the AI collaboration protocol documentation to ensure consistent, auditable, and deterministic multi-agent workflows across UEP, GPT-5.1 Supervisor, and Claude Implementer.
+
+**Summary:**
+
+1. **ENGINEO_AI_INSTRUCTIONS.md** — Complete rewrite to v3.0 format:
+   - Added Human Founder role as explicit first step in the workflow chain
+   - Reorganized sections for clarity: Roles → Supervision Protocol → Patch Batch Rules → Implementation Plan Workflow → Runtime Rules → Boot Prompts → Appendix
+   - Updated Patch Batch format to use unified diff style exclusively (deprecated v2 anchor-based format)
+   - Added explicit "No-Speculation & Architecture Alignment" section
+   - Added "Safety, Idempotency, and Unknown Areas" section
+   - Expanded starter boot prompts for all three agents with complete text
+   - Added new Appendix section with common error conditions and entitlement patterns
+
+2. **ENGINEO_AI_EXECUTIVE_AND_SUPERVISION_PROTOCOL.md** — Deprecated:
+   - Replaced full content with deprecation notice pointing to ENGINEO_AI_INSTRUCTIONS.md
+   - All protocol rules now consolidated in a single canonical document
+
+**Files Modified:**
+
+- `docs/ENGINEO_AI_INSTRUCTIONS.md` — Complete v3.0 rewrite
+- `docs/ENGINEO_AI_EXECUTIVE_AND_SUPERVISION_PROTOCOL.md` — Deprecated with redirect notice
+
+**Manual Verification:**
+
+1. Open `docs/ENGINEO_AI_INSTRUCTIONS.md` and verify all 9 sections are present
+2. Confirm the document includes complete boot prompts for UEP, GPT-5.1, and Claude
+3. Open `docs/ENGINEO_AI_EXECUTIVE_AND_SUPERVISION_PROTOCOL.md` and verify it contains only the deprecation notice
+4. Verify both files are valid markdown
+
+---
+
 ## Future Phase: BILLING-2 — Stripe Webhook Robustness v2 (Post-Launch)
 
 **Scope:**

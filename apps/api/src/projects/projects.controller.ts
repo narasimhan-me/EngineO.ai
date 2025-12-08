@@ -17,13 +17,14 @@ import { DeoScoreService, DeoSignalsService } from './deo-score.service';
 import { DeoIssuesService } from './deo-issues.service';
 import { AutomationService } from './automation.service';
 import { EntitlementsService } from '../billing/entitlements.service';
+import { SeoScanService } from '../seo-scan/seo-scan.service';
 import {
   DeoScoreLatestResponse,
   DeoIssuesResponse,
   DeoScoreJobPayload,
   DeoScoreSignals,
 } from '@engineo/shared';
-import { deoScoreQueue } from '../queues/queues';
+import { deoScoreQueue, crawlQueue } from '../queues/queues';
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard)
@@ -35,6 +36,7 @@ export class ProjectsController {
     private readonly deoIssuesService: DeoIssuesService,
     private readonly automationService: AutomationService,
     private readonly entitlementsService: EntitlementsService,
+    private readonly seoScanService: SeoScanService,
   ) {}
 
   /**
@@ -178,6 +180,40 @@ export class ProjectsController {
     await deoScoreQueue.add('deo_score_recompute', payload);
 
     return { projectId, enqueued: true };
+  }
+
+  /**
+   * POST /projects/:id/crawl/run
+   * Manually trigger a crawl for a project.
+   */
+  @Post(':id/crawl/run')
+  async runCrawl(@Request() req: any, @Param('id') projectId: string) {
+    const userId = (req as any).user?.id as string;
+
+    // Validate project ownership before triggering a crawl
+    await this.projectsService.getProject(projectId, userId);
+
+    // Enforce crawl entitlements (pages per crawl) before starting.
+    await this.entitlementsService.enforceEntitlement(userId, 'crawl', 1);
+
+    // Prefer queue when available; fall back to synchronous crawl in local/dev.
+    if (crawlQueue) {
+      await crawlQueue.add('project_crawl', { projectId });
+      return {
+        projectId,
+        mode: 'queue',
+        status: 'enqueued',
+      };
+    }
+
+    const result = await this.seoScanService.startScan(projectId, userId);
+    return {
+      projectId,
+      mode: 'sync',
+      status: 'completed',
+      crawlResultId: result.id,
+      scannedAt: result.scannedAt,
+    };
   }
 
   /**

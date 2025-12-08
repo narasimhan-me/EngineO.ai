@@ -10,6 +10,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { AiService } from '../ai/ai.service';
+import { EntitlementsService } from '../billing/entitlements.service';
 
 const AUTOMATION_SOURCE = 'automation_v1';
 
@@ -27,6 +28,7 @@ export class AutomationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
+    private readonly entitlementsService: EntitlementsService,
   ) {}
 
   /**
@@ -51,8 +53,19 @@ export class AutomationService {
       return;
     }
 
-    const dailyCap = project.autoSuggestDailyCap ?? 50;
-    if (dailyCap <= 0) {
+    const projectDailyCap = project.autoSuggestDailyCap ?? 50;
+
+    const entitlements = await this.entitlementsService.getEntitlementsSummary(
+      project.userId,
+    );
+    const planLimit = entitlements.limits.automationSuggestionsPerDay;
+
+    let effectiveDailyCap = projectDailyCap;
+    if (planLimit !== -1) {
+      effectiveDailyCap = Math.min(projectDailyCap, planLimit);
+    }
+
+    if (effectiveDailyCap <= 0) {
       return;
     }
 
@@ -69,14 +82,14 @@ export class AutomationService {
       },
     });
 
-    if (generatedToday >= dailyCap) {
+    if (generatedToday >= effectiveDailyCap) {
       this.logger.log(
-        `[Automation] Project ${projectId} reached daily cap (${generatedToday}/${dailyCap}), skipping automation.`,
+        `[Automation] Project ${projectId} reached daily suggestion cap (${generatedToday}/${effectiveDailyCap}), skipping automation.`,
       );
       return;
     }
 
-    const remainingCap = dailyCap - generatedToday;
+    const remainingCap = effectiveDailyCap - generatedToday;
 
     const existing = await this.prisma.automationSuggestion.findMany({
       where: { projectId },
@@ -113,7 +126,7 @@ export class AutomationService {
 
     if (remainingCap !== remaining) {
       this.logger.log(
-        `[Automation] Generated ${remainingCap - remaining} suggestion(s) for project ${projectId} (cap ${dailyCap}).`,
+        `[Automation] Generated ${remainingCap - remaining} suggestion(s) for project ${projectId} (cap ${effectiveDailyCap}).`,
       );
     }
   }

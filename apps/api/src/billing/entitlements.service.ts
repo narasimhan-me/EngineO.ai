@@ -2,6 +2,8 @@ import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { getPlanById, PlanId, PlanLimits, PLANS } from './plans';
 
+type EntitlementFeature = 'projects' | 'crawl' | 'suggestions';
+
 export interface EntitlementsSummary {
   plan: PlanId;
   limits: PlanLimits;
@@ -56,26 +58,81 @@ export class EntitlementsService {
   }
 
   /**
+   * Generic entitlement enforcement helper for any feature.
+   * Throws a ForbiddenException with a consistent payload when the limit is reached.
+   */
+  async enforceEntitlement(
+    userId: string,
+    feature: EntitlementFeature,
+    current: number,
+    allowedOverride?: number,
+  ): Promise<void> {
+    const planId = await this.getUserPlan(userId);
+    const plan = getPlanById(planId) || PLANS[0];
+
+    let allowedFromPlan: number;
+    switch (feature) {
+      case 'projects':
+        allowedFromPlan = plan.limits.projects;
+        break;
+      case 'crawl':
+        allowedFromPlan = plan.limits.crawledPages;
+        break;
+      case 'suggestions':
+        allowedFromPlan = plan.limits.automationSuggestionsPerDay;
+        break;
+      default:
+        // Should never happen, but default to unlimited for safety.
+        allowedFromPlan = -1;
+    }
+
+    const allowed = allowedOverride ?? allowedFromPlan;
+
+    // -1 means unlimited
+    if (allowed === -1) {
+      return;
+    }
+
+    if (current >= allowed) {
+      const planLabel = plan.id.charAt(0).toUpperCase() + plan.id.slice(1);
+      let featureLabel = feature as string;
+      if (feature === 'projects') {
+        featureLabel = 'projects';
+      } else if (feature === 'crawl') {
+        featureLabel = 'crawled pages per crawl';
+      } else if (feature === 'suggestions') {
+        featureLabel = 'automation suggestions per day';
+      }
+
+      const message =
+        feature === 'projects'
+          ? `Project limit reached. Your ${planLabel} plan allows ${allowed} project(s). Please upgrade to create more projects.`
+          : `Entitlement limit reached. Your ${planLabel} plan allows ${allowed} ${featureLabel}. Please upgrade your plan to unlock more.`;
+
+      throw new ForbiddenException({
+        message,
+        error: 'ENTITLEMENTS_LIMIT_REACHED',
+        code: 'ENTITLEMENTS_LIMIT_REACHED',
+        feature,
+        plan: plan.id,
+        allowed,
+        current,
+      });
+    }
+  }
+
+  /**
    * Check if user can create a new project (hard limit enforcement)
    * Throws ForbiddenException if limit reached
    */
   async ensureCanCreateProject(userId: string): Promise<void> {
     const summary = await this.getEntitlementsSummary(userId);
 
-    // -1 means unlimited
-    if (summary.limits.projects === -1) {
-      return;
-    }
-
-    if (summary.usage.projects >= summary.limits.projects) {
-      throw new ForbiddenException({
-        message: `Project limit reached. Your ${summary.plan} plan allows ${summary.limits.projects} project(s). Please upgrade to create more projects.`,
-        error: 'ENTITLEMENTS_LIMIT_REACHED',
-        code: 'ENTITLEMENTS_LIMIT_REACHED',
-        plan: summary.plan,
-        allowed: summary.limits.projects,
-        current: summary.usage.projects,
-      });
-    }
+    await this.enforceEntitlement(
+      userId,
+      'projects',
+      summary.usage.projects,
+      summary.limits.projects,
+    );
   }
 }

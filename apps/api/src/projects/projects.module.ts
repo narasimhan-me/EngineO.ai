@@ -8,6 +8,7 @@ import { DeoIssuesService } from './deo-issues.service';
 import { AutomationService } from './automation.service';
 import { AiModule } from '../ai/ai.module';
 import { BillingModule } from '../billing/billing.module';
+import { SeoScanService } from '../seo-scan/seo-scan.service';
 
 @Module({
   imports: [AiModule, BillingModule],
@@ -20,6 +21,7 @@ import { BillingModule } from '../billing/billing.module';
     DeoScoreProcessor,
     DeoIssuesService,
     AutomationService,
+    SeoScanService,
   ],
   exports: [ProjectsService, DeoScoreService, AutomationService],
 })

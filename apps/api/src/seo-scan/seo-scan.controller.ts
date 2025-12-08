@@ -1,14 +1,15 @@
 import {
+  Body,
   Controller,
   Get,
   Post,
-  Body,
   Query,
-  UseGuards,
   Request,
+  UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { SeoScanService } from './seo-scan.service';
+import { EntitlementsService } from '../billing/entitlements.service';
 
 interface StartScanDto {
   projectId: string;
@@ -21,7 +22,10 @@ interface ProductScanDto {
 @Controller('seo-scan')
 @UseGuards(JwtAuthGuard)
 export class SeoScanController {
-  constructor(private readonly seoScanService: SeoScanService) {}
+  constructor(
+    private readonly seoScanService: SeoScanService,
+    private readonly entitlementsService: EntitlementsService,
+  ) {}
 
   /**
    * POST /seo-scan/start
@@ -29,6 +33,10 @@ export class SeoScanController {
    */
   @Post('start')
   async startScan(@Request() req: any, @Body() dto: StartScanDto) {
+    // Enforce crawl entitlements before triggering a scan.
+    // In v1 we crawl a single page per request.
+    await this.entitlementsService.enforceEntitlement(req.user.id, 'crawl', 1);
+
     return this.seoScanService.startScan(dto.projectId, req.user.id);
   }
 

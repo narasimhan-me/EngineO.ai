@@ -305,13 +305,65 @@ export default function ProjectOverviewPage() {
     try {
       setScanning(true);
       setError('');
-      await seoScanApi.start(projectId);
-      setSuccessMessage('SEO scan completed!');
+
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const token = getToken();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(`${API_URL}/projects/${projectId}/crawl/run`, {
+        method: 'POST',
+        headers,
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as Record<string, unknown>));
+        if (
+          body &&
+          (body.code === 'ENTITLEMENTS_LIMIT_REACHED' ||
+            body.error === 'ENTITLEMENTS_LIMIT_REACHED')
+        ) {
+          if (typeof body.message === 'string' && body.message) {
+            setError(body.message);
+          } else {
+            const plan =
+              body && typeof body.plan === 'string' ? body.plan : 'current';
+            const allowed =
+              body && typeof body.allowed === 'number' ? body.allowed : undefined;
+            if (allowed !== undefined) {
+              const plural = allowed === 1 ? 'page' : 'pages';
+              setError(
+                `You've reached the ${plan} plan crawl limit (${allowed} ${plural} per crawl). Upgrade your plan to run more crawls.`,
+              );
+            } else {
+              setError(
+                "You've reached your current plan's crawl limit. Upgrade your plan to run additional crawls.",
+              );
+            }
+          }
+          return;
+        }
+        if (res.status === 401 || res.status === 403) {
+          removeToken();
+          router.push('/login');
+          return;
+        }
+        const message =
+          (body && typeof body.message === 'string' && body.message) ||
+          'Failed to run SEO crawl';
+        throw new Error(message);
+      }
+
+      setSuccessMessage('Crawl started. Results will appear shortly.');
       setTimeout(() => setSuccessMessage(''), 3000);
       await fetchScanResults();
       await fetchOverview();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to run SEO scan');
+      setError(err instanceof Error ? err.message : 'Failed to run SEO crawl');
     } finally {
       setScanning(false);
     }

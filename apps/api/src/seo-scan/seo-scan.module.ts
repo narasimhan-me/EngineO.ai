@@ -5,10 +5,19 @@ import { PrismaService } from '../prisma.service';
 import { DeoScoreService, DeoSignalsService } from '../projects/deo-score.service';
 import { AutomationService } from '../projects/automation.service';
 import { AiService } from '../ai/ai.service';
+import { BillingModule } from '../billing/billing.module';
 
 @Module({
+  imports: [BillingModule],
   controllers: [SeoScanController],
-  providers: [SeoScanService, PrismaService, DeoScoreService, DeoSignalsService, AutomationService, AiService],
+  providers: [
+    SeoScanService,
+    PrismaService,
+    DeoScoreService,
+    DeoSignalsService,
+    AutomationService,
+    AiService,
+  ],
   exports: [SeoScanService],
 })
 export class SeoScanModule {}
