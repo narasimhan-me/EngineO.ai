@@ -4,11 +4,11 @@ import { SeoScanService } from './seo-scan.service';
 import { PrismaService } from '../prisma.service';
 import { DeoScoreService, DeoSignalsService } from '../projects/deo-score.service';
 import { AutomationService } from '../projects/automation.service';
-import { AiService } from '../ai/ai.service';
+import { AiModule } from '../ai/ai.module';
 import { BillingModule } from '../billing/billing.module';
 
 @Module({
-  imports: [BillingModule],
+  imports: [AiModule, BillingModule],
   controllers: [SeoScanController],
   providers: [
     SeoScanService,
@@ -16,7 +16,6 @@ import { BillingModule } from '../billing/billing.module';
     DeoScoreService,
     DeoSignalsService,
     AutomationService,
-    AiService,
   ],
   exports: [SeoScanService],
 })

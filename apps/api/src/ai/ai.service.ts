@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { GeminiClient, GeminiGenerateResponse } from './gemini.client';
 
 interface MetadataInput {
   url: string;
@@ -19,15 +20,15 @@ interface MetadataOutput {
 export class AiService {
   private readonly apiKey: string;
   private readonly provider: 'openai' | 'anthropic' | 'gemini';
-  private readonly geminiModel: string;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly geminiClient: GeminiClient,
+  ) {
     this.apiKey = this.configService.get<string>('AI_API_KEY') || '';
     this.provider =
       (this.configService.get<string>('AI_PROVIDER') as 'openai' | 'anthropic' | 'gemini') ||
       'openai';
-    // Allow configurable Gemini model, default to gemini-2.0-flash-lite for best rate limits
-    this.geminiModel = this.configService.get<string>('GEMINI_MODEL') || 'gemini-2.0-flash-lite';
   }
 
   async generateMetadata(input: MetadataInput): Promise<MetadataOutput> {
@@ -145,14 +146,8 @@ Respond in JSON format only:
     }
 
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.geminiModel}:generateContent?key=${this.apiKey}`;
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const data: GeminiGenerateResponse =
+        await this.geminiClient.generateWithFallback({
           contents: [
             {
               parts: [{ text: prompt }],
@@ -162,21 +157,8 @@ Respond in JSON format only:
             temperature: 0.7,
             maxOutputTokens: 200,
           },
-        }),
-      });
+        });
 
-      if (!response.ok) {
-        console.error('Gemini API error:', await response.text());
-        return this.getFallbackMetadata();
-      }
-
-      const data = (await response.json()) as {
-        candidates?: Array<{
-          content?: {
-            parts?: Array<{ text?: string }>;
-          };
-        }>;
-      };
       const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
       return this.parseJsonResponse(content);
