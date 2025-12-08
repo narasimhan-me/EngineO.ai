@@ -38,6 +38,12 @@ interface IntegrationStatus {
   };
 }
 
+interface ProjectOverview {
+  crawlCount: number;
+  productCount: number;
+  productsWithAppliedSeo: number;
+}
+
 export default function ProductsPage() {
   const router = useRouter();
   const params = useParams();
@@ -50,6 +56,8 @@ export default function ProductsPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [projectInfo, setProjectInfo] = useState<IntegrationStatus | null>(null);
   const [productIssues, setProductIssues] = useState<DeoIssue[]>([]);
+  const [overview, setOverview] = useState<ProjectOverview | null>(null);
+  const [showPreCrawlGuard, setShowPreCrawlGuard] = useState(true);
 
   // AI Suggestions state
   const [showSuggestionModal, setShowSuggestionModal] = useState(false);
@@ -111,6 +119,15 @@ export default function ProductsPage() {
     }
   }, [projectId]);
 
+  const fetchOverview = useCallback(async () => {
+    try {
+      const data = await projectsApi.overview(projectId);
+      setOverview(data);
+    } catch (err) {
+      console.error('Error fetching project overview:', err);
+    }
+  }, [projectId]);
+
   useEffect(() => {
     if (!isAuthenticated()) {
       router.push('/login');
@@ -119,7 +136,8 @@ export default function ProductsPage() {
     fetchProjectInfo();
     fetchProducts();
     fetchProductIssues();
-  }, [projectId, router, fetchProducts, fetchProjectInfo, fetchProductIssues]);
+    fetchOverview();
+  }, [projectId, router, fetchProducts, fetchProjectInfo, fetchProductIssues, fetchOverview]);
 
   const handleSyncProducts = async () => {
     try {
@@ -273,6 +291,36 @@ export default function ProductsPage() {
         </div>
       )}
 
+      {/* Pre-crawl guardrail banner */}
+      {overview && overview.crawlCount === 0 && showPreCrawlGuard && (
+        <div className="mb-6 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-yellow-800">
+                No crawl has been run yet
+              </h3>
+              <p className="mt-1 text-xs text-yellow-700">
+                DEO Score and issues may be empty on Products until you run your first crawl. Run a crawl from the Project Overview to surface insights.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  onClick={() => router.push(`/projects/${projectId}/overview?focus=crawl`)}
+                  className="inline-flex items-center rounded-md border border-transparent bg-yellow-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-yellow-700"
+                >
+                  Run first crawl
+                </button>
+                <button
+                  onClick={() => setShowPreCrawlGuard(false)}
+                  className="inline-flex items-center rounded-md border border-yellow-600 bg-white px-2.5 py-1 text-xs font-medium text-yellow-700 hover:bg-yellow-50"
+                >
+                  Continue to products
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header - responsive stacking */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
@@ -317,8 +365,8 @@ export default function ProductsPage() {
             <h3 className="mt-2 text-sm font-medium text-gray-900">No products</h3>
             <p className="mt-1 text-sm text-gray-500">
               {projectInfo?.shopify.connected
-                ? 'Click "Sync Products" to import products from your Shopify store.'
-                : 'Connect a Shopify store first, then sync products.'}
+                ? 'Sync products and run your first crawl to see DEO insights and start optimizing.'
+                : 'Step 1: Connect your Shopify store, then come back to sync products and run your first crawl.'}
             </p>
             {!projectInfo?.shopify.connected && (
               <div className="mt-4">

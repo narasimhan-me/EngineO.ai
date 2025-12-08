@@ -104,6 +104,8 @@ export default function ProjectsPage() {
       setProjects([created, ...projects]);
       setShowCreateModal(false);
       setNewProject({ name: '', domain: '' });
+      // Navigate to the new project's overview
+      router.push(`/projects/${created.id}/overview`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to create project');
     } finally {
@@ -157,8 +159,39 @@ export default function ProjectsPage() {
       {/* Projects Table */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
         {projects.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500 mb-4">No projects yet.</p>
+          <div className="text-center py-12 px-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              Let&apos;s get your first DEO win
+            </h2>
+            <p className="text-sm text-gray-600 mb-6 max-w-md mx-auto">
+              EngineO will walk you through creating a project, connecting your store or site,
+              running your first crawl, and optimizing a few products with AI.
+            </p>
+
+            {/* Static checklist preview */}
+            <div className="max-w-sm mx-auto mb-6 text-left">
+              <div className="space-y-3">
+                {[
+                  'Create a project and connect a store or site',
+                  'Run your first DEO crawl',
+                  'See your DEO Score and issues',
+                  'Optimize a few products with AI',
+                ].map((step, index) => (
+                  <div key={index} className="flex items-center gap-3">
+                    <svg
+                      className="h-5 w-5 text-gray-300 flex-shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle cx="12" cy="12" r="9" strokeWidth="2" />
+                    </svg>
+                    <span className="text-sm text-gray-700">{step}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <button
               onClick={() => setShowCreateModal(true)}
               className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"

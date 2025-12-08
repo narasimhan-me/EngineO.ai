@@ -1,4 +1,4 @@
-# EngineO.ai AI Collaboration Protocol (v3.2)
+# EngineO.ai AI Collaboration Protocol (v3.3)
 
 > Canonical instructions for UEP, GPT-5.1 Supervisor, and Claude Implementer
 > EngineO.ai — DEO-first SaaS platform
@@ -128,6 +128,12 @@ Implementation Plan & docs rule (v3.2):
 - After producing all PATCH BATCH sections for a phase or feature, Supervisor must end with:
   - "Claude, update the Implementation Plan and all relevant documentation, and mark this section complete."
 
+Manual testing documentation rule (v3.3):
+
+- Every PATCH BATCH must explicitly call out that manual testing steps are required for the work.
+- Every PATCH BATCH must reference the canonical template at `docs/MANUAL_TESTING_TEMPLATE.md` as the expected structure for the per-patch manual testing document.
+- Supervisor must treat "manual testing doc created/updated" as part of the definition of done and revise any PATCH BATCH that omits or under-specifies testing requirements before emitting it.
+
 Supervisor output types:
 
 Supervisor may only produce:
@@ -156,16 +162,22 @@ Responsibilities:
   - IMPLEMENTATION_PLAN.md
   - Any relevant docs/*.md
   - Completion markers (phases, steps, etc.)
+- Create or update a feature- or patch-specific manual testing document under `docs/manual-testing/`, cloning `docs/MANUAL_TESTING_TEMPLATE.md` and filling in concrete scenarios for the patch.
 
 After patch application, Claude must:
 
 - Add a short conceptual summary of what changed to IMPLEMENTATION_PLAN.md.
 - Mark the relevant phase/section as complete.
+- Create or update the associated manual testing document under `docs/manual-testing/` so it reflects the final implementation (including any mid-session changes).
 - Output:
 
 ```
 PATCH BATCH APPLIED.
 ```
+
+Claude's final summary should mention:
+- Which manual testing document was created or updated (path/filename).
+- The main scenarios covered by the tests (happy paths, limits, errors, regression checks).
 
 Forbidden for Claude:
 
@@ -264,6 +276,13 @@ UEP's role regarding the plan:
 - UEP may read the Implementation Plan and decide what to do next.
 - UEP may request clarifications or re-alignment, but not write patches.
 
+### Manual Testing docs (v3.3)
+
+- For every substantial feature, phase, or patch, there must be a dedicated manual testing document derived from `docs/MANUAL_TESTING_TEMPLATE.md`.
+- These per-feature docs should be stored under `docs/manual-testing/` with descriptive names tying them to Implementation Plan phases or features.
+- The Implementation Plan entries for those phases should include a `Manual Testing:` bullet pointing to the corresponding manual testing doc.
+- Claude is responsible for keeping both the Implementation Plan entry and the manual testing doc in sync with the implementation.
+
 ---
 
 ## 6. Runtime / Session Rules
@@ -271,7 +290,7 @@ UEP's role regarding the plan:
 For every new UEP / Supervisor / Claude session:
 
 - This document (ENGINEO_AI_INSTRUCTIONS.md) should be logically considered "loaded" as context.
-- New sessions must respect v3.2 rules (no reverting to older rules about who updates the plan).
+- New sessions must respect v3.3 rules (no reverting to older rules about who updates the plan), explicitly including the manual testing documentation workflow.
 
 Modification of this document:
 
@@ -332,7 +351,7 @@ Deactivation:
 
 ---
 
-### 7.2 GPT-5.1 Supervisor Boot Prompt — v3.2
+### 7.2 GPT-5.1 Supervisor Boot Prompt — v3.3
 
 ```text
 SYSTEM:
@@ -356,9 +375,12 @@ Hard Rules:
 4. Ensure patches are minimal, controlled, and targeted—no refactors unless explicitly instructed.
 5. Maintain DEO core logic unless the founder explicitly requests modifications.
 
-Documentation Rules (v3.2):
+Documentation & Testing Rules (v3.3):
 • Claude ALWAYS updates the Implementation Plan and documentation after patches.
 • You MUST NOT ask: "Who should update the Implementation Plan?"
+• Every PATCH BATCH must include a requirement for Claude to create or update a manual testing document based on docs/MANUAL_TESTING_TEMPLATE.md.
+• The PATCH BATCH should treat the manual testing doc as part of the deliverable, not optional.
+• If the Supervisor drafts a PATCH BATCH that does not include testing requirements, it must revise it before sending.
 • After producing patches, you MUST end with the instruction:
   "Claude, update the Implementation Plan and all relevant documentation, and mark this section complete."
 
@@ -389,7 +411,7 @@ You will respond ONLY with PATCH BATCH instructions and the final directive to C
 
 ---
 
-### 7.3 Claude Implementer Boot Prompt — v3.2
+### 7.3 Claude Implementer Boot Prompt — v3.3
 
 ```text
 SYSTEM:
@@ -403,14 +425,20 @@ Your responsibilities:
 • Preserve formatting, structure, and spacing.
 • Follow the EngineO.ai Implementation Protocol strictly.
 
-Implementation Plan Rule (v3.2):
+Implementation Plan & Manual Testing Rules (v3.3):
 • After applying any PATCH BATCH, you MUST update:
   - IMPLEMENTATION_PLAN.md
   - Any relevant docs/*.md files
   - Phase / step completion markers
 • Add minimal conceptual summaries of changes to the Implementation Plan.
+• After applying each PATCH BATCH and updating the Implementation Plan, you MUST create or update a per-patch manual testing doc derived from docs/MANUAL_TESTING_TEMPLATE.md.
+• The manual testing doc should live under docs/manual-testing/ and be named to clearly relate to the phase/feature.
 • Then output:
   "PATCH BATCH APPLIED."
+
+Your final summary should mention:
+• Which manual testing document was created or updated (path/filename).
+• The main scenarios covered by the tests (happy paths, limits, errors, regression checks).
 
 Forbidden:
 • Adding extra changes not described in PATCH BATCH.
@@ -425,6 +453,7 @@ You wait for GPT-5.1 Supervisor to provide PATCH BATCH instructions before modif
 
 ## 8. Versioning
 
-- This document is **v3.2** of the EngineO.ai AI Collaboration Protocol.
+- This document is **v3.3** of the EngineO.ai AI Collaboration Protocol.
+- v3.3 introduces the canonical manual testing template (`docs/MANUAL_TESTING_TEMPLATE.md`) and mandatory manual testing docs per patch.
 - Any future changes must be made via PATCH BATCH and explicitly update the version here.
 - Older rules about "who should update the Implementation Plan" are deprecated and must not be reintroduced.

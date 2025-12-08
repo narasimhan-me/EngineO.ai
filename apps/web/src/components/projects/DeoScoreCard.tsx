@@ -3,9 +3,10 @@ import type { DeoScoreBreakdown } from '@engineo/shared';
 interface DeoScoreCardProps {
   score: DeoScoreBreakdown | null;
   lastComputedAt?: string | null;
+  onRunFirstCrawl?: () => void;
 }
 
-export function DeoScoreCard({ score, lastComputedAt }: DeoScoreCardProps) {
+export function DeoScoreCard({ score, lastComputedAt, onRunFirstCrawl }: DeoScoreCardProps) {
   const overall = score?.overall ?? null;
   const formattedDate = lastComputedAt
     ? new Date(lastComputedAt).toLocaleString()
@@ -44,10 +45,26 @@ export function DeoScoreCard({ score, lastComputedAt }: DeoScoreCardProps) {
           )}
         </div>
       </div>
-      <p className="mt-3 text-xs text-gray-500">
-        DEO Score summarizes Content, Entities, Technical, and Visibility signals for this
-        project using the v1 model.
-      </p>
+      {overall == null ? (
+        <div className="mt-3">
+          <p className="text-xs text-gray-500 mb-2">
+            No DEO Score yet. Run your first crawl to compute your DEO Score across Content, Entities, Technical, and Visibility signals.
+          </p>
+          {onRunFirstCrawl && (
+            <button
+              onClick={onRunFirstCrawl}
+              className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
+            >
+              Run first crawl
+            </button>
+          )}
+        </div>
+      ) : (
+        <p className="mt-3 text-xs text-gray-500">
+          DEO Score summarizes Content, Entities, Technical, and Visibility signals for this
+          project using the v1 model.
+        </p>
+      )}
     </div>
   );
 }

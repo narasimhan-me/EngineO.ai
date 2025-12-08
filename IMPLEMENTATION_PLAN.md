@@ -37,6 +37,75 @@ This section defines **Test Phase 0** in detail.
 
 ---
 
+## Manual Testing Documentation Workflow
+
+In addition to automated tests from the Test Track, every significant feature, phase, or patch must have a manual testing document.
+
+**Canonical structure:** Defined in `docs/MANUAL_TESTING_TEMPLATE.md`.
+
+**Per-phase/per-feature manual testing docs:**
+- Should be created under `docs/manual-testing/` with names that clearly connect to the phase (e.g., `docs/manual-testing/phase-1-5-entitlements-and-crawl.md`).
+- For each major phase/feature block in the Implementation Plan, the entry should include a `Manual Testing:` bullet pointing to the corresponding manual testing doc once it exists.
+
+**Cross-cutting system-level manual testing docs:**
+- May be created under `docs/testing/` for shared systems that span multiple phases (e.g., Billing & Limits, AI Systems, Frontend UX feedback and limits).
+- Should be referenced from each relevant phase/feature section in this plan.
+
+**Claude's responsibilities when implementing a phase:**
+- Ensure the manual testing doc is created/updated.
+- Add or update the `Manual Testing:` bullet for that phase in this plan.
+
+**Phase R1 – Retroactive Manual Testing Docs (Billing, AI, Frontend UX):**
+- Introduces baseline system-level manual testing coverage for:
+  - Billing & Limits → `docs/testing/billing-and-limits.md`
+  - AI Systems (Product Optimize, fallback, limits) → `docs/testing/ai-systems.md`
+  - Frontend UX feedback, error visibility, and limit-reached behavior → `docs/testing/frontend-ux-feedback-and-limits.md`
+- Future patches extending these systems should update the corresponding testing documents alongside code changes.
+
+**Phase R2 – Retrofit Testing Coverage (DEO & Shopify systems):**
+- Adds system-level manual testing coverage for:
+  - DEO Pipeline (crawl triggers, worker execution, status transitions, crawl error handling) → `docs/testing/deo-pipeline.md`
+  - Signals Collection (DEO signals extraction, missing-data tolerance, logging) → `docs/testing/signals-collection.md`
+  - DEO Score Compute Pipeline (compute process, versioning, partial signals, failure recovery) → `docs/testing/deo-score-compute-pipeline.md`
+  - DEO Score Snapshots (snapshot storage, version alignment, history behavior) → `docs/testing/deo-score-snapshots.md`
+  - Shopify Integration (OAuth/app install, connect flow, invalid/expired states, store metadata retrieval) → `docs/testing/shopify-integration.md`
+  - Product Sync (initial sync, delta sync, deleted products, rate-limit handling) → `docs/testing/product-sync.md`
+  - Metadata Sync – SEO fields (writing SEO to Shopify, response validation, conflict handling) → `docs/testing/metadata-sync-seo-fields.md`
+  - Sync Status & Progress Feedback (UI status, partial failure handling, worker logs) → `docs/testing/sync-status-and-progress-feedback.md`
+- These documents provide retroactive coverage for mid-level priority systems and must be kept up to date as related phases evolve.
+
+**Phase R3 – Testing Coverage (UI, Marketing, Admin, Utilities):**
+
+- UI & UX Supporting Systems:
+  - Navigation & Layout System → `docs/testing/navigation-and-layout-system.md`
+  - Toast / Inline Feedback System → `docs/testing/toast-and-inline-feedback-system.md`
+  - Modal & Dialog Behavior → `docs/testing/modal-and-dialog-behavior.md`
+  - Pagination & Tabs → `docs/testing/pagination-and-tabs.md`
+  - Search & Filters (UI) → `docs/testing/search-and-filters-ui.md`
+- Marketing Surfaces & Public Pages:
+  - Homepage → `docs/testing/marketing-homepage.md`
+  - Shopify Landing Page → `docs/testing/marketing-shopify-landing-page.md`
+  - Pricing Page → `docs/testing/marketing-pricing-page.md`
+  - Features Pages → `docs/testing/marketing-features-pages.md`
+- Admin / Internal Tools:
+  - Admin Panel → `docs/testing/admin-panel.md`
+  - Background Job Dashboard → `docs/testing/background-job-dashboard.md`
+  - Rate-limit Observability → `docs/testing/rate-limit-observability.md`
+  - Error Logging & Monitoring → `docs/testing/error-logging-and-monitoring.md`
+  - Worker Health Indicators → `docs/testing/worker-health-indicators.md`
+- Supporting Services & Utilities:
+  - Token Usage Tracking → `docs/testing/token-usage-tracking.md`
+  - Entitlements Matrix → `docs/testing/entitlements-matrix.md`
+  - Plan Definitions → `docs/testing/plan-definitions.md`
+  - Date/Time Utilities & Reset Behaviors → `docs/testing/datetime-utilities-and-reset-behaviors.md`
+  - Thumbnail Fetchers → `docs/testing/thumbnail-fetchers.md`
+  - Health-check Endpoints → `docs/testing/health-check-endpoints.md`
+  - Project Deletion & Workspace Cleanup → `docs/testing/project-deletion-and-workspace-cleanup.md`
+  - User Profile & Account Settings → `docs/testing/user-profile-and-account-settings.md`
+- These Phase R3 documents complete retroactive manual testing coverage for lower-risk but high-importance subsystems and should be updated alongside future enhancements in each area.
+
+---
+
 ## Test Phase 0 – Baseline Test Harness
 
 ### Phase Summary
@@ -3245,6 +3314,8 @@ Backend now supports creation of Stripe Billing Portal sessions for subscription
 4. Verify you can view subscription details and manage payment methods
 5. After exiting portal, verify redirect back to `/settings/billing`
 
+**Manual Testing:** `docs/testing/billing-and-limits.md`
+
 **Files Modified:**
 
 - `apps/api/src/billing/billing.service.ts` — `createPortalSession()` method.
@@ -3309,6 +3380,8 @@ Ensure that Stripe subscription state (plan + status) is the single source of tr
    - Internal entitlements record is updated to the correct `planId` and `status=active`.
 4. Switch the user to a different plan in Stripe; confirm entitlements update accordingly.
 5. Cancel the subscription in Stripe; confirm entitlements are downgraded/removed.
+
+**Manual Testing:** `docs/testing/billing-and-limits.md`
 
 **Launch Acceptance Criteria:**
 
@@ -3430,6 +3503,8 @@ When entitlements are exceeded, API returns:
 5. Run a crawl on an existing project → should succeed if within limits
 6. Verify automation suggestions respect plan-based daily caps
 
+**Manual Testing:** `docs/testing/billing-and-limits.md`
+
 **Launch Acceptance Criteria:**
 
 - Project creation blocked with user-friendly message when at plan limit
@@ -3528,6 +3603,8 @@ Improve Gemini client reliability by fixing model name mismatch issues, add obse
 3. Simulate AI failure (e.g., invalid API key) and verify friendly error message appears in frontend
 4. Verify the product optimization page remains functional even when AI is unavailable
 
+**Manual Testing:** `docs/testing/ai-systems.md`
+
 ---
 
 ## Phase 1.8 – Gemini Retry Logic & Fallback Observability
@@ -3566,6 +3643,8 @@ Enhance the Gemini client's retry logic to handle more error scenarios and add c
 2. Simulate model failures (e.g., via network issues) and verify fallback to next model with proper logging
 3. Verify that non-retryable errors (4xx) terminate immediately with appropriate error log
 4. Confirm `usedFallback: true` appears in success log when a fallback model was used
+
+**Manual Testing:** `docs/testing/ai-systems.md`
 
 ---
 
@@ -3615,6 +3694,8 @@ Run `npx prisma migrate dev` to add the `projectId` column and index to `AiUsage
 4. Check logs show correct `dailyCount` values after usage is recorded
 5. Simulate AI provider failure and verify usage is still recorded
 
+**Manual Testing:** `docs/testing/ai-systems.md`
+
 ---
 
 ## Phase 1.10 – AI Limit Error UX with Upgrade Link
@@ -3646,6 +3727,8 @@ Improve the user experience when the daily AI suggestion limit is reached by sho
 3. Verify "Upgrade your plan to unlock more AI suggestions" link appears below error
 4. Click the upgrade link and verify it navigates to `/settings/billing`
 5. Trigger a different error (e.g., network failure) and verify upgrade link does NOT appear
+
+**Manual Testing:** `docs/testing/frontend-ux-feedback-and-limits.md`
 
 ---
 
@@ -3723,6 +3806,8 @@ interface FeedbackContextValue {
 4. Click "Upgrade" link — verify navigation to `/settings/billing`
 5. Verify toasts auto-dismiss after their duration
 6. Verify dismiss (X) button manually closes toasts
+
+**Manual Testing:** `docs/testing/frontend-ux-feedback-and-limits.md`
 
 ---
 
@@ -6396,6 +6481,59 @@ Connect the backend DEO Issues Engine (`GET /projects/:id/deo-issues`) to the fr
 
 ---
 
+# PHASE UX-6 — "First DEO Win" Onboarding Flow
+
+**Status:** Completed
+
+**Goal:** Every new workspace should be guided through a short, structured path that reliably leads to:
+- A project created and a source (Shopify store or website) connected.
+- A first crawl completed.
+- DEO Score visible.
+- At least 1–3 products optimized with AI.
+- A clear "You improved X" confirmation that reinforces the win.
+
+### UX-6.1. Scope
+
+- **App:** `apps/web` (Next.js, App Router).
+- **Routes:**
+  - Projects index: `/projects`
+  - Project Overview: `/projects/[id]/overview`
+  - Products list: `/projects/[id]/products`
+- **Components:**
+  - `FirstDeoWinChecklist` – new shared checklist component.
+  - `DeoScoreCard` – extended with `onRunFirstCrawl` prop.
+- No new backend endpoints or Prisma models are introduced in this phase.
+- Activation metrics will be computed using existing database tables as described in `docs/ACTIVATION_METRICS.md`.
+
+### UX-6.2. Implementation Summary
+
+#### Projects list (`/projects`)
+- When there are no projects, show a First DEO Win empty state with a static four-step checklist instead of a bare "No projects yet" message.
+- After creating a project, automatically navigate the user into `/projects/[id]/overview` to start the guided flow.
+
+#### Project Overview (`/projects/[id]/overview`)
+- Add the `FirstDeoWinChecklist` component summarizing the four steps with live progress based on integration status, crawls, DEO Score, and product optimization.
+- When there is no DEO Score or crawl yet, show helpful empty states and a prominent "Run first crawl" CTA in both the DEO Score card and the Crawl & DEO Issues area.
+- Once the project has a crawl, a DEO Score, and at least three optimized products, hide the checklist and show a one-time First DEO Win confirmation card that nudges users toward auto-crawls and the Issues Engine.
+
+#### Products list (`/projects/[id]/products`)
+- Show a pre-crawl guardrail banner when the user visits Products before the first crawl, explaining why data may be empty and linking back to the Overview crawl entry point.
+- Refine the "No products" empty state copy to align with the onboarding steps (connect store → sync products → crawl → optimize).
+
+#### Instrumentation & metrics
+- % completion and timing metrics for each onboarding step are computed from `Integration`, `CrawlResult`, `DeoScoreSnapshot`, `AiUsageEvent`, and `ProjectOverview` data, as detailed in `docs/ACTIVATION_METRICS.md`.
+
+### UX-6.3. Acceptance Criteria
+
+- [x] New users with no projects see a First DEO Win card on `/projects` with a clear CTA to create their first project.
+- [x] On successful project creation, the user is redirected to `/projects/[id]/overview`.
+- [x] New projects with no integrations, crawls, or DEO Score show the `FirstDeoWinChecklist` plus empty states that clearly direct users to connect a store/site and run the first crawl.
+- [x] After a project has at least one integration, one crawl, a DEO Score, and three or more optimized products, the checklist no longer appears for that project and the First DEO Win confirmation card appears once.
+- [x] Visiting `/projects/[id]/products` before a crawl shows a non-blocking guardrail banner that points back to the Overview crawl CTA, while still allowing sync and AI actions.
+- [x] The activation metrics described in `docs/ACTIVATION_METRICS.md` can be computed against the production database without additional schema changes.
+
+---
+
 # PHASE UX-Content-1 — Content Pages Tab & List View
 
 **Goal:** Provide a dedicated Content tab and list view for all non-product URLs discovered by the crawler, with DEO status, issues, and crawl context similar to the Products list.
@@ -6901,6 +7039,7 @@ These Phases 23–30 plus Phases UX-1, UX-1.1, UX-2, UX-3, UX-4, UX-5, UX-Conten
 - Phase UX-3: Project Overview page redesign with DEO score visualization and signals summary.
 - Phase UX-4: Issues UI integration surfacing DEO issues across Overview, Products, and Optimization Workspace.
 - Phase UX-5: Row-level navigation and workspace access improvements for the Products list.
+- Phase UX-6: "First DEO Win" onboarding flow for new workspaces.
 - Phase UX-Content-1: Content Pages tab and non-product content list built on CrawlResult data and DEO issues.
 - Phase UX-Content-2: Content optimization workspace for non-product pages with AI metadata suggestions and DEO insights.
 - Phase MARKETING-1: Universal marketing homepage and DEO positioning across the public site.
@@ -6909,6 +7048,10 @@ These Phases 23–30 plus Phases UX-1, UX-1.1, UX-2, UX-3, UX-4, UX-5, UX-Conten
 - Phase MARKETING-4: Websites vertical landing page for WordPress, Webflow, and all non-ecommerce sites.
 - Phase MARKETING-5: Full product tour/features page covering DEO Score, crawling, Issues Engine, Product and Content Workspaces, automation, and supported platforms.
 - Phase MARKETING-6: "What Is DEO?" education page establishing category leadership and explaining DEO concepts.
+- Manual Testing docs: Canonical template at `docs/MANUAL_TESTING_TEMPLATE.md`, with per-phase manuals under `docs/manual-testing/`, kept up to date by Claude alongside each implemented phase.
+- System-level Manual Testing docs (Phase R1): Cross-cutting testing docs under `docs/testing/` for shared systems: `billing-and-limits.md` (Stripe, subscriptions, quotas), `ai-systems.md` (Gemini, usage tracking, errors), `frontend-ux-feedback-and-limits.md` (toasts, loading states, limit prompts).
+- System-level Manual Testing docs (Phase R2): DEO & Shopify systems coverage under `docs/testing/`: `deo-pipeline.md`, `signals-collection.md`, `deo-score-compute-pipeline.md`, `deo-score-snapshots.md`, `shopify-integration.md`, `product-sync.md`, `metadata-sync-seo-fields.md`, `sync-status-and-progress-feedback.md`.
+- System-level Manual Testing docs (Phase R3): UI, Marketing, Admin & Utilities coverage under `docs/testing/`: UI components (`navigation-and-layout-system.md`, `toast-and-inline-feedback-system.md`, `modal-and-dialog-behavior.md`, `pagination-and-tabs.md`, `search-and-filters-ui.md`), Marketing pages (`marketing-homepage.md`, `marketing-shopify-landing-page.md`, `marketing-pricing-page.md`, `marketing-features-pages.md`), Admin tools (`admin-panel.md`, `background-job-dashboard.md`, `rate-limit-observability.md`, `error-logging-and-monitoring.md`, `worker-health-indicators.md`), Utilities (`token-usage-tracking.md`, `entitlements-matrix.md`, `plan-definitions.md`, `datetime-utilities-and-reset-behaviors.md`, `thumbnail-fetchers.md`, `health-check-endpoints.md`, `project-deletion-and-workspace-cleanup.md`, `user-profile-and-account-settings.md`).
 
 ---
 

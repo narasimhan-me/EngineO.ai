@@ -17,6 +17,7 @@ import { DeoSignalsSummary } from '@/components/projects/DeoSignalsSummary';
 import { ProjectHealthCards } from '@/components/projects/ProjectHealthCards';
 import { IssuesSummaryCard } from '@/components/issues/IssuesSummaryCard';
 import { IssuesList } from '@/components/issues/IssuesList';
+import { FirstDeoWinChecklist } from '@/components/projects/FirstDeoWinChecklist';
 import { useFeedback } from '@/components/feedback/FeedbackProvider';
 
 type CrawlFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY';
@@ -142,6 +143,7 @@ export default function ProjectOverviewPage() {
   const [deoIssuesLoading, setDeoIssuesLoading] = useState(false);
   const [deoIssuesError, setDeoIssuesError] = useState<string | null>(null);
   const [showIssuesPanel, setShowIssuesPanel] = useState(false);
+  const [showFirstWinCard, setShowFirstWinCard] = useState(true);
 
   const feedback = useFeedback();
 
@@ -393,6 +395,41 @@ export default function ProjectOverviewPage() {
     setTimeout(() => setSuccessMessage(''), 2000);
   };
 
+  // Derive checklist booleans
+  const hasConnectedSource =
+    status?.shopify.connected === true ||
+    status?.woocommerce.connected === true ||
+    status?.bigcommerce.connected === true ||
+    status?.magento.connected === true ||
+    status?.customWebsite.connected === true ||
+    (status?.integrations && status.integrations.length > 0);
+
+  const hasRunCrawl =
+    (overview?.crawlCount ?? 0) > 0 ||
+    scanResults.length > 0 ||
+    status?.lastCrawledAt != null;
+
+  const hasDeoScore = typeof deoScore?.latestScore?.overall === 'number';
+
+  const hasOptimizedThreeProducts = (overview?.productsWithAppliedSeo ?? 0) >= 3;
+
+  // Checklist helper callbacks
+  const handleChecklistConnectSource = () => {
+    document.getElementById('shopify-integration')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => {
+      document.getElementById('shopDomain')?.focus();
+    }, 500);
+  };
+
+  const handleChecklistViewScoreAndIssues = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setShowIssuesPanel(true);
+  };
+
+  const handleChecklistGoToProducts = () => {
+    router.push(`/projects/${projectId}/products`);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -443,12 +480,66 @@ export default function ProjectOverviewPage() {
         </div>
       )}
 
+      {/* First DEO Win Checklist */}
+      {(!hasConnectedSource || !hasRunCrawl || !hasDeoScore || !hasOptimizedThreeProducts) && (
+        <FirstDeoWinChecklist
+          projectName={status?.projectName}
+          hasConnectedSource={!!hasConnectedSource}
+          hasRunCrawl={!!hasRunCrawl}
+          hasDeoScore={hasDeoScore}
+          hasOptimizedThreeProducts={hasOptimizedThreeProducts}
+          onConnectSource={handleChecklistConnectSource}
+          onRunFirstCrawl={handleRunScan}
+          onViewScoreAndIssues={handleChecklistViewScoreAndIssues}
+          onGoToProducts={handleChecklistGoToProducts}
+        />
+      )}
+
+      {/* First DEO Win Confirmation Card */}
+      {hasRunCrawl && hasDeoScore && hasOptimizedThreeProducts && showFirstWinCard && (
+        <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4 shadow-sm">
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-green-800">
+                Nice — you&apos;ve optimized 3 products. Your DEO visibility is already improving.
+              </h3>
+              <p className="mt-1 text-xs text-green-700">
+                You&apos;ve completed the First DEO Win path. Keep going!
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Link
+                  href={`/projects/${projectId}/settings`}
+                  className="inline-flex items-center rounded-md border border-green-600 bg-white px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-50"
+                >
+                  Set up daily crawls
+                </Link>
+                <Link
+                  href={`/projects/${projectId}/issues`}
+                  className="inline-flex items-center rounded-md border border-green-600 bg-white px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-50"
+                >
+                  Open Issues Engine
+                </Link>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowFirstWinCard(false)}
+              className="text-green-600 hover:text-green-800"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top section: DEO Score + Components + Freshness */}
       <section className="mt-6 grid gap-6 lg:grid-cols-2">
         <div className="space-y-6">
           <DeoScoreCard
             score={deoScore?.latestScore ?? null}
             lastComputedAt={deoScore?.latestSnapshot?.computedAt ?? null}
+            onRunFirstCrawl={hasRunCrawl ? undefined : handleRunScan}
           />
           <DeoComponentBreakdown score={deoScore?.latestScore ?? null} />
           <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
@@ -520,7 +611,9 @@ export default function ProjectOverviewPage() {
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Crawl & DEO Issues</h2>
                 <p className="mt-1 text-sm text-gray-600">
-                  View full crawl results, per-page issues, and detailed SEO/DEO diagnostics.
+                  {hasRunCrawl
+                    ? 'View full crawl results, per-page issues, and detailed SEO/DEO diagnostics.'
+                    : "We haven't crawled your site yet. Run your first crawl to surface DEO issues and diagnostics."}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -584,7 +677,7 @@ export default function ProjectOverviewPage() {
 
         {/* Column 2: Shopify Integration */}
         <div className="space-y-6">
-          <div className="rounded-lg bg-white p-6 shadow">
+          <div id="shopify-integration" className="rounded-lg bg-white p-6 shadow">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Shopify Integration</h2>
 
             {status.shopify.connected ? (
