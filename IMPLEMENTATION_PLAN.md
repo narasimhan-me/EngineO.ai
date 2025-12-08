@@ -104,6 +104,39 @@ In addition to automated tests from the Test Track, every significant feature, p
   - User Profile & Account Settings → `docs/testing/user-profile-and-account-settings.md`
 - These Phase R3 documents complete retroactive manual testing coverage for lower-risk but high-importance subsystems and should be updated alongside future enhancements in each area.
 
+**Phase R4 – Verification Layer & Enforcement System:**
+
+- Goal:
+  - Introduce a verification layer that ensures:
+    - Every new feature or patch includes manual testing steps.
+    - Every PATCH BATCH references its associated manual testing doc(s).
+    - Critical systems have minimum coverage and cannot silently regress.
+- Scope (documentation & process only – no code changes):
+  - Add a Critical Path Coverage Map:
+    - `docs/testing/CRITICAL_PATH_MAP.md` defines the current set of critical paths (Auth, Billing & Limits, Product Optimize, Crawl Pipeline, DEO Score Compute, Shopify Sync, AI Failover, Frontend Global UX Feedback).
+    - Each critical path entry links to its manual testing doc(s) and notes whether automated tests exist (where applicable).
+  - Add a Release Verification Gate specification:
+    - `docs/testing/RELEASE_VERIFICATION_GATE.md` defines the rules that must be satisfied before releases/major merges (critical paths verified, docs present, links valid, regressions checked).
+  - Strengthen AI collaboration protocol:
+    - `docs/ENGINEO_AI_INSTRUCTIONS.md` updated to v3.4 to include:
+      - Supervisor obligations to specify test docs per PATCH BATCH.
+      - Enforcement of Critical Path Map updates when critical systems are touched.
+      - References to the Release Verification Gate.
+    - `docs/SESSION_STARTER.md` updated to v3.4 so new sessions always load the verification rules.
+    - `docs/ENGINEO_AI_EXECUTIVE_AND_SUPERVISION_PROTOCOL.md` remains deprecated but now points to the verification-layer docs.
+- Enforcement expectations:
+  - For any new phase or feature:
+    - Implementation Plan entry must contain a `Manual Testing:` reference.
+    - Supervisor PATCH BATCH must identify the manual testing doc(s) to create or update and, when applicable, the critical path entry to update.
+    - Claude must treat the manual testing doc and any necessary Critical Path Map updates as part of the deliverable.
+- Status: **COMPLETE**
+  - [x] Created `docs/testing/CRITICAL_PATH_MAP.md` with 8 critical paths defined
+  - [x] Created `docs/testing/RELEASE_VERIFICATION_GATE.md` with pre-release checklist and gate criteria
+  - [x] `docs/ENGINEO_AI_INSTRUCTIONS.md` updated to v3.4 with verification layer rules
+  - [x] `docs/SESSION_STARTER.md` updated to v3.4 with verification layer boot prompts
+  - [x] `docs/ENGINEO_AI_EXECUTIVE_AND_SUPERVISION_PROTOCOL.md` points to verification-layer docs
+- Manual Testing: N/A (documentation-only phase; verification layer docs are self-documenting)
+
 ---
 
 ## Test Phase 0 – Baseline Test Harness

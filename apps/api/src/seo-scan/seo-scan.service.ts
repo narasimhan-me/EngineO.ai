@@ -93,9 +93,9 @@ export class SeoScanService {
       },
     });
 
-    // In local/dev mode, recompute DEO synchronously after the crawl
-    const isLocalDev = process.env.NODE_ENV !== 'production' || process.env.IS_LOCAL_DEV === 'true';
-    if (isLocalDev) {
+    // In local/dev mode (not using crawl queue), recompute DEO synchronously after the crawl
+    const shouldRunSynchronously = !this.isUsingCrawlQueue();
+    if (shouldRunSynchronously) {
       const startedAt = Date.now();
       try {
         const signals = await this.deoSignalsService.collectSignalsForProject(projectId);
@@ -327,6 +327,18 @@ export class SeoScanService {
   }
 
   /**
+   * Determine if we're using the crawl queue (production with queue enabled).
+   * When true, DEO recompute happens via queue workers; when false, it runs synchronously.
+   * Uses the same logic as crawl-scheduler.service.ts for consistency.
+   */
+  private isUsingCrawlQueue(): boolean {
+    const isLocalDev = process.env.IS_LOCAL_DEV === 'true';
+    const isProduction = process.env.NODE_ENV === 'production';
+    const hasCrawlQueue = !!process.env.REDIS_URL;
+    return isProduction && !isLocalDev && hasCrawlQueue;
+  }
+
+  /**
    * Scan a single product page by product ID
    */
   async scanProductPage(productId: string, userId: string) {
@@ -403,8 +415,8 @@ export class SeoScanService {
     });
 
     // In local/dev mode, recompute DEO synchronously after the product crawl
-    const isLocalDev = process.env.NODE_ENV !== 'production' || process.env.IS_LOCAL_DEV === 'true';
-    if (isLocalDev) {
+    const shouldRunSynchronously = !this.isUsingCrawlQueue();
+    if (shouldRunSynchronously) {
       const startedAt = Date.now();
       try {
         const signals = await this.deoSignalsService.collectSignalsForProject(product.projectId);

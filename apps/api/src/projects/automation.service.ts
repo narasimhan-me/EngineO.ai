@@ -70,14 +70,19 @@ export class AutomationService {
     }
 
     const now = new Date();
-    const startOfDay = new Date(now);
-    startOfDay.setHours(0, 0, 0, 0);
+    // Use UTC for consistent daily reset behavior across timezones
+    const startOfDayUTC = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      0, 0, 0, 0
+    ));
 
     const generatedToday = await this.prisma.automationSuggestion.count({
       where: {
         projectId,
         generatedAt: {
-          gte: startOfDay,
+          gte: startOfDayUTC,
         },
       },
     });
