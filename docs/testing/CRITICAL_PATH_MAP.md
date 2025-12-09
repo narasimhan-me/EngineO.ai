@@ -256,6 +256,27 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 
 ---
 
+### CP-012: Automation Engine (Framework & Rules)
+
+**Description:** Automation Engine framework covering automation rule model, trigger/evaluation/execution/log lifecycle, and entitlements-aware automation behavior across DEO systems.
+
+| Field | Value |
+|-------|-------|
+| **Manual Testing Doc(s)** | `docs/testing/automation-engine.md`, `docs/manual-testing/phase-ae-1-automation-engine-foundations.md` |
+| **Automated Tests** | Planned |
+| **Last Verified (Manual)** | 2025-12-08 |
+| **Last Verified (Automated)** | N/A |
+| **Owner** | DEO Team |
+
+**Key Scenarios:**
+- [ ] Automation rule model and lifecycle documented and aligned with shared types
+- [ ] Entitlement and limit interactions for automations specified
+- [ ] Integration points with crawl pipeline and existing AutomationService documented
+- [ ] Non-destructive behavior defined for failed or skipped automations
+- [ ] Shared package builds successfully with Automation Engine types
+
+---
+
 ## Coverage Summary
 
 | Critical Path | Manual Docs | Auto Tests | Status |
@@ -271,6 +292,7 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 | CP-009: Issue Engine Lite | ✅ | Planned | 🟡 Manual Only |
 | CP-010: Issue Engine Full | ✅ | Planned | 🟡 Manual Only |
 | CP-011: Answer Engine | ✅ | Planned | 🟡 Manual Only |
+| CP-012: Automation Engine | ✅ | Planned | 🟡 Manual Only |
 
 **Legend:**
 - 🟢 Full Coverage (Manual + Automated)
@@ -309,3 +331,4 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 | 1.1 | 2025-12-08 | Added CP-009: Issue Engine Lite (Phase UX-7) |
 | 1.2 | 2025-12-08 | Added CP-010: Issue Engine Full (Phase UX-8) |
 | 1.3 | 2025-12-08 | Added CP-011: Answer Engine (Phase AE-1) |
+| 1.4 | 2025-12-08 | Added CP-012: Automation Engine (Phase AE-1 Framework) |

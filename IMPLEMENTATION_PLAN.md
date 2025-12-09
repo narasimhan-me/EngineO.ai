@@ -7365,7 +7365,106 @@ export interface AnswerabilityStatus {
 
 ---
 
-These Phases 23–30 plus Phases UX-1, UX-1.1, UX-2, UX-3, UX-4, UX-5, UX-6, UX-7, UX-8, AE-1, UX-Content-1, UX-Content-2, and MARKETING-1 through MARKETING-6 extend your IMPLEMENTATION_PLAN.md and keep your roadmap cohesive:
+## Phase AE-1 – Automation Engine Foundations (Framework & Spec)
+
+**Status:** Complete
+
+**Goal:** Define the Automation Engine framework, shared types, and specifications for automation rule models, execution lifecycle, and entitlements integration.
+
+### AE-1.1 Overview (Automation Engine)
+
+The Automation Engine is the "DEO autopilot" — a platform layer that powers intelligent, automated improvements across all EngineO.ai systems:
+
+1. **Detect** when something needs improvement (missing metadata, stale answers, low DEO signals)
+2. **Decide** whether an automation should run (based on entitlements, limits, and safety rules)
+3. **Execute** improvements or schedule them for review
+4. **Log** all actions with clear audit trails
+
+This phase establishes the foundational framework and specifications; implementation phases (AE-2+) will add concrete automation rules and execution logic.
+
+### AE-1.2 Implementation Changes (Automation Engine)
+
+**Shared Types (packages/shared/src/automation-engine.ts):**
+
+```typescript
+// Automation classification
+export type AutomationKind = 'immediate' | 'scheduled' | 'background';
+export type AutomationTargetSurface = 'product' | 'page' | 'answer_block' | 'entity' | 'project' | 'deo_score';
+export type AutomationExecutionStatus = 'pending' | 'running' | 'succeeded' | 'failed' | 'skipped';
+
+// Initial rule set (9 canonical rules)
+export type AutomationRuleId =
+  | 'AUTO_GENERATE_METADATA_ON_NEW_PRODUCT'
+  | 'AUTO_GENERATE_METADATA_FOR_MISSING_METADATA'
+  | 'AUTO_GENERATE_METADATA_FOR_THIN_CONTENT'
+  | 'AUTO_REFRESH_DEO_SCORE_AFTER_CRAWL'
+  | 'AUTO_REFRESH_ANSWER_BLOCKS'
+  | 'AUTO_RECRAWL_HIGH_IMPACT_PAGES'
+  | 'AUTO_FILL_MISSING_ALT_TEXT'
+  | 'AUTO_REFRESH_STRUCTURED_DATA'
+  | 'AUTO_DETECT_LOW_VISIBILITY_SIGNALS';
+
+// Core interfaces
+export interface AutomationRule { ... }
+export interface AutomationRun { ... }
+export interface AutomationSettings { ... }
+```
+
+### AE-1.3 Automation Types
+
+| Kind | Description | Examples |
+|------|-------------|----------|
+| **Immediate** | Reactive, event-triggered automations | Auto-generate metadata on new product, refresh DEO Score after crawl |
+| **Scheduled** | Proactive automations on cadences | Weekly re-crawl of high-impact pages, monthly structured data refresh |
+| **Background** | Low-noise, continuous improvements | Fill missing alt text, detect low visibility signals |
+
+### AE-1.4 Decision Framework
+
+Every automation follows a Trigger → Evaluate → Execute → Log lifecycle:
+
+1. **Trigger:** Events such as crawl completion, product sync, issue detection
+2. **Evaluate:** Rule engine checks entitlements, daily caps, settings, time constraints
+3. **Execute:** Delegates to existing subsystems (AutomationService, ShopifyMetadataService, etc.)
+4. **Log:** Writes AutomationRun record for audit trail
+
+### AE-1.5 Integration Points (Automation Engine)
+
+**Existing Systems:**
+- Crawl Pipeline: After crawls finish, triggers metadata suggestion rules
+- AutomationService: Current suggestion engine for metadata (Automation Engine v0)
+
+**Future Systems:**
+- Issues Engine: Automation rules for auto-fixing issues (AE-4)
+- Answer Engine: Auto-generate/refresh Answer Blocks (AE-5)
+- DEO Score: Auto-recompute scores on schedule (AE-3)
+
+### AE-1.6 Constraints (Automation Engine)
+
+- No database schema changes in this phase (model definition only)
+- No new API endpoints (deferred to AE-2)
+- No UI implementation (deferred to AE-6)
+- No changes to existing automation suggestions behavior
+- Types must be stable for implementation phases
+
+### AE-1.7 Acceptance Criteria (Automation Engine - Completed)
+
+- [x] `packages/shared/src/automation-engine.ts` created with all types
+- [x] Types exported from `@engineo/shared`
+- [x] `docs/AUTOMATION_ENGINE_SPEC.md` created with full specification
+- [x] `docs/testing/automation-engine.md` created for system-level testing
+- [x] `docs/manual-testing/phase-ae-1-automation-engine-foundations.md` created
+- [x] `docs/testing/CRITICAL_PATH_MAP.md` updated with CP-012: Automation Engine
+- [x] `docs/ENTITLEMENTS_MATRIX.md` updated with Automation Engine details
+- [x] `docs/TOKEN_USAGE_MODEL.md` updated with automation source labels
+- [x] `ARCHITECTURE.md` updated with Automation Engine references
+- [x] `docs/answers-overview.md` updated with Automation Engine integration note
+- [x] Shared package builds successfully
+
+**Manual Testing:** `docs/manual-testing/phase-ae-1-automation-engine-foundations.md`, `docs/testing/automation-engine.md`
+
+---
+
+These Phases 23–30 plus Phases UX-1, UX-1.1, UX-2, UX-3, UX-4, UX-5, UX-6, UX-7, UX-8, AE-1 (Answer Engine), AE-1 (Automation Engine), UX-Content-1, UX-Content-2, and MARKETING-1 through MARKETING-6 extend your IMPLEMENTATION_PLAN.md and keep your roadmap cohesive:
 
 - Phases 12–17: Core feature sets (automation, content, performance, competitors, local, social).
 - Phases 18–22: Security, subscription management, monitoring, fairness & limits.
@@ -7379,7 +7478,8 @@ These Phases 23–30 plus Phases UX-1, UX-1.1, UX-2, UX-3, UX-4, UX-5, UX-6, UX-
 - Phase UX-6: "First DEO Win" onboarding flow for new workspaces.
 - Phase UX-7: Issue Engine Lite with 12 product-focused issues, severity filtering, and actionable fix buttons.
 - Phase UX-8: Issue Engine Full (IE-2.0) with rich metadata, categories, whyItMatters, recommendedFix, aiFixable, and fixCost fields.
-- Phase AE-1: Answer Engine Foundations with Answer Block model, 10-question taxonomy, Answerability detection concepts, and no-hallucination rules.
+- Phase AE-1 (Answer Engine): Answer Engine Foundations with Answer Block model, 10-question taxonomy, Answerability detection concepts, and no-hallucination rules.
+- Phase AE-1 (Automation Engine): Automation Engine foundations (framework, shared types, entitlements & architecture docs, critical-path registration), preparing for Automation Engine implementation in AE-2+.
 - Phase UX-Content-1: Content Pages tab and non-product content list built on CrawlResult data and DEO issues.
 - Phase UX-Content-2: Content optimization workspace for non-product pages with AI metadata suggestions and DEO insights.
 - Phase MARKETING-1: Universal marketing homepage and DEO positioning across the public site.

@@ -339,6 +339,7 @@ We standardize queue names by domain. Example queues:
   - **Jobs:** Evaluate automation rules for a project (e.g., "if new product added then queue AI SEO + social posts").
   - **Producers:** Change detectors (webhooks, scheduled checks).
   - **Consumers:** `AutomationRulesProcessor`.
+  - **Note:** This queue is conceptually tied to the Automation Engine's rule evaluation stage. The Automation Engine (see `docs/AUTOMATION_ENGINE_SPEC.md`) provides the framework for defining and executing automation rules. Future implementations will enqueue rule evaluation jobs (e.g., on store/product changes, crawl completions) that read `AutomationRule` definitions and emit `AutomationRun` logs.
 
 - `social:post`
   - **Jobs:** Publish or schedule social posts to Facebook, Instagram, LinkedIn.
@@ -397,6 +398,8 @@ We use a single NestJS codebase (apps/api) with two runtimes:
 
 - `AutomationModule`
   - Worker: `AutomationRulesProcessor` for evaluating rules based on store changes.
+  - Current: `AutomationService` as the suggestion engine for metadata (Automation Engine v0).
+  - Future: The Automation Engine framework (see `docs/AUTOMATION_ENGINE_SPEC.md`) provides the umbrella under which `AutomationRule` evaluation, `AutomationRun` logging, and multi-surface automation orchestration will be implemented.
 
 - `SocialModule`
   - Worker: `SocialPostingProcessor` for cross-posting to social platforms.

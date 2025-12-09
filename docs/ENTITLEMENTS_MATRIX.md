@@ -155,6 +155,27 @@ Each plan defines limits and access across:
 | Automation Frequency | Monthly | Weekly | Daily (future) |
 | Scheduled Automations | ❌ | ✔ | ✔ |
 
+#### Automation Engine Classification
+
+The Automation Engine (see `docs/AUTOMATION_ENGINE_SPEC.md`) classifies automations into three categories:
+
+- **Basic Automations** — Reactive, metadata-oriented automations (e.g., auto-generate titles/descriptions after sync)
+- **Advanced Automations** — Multi-surface, scheduled, and background automations governed by the Automation Engine
+
+#### Automation Engine Expectations by Tier
+
+| Plan | Automation Engine Capabilities |
+|------|-------------------------------|
+| **Free** | Reactive metadata-only automations for a limited number of items per day (aligned with `Automation Suggestions/Day` limits). No scheduled or background automations. Automation Activity Log is view-only (future UI). |
+| **Pro** | Reactive + scheduled automations for products (and later pages). Daily automation execution caps aligned with `Automation Suggestions/Day` plus future Automation Engine limits. Shopify metadata auto-sync for selected rules. |
+| **Business** | Full Automation Engine capabilities: reactive, scheduled, and background automations across products, pages, answers, and entities. Higher or unlimited daily automation executions (subject to safety). Access to entity and answer automations once implemented. |
+
+#### Entitlement Enforcement
+
+- Automation Engine rules must query entitlements via `EntitlementsService` before AI-powered actions
+- Automation-triggered AI calls must respect the token model in `docs/TOKEN_USAGE_MODEL.md`
+- See `docs/AUTOMATION_ENGINE_SPEC.md` Section 6 for detailed enforcement requirements
+
 ### 4.5 Integrations
 
 | Integration | Starter | Pro | Agency |

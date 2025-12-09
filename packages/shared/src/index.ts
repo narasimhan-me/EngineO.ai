@@ -44,3 +44,9 @@ export * from './deo-score-engine';
 
 // DEO issues types
 export * from './deo-issues';
+
+// Answer Engine types
+export * from './answer-engine';
+
+// Automation Engine types
+export * from './automation-engine';

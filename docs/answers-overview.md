@@ -76,11 +76,24 @@ These issues help merchants prioritize content improvements for maximum DEO impa
 
 ---
 
+## Automation Engine Integration
+
+The Answer Engine will integrate with the **Automation Engine** in future phases:
+
+- Automation rules will be able to auto-generate or refresh Answer Blocks after crawls, product changes, or issue resolution
+- Scheduled automations can regenerate low-confidence answers or refresh stale content
+- Background automations can detect content drift and trigger Answer Block updates
+
+This integration is specified in `docs/AUTOMATION_ENGINE_SPEC.md` and will be implemented in Phase AE-5.
+
+---
+
 ## Related Documentation
 
 - **Technical Specification:** `docs/ANSWER_ENGINE_SPEC.md`
 - **Shared Types:** `packages/shared/src/answer-engine.ts`
 - **Manual Testing:** `docs/testing/answer-engine.md`
+- **Automation Engine:** `docs/AUTOMATION_ENGINE_SPEC.md`
 
 ---
 

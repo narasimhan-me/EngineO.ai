@@ -74,7 +74,7 @@ Tokens must be counted for:
 | Page crawl | ❌ No | Uses scraper / fetch |
 | Entity graph (future) | ✅ | LLM-based |
 | Visibility analysis | ⚠️ Partial | If LLM used for interpretation |
-| Automations | ✅ | If they trigger AI tasks |
+| Automations | ✅ | If they trigger AI tasks via the Automation Engine |
 | AI-powered fixes | ✅ | Each fix consumes tokens |
 
 ## 3.1 DEO Pillar Token Categories
@@ -86,6 +86,7 @@ Token usage can also be categorized by DEO pillar:
 - **Answer unit generation** – creating answer-ready content blocks
 - **Multi-engine visibility checks (VEO)** – video and voice surface analysis
 - **Crawl & technical diagnostics** – page-level SEO analysis
+- **Automation Engine operations** – token usage should be tagged with a source value indicating the automation rule (e.g., `source: 'automation:auto_generate_metadata_on_new_product'`) so that dashboards and audits can distinguish automation-driven AI usage
 
 ---
 
@@ -187,6 +188,20 @@ Repeat for:
 - Answer-ready content
 - Entity extraction
 - DEO audit (LLM-only parts)
+- Automation Engine tasks
+
+**Automation Engine Token Logging:**
+
+The Automation Engine and `AutomationService` must call the token logger with a distinct source label for automation-triggered AI operations, in line with the Automation Engine spec (`docs/AUTOMATION_ENGINE_SPEC.md`). For example:
+
+```typescript
+await this.tokenLogger.log(userId, tokens, 'automation:auto_generate_metadata_for_missing_metadata');
+```
+
+This enables:
+- Tracking automation-specific token consumption
+- Distinguishing manual vs automated AI usage
+- Per-rule token budgeting (future)
 
 ---
 
