@@ -152,3 +152,36 @@ export const ANSWER_QUESTION_IDS: AnswerBlockQuestionId[] = [
   'materials_and_specs',
   'care_safety_instructions',
 ];
+
+/**
+ * Per-product answerability summary for API responses.
+ * Provides a quick view of each product's answer readiness.
+ */
+export interface ProductAnswerabilitySummary {
+  /** Product ID */
+  productId: string;
+
+  /** Product title for display */
+  productTitle: string;
+
+  /** Answerability status for this product */
+  status: AnswerabilityStatus;
+}
+
+/**
+ * Project-level answerability response from the detection API.
+ * Contains overall status and per-product summaries.
+ */
+export interface ProjectAnswerabilityResponse {
+  /** Project ID */
+  projectId: string;
+
+  /** ISO timestamp of when this response was generated */
+  generatedAt: string;
+
+  /** Aggregate answerability status across all products */
+  overallStatus: AnswerabilityStatus;
+
+  /** Per-product answerability summaries */
+  products: ProductAnswerabilitySummary[];
+}

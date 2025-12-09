@@ -23,8 +23,10 @@ import {
   DeoIssuesResponse,
   DeoScoreJobPayload,
   DeoScoreSignals,
+  ProjectAnswerabilityResponse,
 } from '@engineo/shared';
 import { deoScoreQueue, crawlQueue } from '../queues/queues';
+import { AnswerEngineService } from './answer-engine.service';
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard)
@@ -35,6 +37,7 @@ export class ProjectsController {
     private readonly deoSignalsService: DeoSignalsService,
     private readonly deoIssuesService: DeoIssuesService,
     private readonly automationService: AutomationService,
+    private readonly answerEngineService: AnswerEngineService,
     private readonly entitlementsService: EntitlementsService,
     private readonly seoScanService: SeoScanService,
   ) {}
@@ -264,5 +267,18 @@ export class ProjectsController {
   @Get(':id/automation-suggestions')
   async getAutomationSuggestions(@Request() req: any, @Param('id') projectId: string) {
     return this.automationService.getSuggestionsForProject(projectId, req.user.id);
+  }
+
+  /**
+   * GET /projects/:id/answerability
+   * Returns Answer Engine answerability detection summary for a project (overall + per-product).
+   * Only the project owner may access this endpoint.
+   */
+  @Get(':id/answerability')
+  async getProjectAnswerability(
+    @Request() req: any,
+    @Param('id') projectId: string,
+  ): Promise<ProjectAnswerabilityResponse> {
+    return this.answerEngineService.getProjectAnswerability(projectId, req.user.id);
   }
 }

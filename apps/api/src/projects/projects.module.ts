@@ -6,6 +6,7 @@ import { DeoScoreService, DeoSignalsService } from './deo-score.service';
 import { DeoScoreProcessor } from './deo-score.processor';
 import { DeoIssuesService } from './deo-issues.service';
 import { AutomationService } from './automation.service';
+import { AnswerEngineService } from './answer-engine.service';
 import { AiModule } from '../ai/ai.module';
 import { BillingModule } from '../billing/billing.module';
 import { SeoScanService } from '../seo-scan/seo-scan.service';
@@ -21,6 +22,7 @@ import { SeoScanService } from '../seo-scan/seo-scan.service';
     DeoScoreProcessor,
     DeoIssuesService,
     AutomationService,
+    AnswerEngineService,
     SeoScanService,
   ],
   exports: [ProjectsService, DeoScoreService, AutomationService],

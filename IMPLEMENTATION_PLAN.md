@@ -7404,6 +7404,75 @@ export interface AnswerabilityStatus {
 
 ---
 
+## Phase AE-1.1 – Answer Engine Detection & API
+
+**Status:** Complete
+
+**Goal:** Implement heuristic Answerability detection for products and expose it via a backend API, without yet generating or persisting Answer Blocks.
+
+### Scope (AE-1.1 Detection & API)
+
+**Shared Types:**
+- Extended `packages/shared/src/answer-engine.ts` with:
+  - `ProductAnswerabilitySummary` – Per-product summary with productId, productTitle, and status
+  - `ProjectAnswerabilityResponse` – Full API response with projectId, generatedAt, overallStatus, and products array
+
+**Backend Implementation:**
+- Added `AnswerEngineService` in `apps/api/src/projects/answer-engine.service.ts`:
+  - Validates project ownership (throws 404/403 for invalid access)
+  - Loads products and computes per-product `AnswerabilityStatus` using heuristics
+  - Classifies each of 10 canonical questions as `missing`, `weak`, or `strong`
+  - Aggregates into project-level `overallStatus`
+
+- Detection Heuristics:
+  - `what_is_it`: Non-empty title + description with concrete content
+  - `who_is_it_for`: Audience indicators ("for runners", "for kids")
+  - `key_features`: Feature keywords and bullet patterns
+  - `how_is_it_used`: Usage verbs and instructions
+  - `problems_it_solves`: Problem/solution language
+  - `what_makes_it_different`: Differentiation indicators
+  - `whats_included`: Inclusion phrases ("includes", "comes with")
+  - `materials_and_specs`: Material keywords and dimension patterns
+  - `care_safety_instructions`: Care/safety phrases
+
+- Added `GET /projects/:id/answerability` endpoint in `ProjectsController`:
+  - Returns `ProjectAnswerabilityResponse`
+  - Enforces project ownership
+
+**E2E Tests:**
+- `apps/api/test/e2e/answer-engine.e2e-spec.ts`:
+  - Happy path with rich/minimal products
+  - Authorization tests (403 for non-owner)
+  - Not found tests (404 for invalid project)
+  - Empty products edge case
+
+**Documentation:**
+- Updated `docs/ANSWER_ENGINE_SPEC.md` with Section 9 (AE-1.1 implementation)
+- Updated `docs/testing/answer-engine.md` with concrete endpoint tests
+- Created `docs/manual-testing/phase-ae-1.1-answer-engine-detection.md`
+- Updated `docs/testing/CRITICAL_PATH_MAP.md` CP-011 with AE-1.1 scenarios
+
+### Constraints
+
+- No Prisma schema changes in AE-1.1
+- No Answer Block persistence (deferred to AE-1.2+)
+- No AI generation (deferred to AE-1.2+)
+- No frontend UI changes
+
+### Acceptance Criteria (Completed)
+
+- [x] `ProductAnswerabilitySummary` and `ProjectAnswerabilityResponse` types in shared package
+- [x] `AnswerEngineService` implements heuristic detection for all 10 questions
+- [x] `GET /projects/:id/answerability` returns stable `ProjectAnswerabilityResponse`
+- [x] Endpoint enforces ownership (403 for non-owners, 404 for missing projects)
+- [x] Detection respects non-hallucination rule (insufficient data → `missing`)
+- [x] E2E tests cover happy path, auth, and edge cases
+- [x] DEO Score v1/v2 APIs continue unchanged
+
+**Manual Testing:** `docs/testing/answer-engine.md`, `docs/manual-testing/phase-ae-1-answer-engine-foundations.md`, `docs/manual-testing/phase-ae-1.1-answer-engine-detection.md`
+
+---
+
 ## Phase AE-1 – Automation Engine Foundations (Framework & Spec)
 
 **Status:** Complete

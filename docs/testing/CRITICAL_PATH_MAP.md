@@ -240,13 +240,13 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 
 ### CP-011: Answer Engine (Answer Blocks & Answerability)
 
-**Description:** Answer Engine foundations including Answer Block model, answerability detection concepts, generation rules, and integration with DEO Score v2 and Issue Engine.
+**Description:** Answer Engine foundations including Answer Block model, answerability detection implementation, generation rules, and integration with DEO Score v2 and Issue Engine.
 
 | Field | Value |
 |-------|-------|
-| **Manual Testing Doc(s)** | `docs/testing/answer-engine.md`, `docs/manual-testing/phase-ae-1-answer-engine-foundations.md` |
-| **Automated Tests** | Planned |
-| **Last Verified (Manual)** | 2025-12-08 |
+| **Manual Testing Doc(s)** | `docs/testing/answer-engine.md`, `docs/manual-testing/phase-ae-1-answer-engine-foundations.md`, `docs/manual-testing/phase-ae-1.1-answer-engine-detection.md` |
+| **Automated Tests** | `apps/api/test/e2e/answer-engine.e2e-spec.ts` |
+| **Last Verified (Manual)** | 2025-12-09 |
 | **Last Verified (Automated)** | N/A |
 | **Owner** | DEO Team |
 
@@ -258,6 +258,11 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 - [ ] DEO Score v2 integration points documented
 - [ ] Issue Engine integration points documented (reserved issue IDs)
 - [ ] Shared package builds successfully with Answer Engine types
+- [ ] Answerability detection heuristics implemented for products using existing product text fields
+- [ ] `/projects/:id/answerability` endpoint returns ProjectAnswerabilityResponse with overall and per-product statuses
+- [ ] Detection respects non-hallucination rules (missing data → questions marked missing, no fabricated answers)
+- [ ] Unauthorized and cross-project access to answerability endpoint is correctly rejected
+- [ ] Answer Engine detection changes do not alter DEO Score v1/v2 API behavior
 
 ---
 
@@ -349,3 +354,4 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 | 1.4 | 2025-12-08 | Added CP-012: Automation Engine (Phase AE-1 Framework) |
 | 1.5 | 2025-12-08 | Added AE-2.1 key scenarios to CP-012 (Metadata Product Automations implementation) |
 | 1.6 | 2025-12-08 | Updated CP-005 with DEO Score v2 explainability scenarios (Phase 2.6) |
+| 1.7 | 2025-12-09 | Added AE-1.1 Answer Engine detection implementation scenarios and manual testing doc to CP-011 |

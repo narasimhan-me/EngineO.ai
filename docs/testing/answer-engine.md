@@ -11,21 +11,22 @@
 
 - **High-level user impact and what "success" looks like:**
   - Products have clear, AI-ready answers to key buyer questions
-  - Answerability signals feed into DEO Score v2 accurately
-  - Missing/weak answers surface as actionable issues
+  - Answerability detection is now implemented via the backend and `/projects/:id/answerability` endpoint (Phase AE-1.1)
+  - Missing/weak answers surface as actionable issues (future phase)
   - No hallucinated or fabricated content is generated
 
 - **Related phases/sections:**
   - Phase AE-1 (Answer Engine Foundations)
+  - Phase AE-1.1 (Answerability Detection & API)
   - DEO Score v2 (Answerability component)
   - Issue Engine Full (Answerability issues)
 
 - **Related documentation:**
   - `packages/shared/src/answer-engine.ts` (Shared types)
   - `docs/ANSWER_ENGINE_SPEC.md` (Technical specification)
-  - `docs/answers-overview.md` (Concept overview)
+  - `docs/manual-testing/phase-ae-1.1-answer-engine-detection.md` (AE-1.1 manual testing)
 
-- **Note:** In this initial phase, tests are largely conceptual and will become concrete as backend and UI implementations land.
+- **Note:** Answerability detection is now partially implemented (AE-1.1). Generation remains conceptual and will be implemented in AE-1.2+.
 
 ---
 
@@ -53,24 +54,29 @@
 
 ## Test Scenarios (Happy Path – Design-Level)
 
-### Scenario 1: Conceptual detection of missing answers
+### Scenario 1: Detection of missing answers via API
 
 **ID:** AE-001
 
-**Description:** Walk through detection logic for products missing key answers.
+**Description:** Validate detection logic for products missing key answers using the `/projects/:id/answerability` endpoint.
 
 **Test Data:**
 - Product A: Rich description mentioning materials, target audience, and features
 - Product B: Minimal description with no attribute data
 
+**Steps:**
+1. Create project with Product A and Product B
+2. Call `GET /projects/:id/answerability` with valid auth token
+3. Inspect per-product entries in response
+
 **Expected Detection Outcome:**
 
 | Product | what_is_it | who_is_it_for | key_features | materials_and_specs |
 |---------|------------|---------------|--------------|---------------------|
-| A | Answerable | Answerable | Answerable | Answerable |
+| A | Strong/Weak | Strong/Weak | Strong/Weak | Strong/Weak |
 | B | Missing | Missing | Missing | Missing |
 
-**AnswerabilityStatus for Product B:**
+**AnswerabilityStatus for Product B (from API response):**
 ```json
 {
   "status": "needs_answers",
@@ -80,17 +86,27 @@
 }
 ```
 
+**Verification:**
+- [ ] Product A status is NOT `needs_answers`
+- [ ] Product B status IS `needs_answers`
+- [ ] Product B has 5+ missing questions
+
 ---
 
-### Scenario 2: Conceptual detection of weak answers
+### Scenario 2: Detection of weak answers via API
 
 **ID:** AE-002
 
-**Description:** Identify products with low-confidence or incomplete answers.
+**Description:** Identify products with low-confidence or incomplete answers using the `/projects/:id/answerability` endpoint.
 
 **Test Data:**
 - Product C: Has description but content is vague ("Great product, you'll love it!")
 - Product D: Has description but conflicts with attributes (description says "leather" but material attribute says "synthetic")
+
+**Steps:**
+1. Create products C and D with vague/contradictory descriptions
+2. Call `GET /projects/:id/answerability`
+3. Inspect per-product entries in response
 
 **Expected Detection Outcome:**
 
@@ -99,7 +115,7 @@
 | C | Weak answers | Vague content, low confidence |
 | D | Weak answers | Conflicting information |
 
-**AnswerabilityStatus:**
+**AnswerabilityStatus (from API response):**
 ```json
 {
   "status": "partially_answer_ready",
@@ -108,6 +124,11 @@
   "answerabilityScore": 45
 }
 ```
+
+**Verification:**
+- [ ] Affected questions appear in `weakQuestions` (not `missingQuestions`)
+- [ ] Status is `partially_answer_ready`
+- [ ] `answerabilityScore` is in mid-range (30-60)
 
 ---
 
@@ -261,6 +282,7 @@
 - [ ] **DEO Score v2:** Answerability component accepts signals
 - [ ] **Issue Engine:** Reserved issue IDs don't conflict with existing issues
 - [ ] **Product Workspace:** Future Answers tab integration
+- [ ] `/projects/:id/answerability` endpoint returns stable shapes and respects auth/ownership rules
 
 ### Quick sanity checks:
 
@@ -268,6 +290,10 @@
 - [ ] `pnpm --filter shared build` passes
 - [ ] No TypeScript errors in dependent packages
 - [ ] Spec document is internally consistent
+- [ ] Answerability endpoint returns 200 for valid requests
+- [ ] Answerability endpoint returns 403 for non-owner access
+
+**Note:** DEO Score v2 integration remains conceptual; AE-1.1 only surfaces detection signals via the API.
 
 ---
 

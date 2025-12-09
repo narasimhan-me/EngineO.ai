@@ -295,15 +295,126 @@ Answer Engine versions follow the pattern: `ae_v{major}` or `ae_v{major}_{minor}
 
 ## 8. Acceptance Criteria (Phase AE 1.0 Spec)
 
-- [ ] `AnswerBlock` and `AnswerabilityStatus` types defined in shared package
-- [ ] Canonical 10-question taxonomy documented
-- [ ] No-hallucination rules clearly specified
-- [ ] Lifecycle stages defined (detection, generation, review, sync)
-- [ ] DEO Score v2 integration points documented
-- [ ] Issue Engine integration points documented (reserved issue IDs)
-- [ ] UI expectations documented (deferred implementation)
-- [ ] Version scheme defined
-- [ ] Security/safety requirements specified
+- [x] `AnswerBlock` and `AnswerabilityStatus` types defined in shared package
+- [x] Canonical 10-question taxonomy documented
+- [x] No-hallucination rules clearly specified
+- [x] Lifecycle stages defined (detection, generation, review, sync)
+- [x] DEO Score v2 integration points documented
+- [x] Issue Engine integration points documented (reserved issue IDs)
+- [x] UI expectations documented (deferred implementation)
+- [x] Version scheme defined
+- [x] Security/safety requirements specified
+
+---
+
+## 9. Phase AE-1.1 – Answerability Detection & API
+
+### Scope
+
+Phase AE-1.1 implements heuristic answerability detection for products based on:
+
+- **Product title and descriptions** (`title`, `description`, `seoTitle`, `seoDescription`)
+- **Presence and richness of content** relevant to each of the 10 canonical questions
+
+This phase **excludes**:
+
+- Answer Block persistence (deferred to AE-1.2+)
+- AI generation (deferred to AE-1.2+)
+- UI changes (deferred to UX/AE phases)
+
+### Detection Heuristics
+
+The `AnswerEngineService` classifies each of the 10 canonical questions as `missing`, `weak`, or `strong` based on heuristics over product text:
+
+| Question | Detection Approach |
+|----------|-------------------|
+| `what_is_it` | Requires non-empty title and description with concrete nouns; short/generic content is weak |
+| `who_is_it_for` | Looks for audience indicators ("for runners", "for kids", "designed for") |
+| `key_features` | Looks for feature keywords ("features", "built with", "equipped with") and bullet patterns |
+| `how_is_it_used` | Looks for usage verbs ("use it to", "simply plug", "wear this") |
+| `problems_it_solves` | Looks for problem/solution language ("helps reduce", "prevents", "solves") |
+| `what_makes_it_different` | Looks for differentiation indicators ("unlike other", "unique because", "patented") |
+| `whats_included` | Looks for inclusion phrases ("includes", "comes with", "set of") |
+| `materials_and_specs` | Looks for material keywords (cotton, steel, etc.) and dimension patterns |
+| `care_safety_instructions` | Looks for care/safety phrases ("machine wash", "warning", "non-toxic") |
+| `why_choose_this` | Looks for value proposition language and overall content quality |
+
+**Answerability Score Computation:**
+
+- Base score from fraction of non-missing questions (coverage)
+- Quality bonus for strong vs weak classifications
+- Final score: `(coverage * 40) + (quality * 60)`, clamped to [0, 100]
+
+**Non-Hallucination Rule:**
+
+When source data is insufficient for a question, the system marks it as `missing` and **never fabricates an answer**. Conflicting or low-quality data results in `weak` classification, not `strong`.
+
+### API Endpoint
+
+```
+GET /projects/:projectId/answerability
+```
+
+**Authentication:** Required (JWT Bearer token)
+
+**Authorization:** Only the project owner can access this endpoint
+
+**Response Shape:**
+
+```typescript
+interface ProjectAnswerabilityResponse {
+  projectId: string;
+  generatedAt: string;  // ISO timestamp
+  overallStatus: {
+    status: 'answer_ready' | 'partially_answer_ready' | 'needs_answers';
+    missingQuestions: AnswerBlockQuestionId[];
+    weakQuestions: AnswerBlockQuestionId[];
+    answerabilityScore: number;  // 0-100
+  };
+  products: Array<{
+    productId: string;
+    productTitle: string;
+    status: AnswerabilityStatus;
+  }>;
+}
+```
+
+**Error Responses:**
+
+- `401 Unauthorized` – Missing or invalid token
+- `403 Forbidden` – User does not own the project
+- `404 Not Found` – Project does not exist
+
+### Integration & Non-Goals
+
+**AE-1.1 does NOT:**
+
+- Persist Answer Blocks to the database
+- Modify DEO Score v2 computation (detection output is separate from scoring)
+- Surface UI changes (Answers tab is AE-1.2+)
+- Generate AI-written answers
+
+**AE-1.1 detection output is designed to:**
+
+- Feed into future DEO Score v2 Answerability component refinements
+- Feed into Issue Engine as future `missing_answer_*` / `weak_answer_*` issues
+- Provide actionable data for the Product Workspace Answers tab (AE-1.2+)
+
+### Versioning
+
+AE-1.1 remains under the `ae_v1` family for detection. Detection version is implicit in the service implementation; Answer Block versioning (for persistence) is not yet active.
+
+---
+
+## 10. Acceptance Criteria (Phase AE-1.1)
+
+- [x] `ProductAnswerabilitySummary` and `ProjectAnswerabilityResponse` types defined in shared package
+- [x] `AnswerEngineService` implemented with heuristic detection for all 10 questions
+- [x] `GET /projects/:id/answerability` endpoint returns stable `ProjectAnswerabilityResponse`
+- [x] Endpoint enforces project ownership (403 for non-owners, 404 for missing projects)
+- [x] Detection respects non-hallucination rule (missing data → questions marked missing)
+- [x] E2E tests cover happy path, authorization, and edge cases
+- [x] DEO Score v1/v2 APIs continue unchanged
 
 ---
 
@@ -312,3 +423,4 @@ Answer Engine versions follow the pattern: `ae_v{major}` or `ae_v{major}_{minor}
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2025-12-08 | Initial Answer Engine specification (Phase AE 1.0) |
+| 1.1 | 2025-12-09 | Added Phase AE-1.1 Answerability detection implementation and /projects/:id/answerability API |
