@@ -7848,6 +7848,113 @@ Phase AE-2.1 implements the core metadata automation pipeline with plan-aware au
 
 ---
 
+## Phase AUE-1 – Automation Engine Vertical Slice (New Product SEO Title Auto-Generation)
+
+**Status:** Complete
+
+**Overview:**
+
+Phase AUE-1 implements the first immediate automation rule: `AUTO_GENERATE_METADATA_ON_NEW_PRODUCT`. This rule triggers automatically when new products are synced from Shopify and generates SEO metadata for products with missing titles or descriptions.
+
+### Rule Definition
+
+| Field | Value |
+|-------|-------|
+| **Rule ID** | `AUTO_GENERATE_METADATA_ON_NEW_PRODUCT` |
+| **Kind** | Immediate |
+| **Trigger** | New product synced from Shopify |
+| **Target Surface** | `product` |
+| **Action** | Generate SEO title and description |
+
+### Trigger Flow
+
+```
+Shopify Sync → New Product Detected → AutomationService Triggered
+                                              ↓
+                        Check Entitlements (Daily AI Limit)
+                                              ↓
+                        Generate Metadata (AI Service)
+                                              ↓
+                        Record AI Usage → Create AutomationSuggestion
+                                              ↓
+                        Auto-Apply (Pro/Business) or Suggestion Only (Free)
+```
+
+### Key Features
+
+1. **Immediate Trigger on Shopify Sync:**
+   - `ShopifyService.syncProducts` detects new products
+   - Non-blocking automation call (errors don't block sync)
+   - Logged warning if automation fails
+
+2. **Entitlements-Aware:**
+   - Checks daily AI limit before generating metadata
+   - Records AI usage via `recordAiUsage`
+   - Skips gracefully when limit reached
+
+3. **Plan-Based Auto-Apply:**
+   - Free: Creates suggestion only, user must manually apply
+   - Pro/Business: Auto-applies generated metadata to product
+
+4. **Safety Features:**
+   - Skip if SEO fields already populated
+   - Non-blocking execution (sync continues even if automation fails)
+   - Full audit trail with `source: 'automation_new_product_v1'`
+
+### Files Modified
+
+**Backend:**
+- `apps/api/src/shopify/shopify.module.ts` – Import `ProjectsModule` with `forwardRef`
+- `apps/api/src/shopify/shopify.service.ts` – Inject `AutomationService`, call automation for new products
+- `apps/api/src/projects/automation.service.ts` – New `runNewProductSeoTitleAutomation` method
+
+**Tests:**
+- `apps/api/test/e2e/automation-new-product-seo-title.e2e-spec.ts` – E2E tests
+
+**Documentation:**
+- `docs/AUTOMATION_ENGINE_SPEC.md` – Section 8.6 for AUE-1 implementation
+- `docs/testing/automation-engine-product-automations.md` – AUE-1 specific test scenarios
+- `docs/manual-testing/phase-aue-1-automation-new-product-seo-title.md` – Manual testing guide
+- `docs/testing/CRITICAL_PATH_MAP.md` – Updated CP-012 with AUE-1 scenarios
+
+### Plan Behavior Matrix
+
+| Plan | Behavior |
+|------|----------|
+| **Free** | Creates suggestion only; user must manually apply |
+| **Pro** | Auto-applies generated metadata to product |
+| **Business** | Auto-applies generated metadata to product |
+
+### E2E Test Coverage
+
+| Test | Description |
+|------|-------------|
+| Creates suggestion for missing SEO | Verifies suggestion created with `automation_new_product_v1` source |
+| Skips when SEO populated | Verifies no suggestion created when fields already exist |
+| Records AI usage | Verifies `AiUsageEvent` created |
+| Auto-applies for Pro plan | Verifies metadata applied and suggestion marked `applied: true` |
+| Does not auto-apply for Free | Verifies suggestion created but not applied |
+| Handles non-existent product | Verifies graceful handling without throwing |
+
+### AUE-1 Acceptance Criteria (Completed)
+
+- [x] `ShopifyModule` imports `ProjectsModule` with `forwardRef`
+- [x] `ShopifyService` injects `AutomationService`
+- [x] `ShopifyService.syncProducts` triggers automation for new products (non-blocking)
+- [x] `AutomationService.runNewProductSeoTitleAutomation` implemented
+- [x] Daily AI limit enforced via `ensureWithinDailyAiLimit`
+- [x] AI usage recorded via `recordAiUsage`
+- [x] Auto-apply for Pro/Business plans only
+- [x] E2E tests created
+- [x] `docs/AUTOMATION_ENGINE_SPEC.md` Section 8.6 added
+- [x] `docs/testing/automation-engine-product-automations.md` updated with AUE-1 scenarios
+- [x] `docs/manual-testing/phase-aue-1-automation-new-product-seo-title.md` created
+- [x] `docs/testing/CRITICAL_PATH_MAP.md` CP-012 updated with AUE-1 key scenarios
+
+**Manual Testing:** `docs/manual-testing/phase-aue-1-automation-new-product-seo-title.md`
+
+---
+
 These Phases 23–30 plus Phases UX-1, UX-1.1, UX-2, UX-3, UX-4, UX-5, UX-6, UX-7, UX-8, AE-1 (Answer Engine), AE-1 (Automation Engine), AE-2 (Product Automations), UX-Content-1, UX-Content-2, and MARKETING-1 through MARKETING-6 extend your IMPLEMENTATION_PLAN.md and keep your roadmap cohesive:
 
 - Phases 12–17: Core feature sets (automation, content, performance, competitors, local, social).

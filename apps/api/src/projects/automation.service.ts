@@ -465,6 +465,154 @@ export class AutomationService {
     });
   }
 
+  /**
+   * AUTO_GENERATE_METADATA_ON_NEW_PRODUCT rule
+   *
+   * Triggered immediately when a new product is synced from Shopify.
+   * Generates SEO title/description if missing, respecting entitlements.
+   *
+   * @param projectId - The project ID
+   * @param productId - The newly created product ID
+   * @param userId - The user ID (owner of the project)
+   */
+  async runNewProductSeoTitleAutomation(
+    projectId: string,
+    productId: string,
+    userId: string,
+  ): Promise<void> {
+    // Check entitlements - ensure user is within daily AI limit
+    try {
+      await this.entitlementsService.ensureWithinDailyAiLimit(
+        userId,
+        projectId,
+        'automation_new_product',
+      );
+    } catch {
+      this.logger.log(
+        `[Automation] Skipping new product automation for ${productId}: daily AI limit reached`,
+      );
+      return;
+    }
+
+    // Load the product
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+    });
+
+    if (!product) {
+      this.logger.warn(
+        `[Automation] Product ${productId} not found for automation`,
+      );
+      return;
+    }
+
+    // Only run if SEO fields are missing
+    const titleIsMissing = !product.seoTitle || product.seoTitle.trim() === '';
+    const descriptionIsMissing = !product.seoDescription || product.seoDescription.trim() === '';
+
+    if (!titleIsMissing && !descriptionIsMissing) {
+      this.logger.log(
+        `[Automation] Skipping new product automation for ${productId}: SEO fields already populated`,
+      );
+      return;
+    }
+
+    // Generate metadata using AI
+    const descriptionText =
+      (product.seoDescription ?? product.description ?? '')?.toString() || '';
+
+    const metadata = await this.aiService.generateMetadata({
+      url: product.externalId ?? product.id,
+      currentTitle: (product.seoTitle ?? product.title ?? '').toString(),
+      currentDescription: descriptionText,
+      pageTextSnippet: descriptionText.slice(0, 800),
+    });
+
+    // Record AI usage
+    await this.entitlementsService.recordAiUsage(
+      userId,
+      projectId,
+      'automation_new_product',
+    );
+
+    // Create the automation suggestion
+    const suggestion = await this.prisma.automationSuggestion.upsert({
+      where: {
+        projectId_targetType_targetId_issueType: {
+          projectId,
+          targetType: AutomationTargetType.PRODUCT,
+          targetId: productId,
+          issueType: AutomationIssueType.MISSING_METADATA,
+        },
+      },
+      update: {
+        suggestedTitle: metadata.title,
+        suggestedDescription: metadata.description,
+        generatedAt: new Date(),
+        source: 'automation_new_product_v1',
+        applied: false,
+        appliedAt: null,
+      },
+      create: {
+        projectId,
+        targetType: AutomationTargetType.PRODUCT,
+        targetId: productId,
+        issueType: AutomationIssueType.MISSING_METADATA,
+        suggestedTitle: metadata.title,
+        suggestedDescription: metadata.description,
+        suggestedH1: null,
+        source: 'automation_new_product_v1',
+        applied: false,
+        appliedAt: null,
+      },
+    });
+
+    // Check if we should auto-apply (Pro/Business plans only)
+    const shouldAutoApply = await this.entitlementsService.canAutoApplyMetadataAutomations(userId);
+
+    if (shouldAutoApply) {
+      const suggestedTitleValid = metadata.title && metadata.title.trim() !== '';
+      const suggestedDescriptionValid = metadata.description && metadata.description.trim() !== '';
+
+      // Only apply if at least one field needs updating and we have valid suggestions
+      if ((titleIsMissing && suggestedTitleValid) || (descriptionIsMissing && suggestedDescriptionValid)) {
+        const updateData: { seoTitle?: string; seoDescription?: string; lastSyncedAt: Date } = {
+          lastSyncedAt: new Date(),
+        };
+
+        if (titleIsMissing && suggestedTitleValid) {
+          updateData.seoTitle = metadata.title;
+        }
+        if (descriptionIsMissing && suggestedDescriptionValid) {
+          updateData.seoDescription = metadata.description;
+        }
+
+        // Update the product
+        await this.prisma.product.update({
+          where: { id: productId },
+          data: updateData,
+        });
+
+        // Mark the suggestion as applied
+        await this.prisma.automationSuggestion.update({
+          where: { id: suggestion.id },
+          data: {
+            applied: true,
+            appliedAt: new Date(),
+          },
+        });
+
+        this.logger.log(
+          `[Automation] Auto-applied metadata for new product ${productId} (AUTO_GENERATE_METADATA_ON_NEW_PRODUCT)`,
+        );
+      }
+    } else {
+      this.logger.log(
+        `[Automation] Created suggestion for new product ${productId} (Free plan: manual apply required)`,
+      );
+    }
+  }
+
   async getSuggestionsForProject(projectId: string, userId: string) {
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },

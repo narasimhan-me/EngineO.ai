@@ -1,11 +1,13 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Inject, forwardRef, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma.service';
 import { IntegrationType } from '@prisma/client';
 import * as crypto from 'crypto';
+import { AutomationService } from '../projects/automation.service';
 
 @Injectable()
 export class ShopifyService {
+  private readonly logger = new Logger(ShopifyService.name);
   private readonly apiKey: string;
   private readonly apiSecret: string;
   private readonly appUrl: string;
@@ -15,6 +17,8 @@ export class ShopifyService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    @Inject(forwardRef(() => AutomationService))
+    private readonly automationService: AutomationService,
   ) {
     this.apiKey = this.config.get<string>('SHOPIFY_API_KEY');
     this.apiSecret = this.config.get<string>('SHOPIFY_API_SECRET');
@@ -219,7 +223,7 @@ export class ShopifyService {
         });
         updated++;
       } else {
-        await this.prisma.product.create({
+        const newProduct = await this.prisma.product.create({
           data: {
             projectId,
             externalId,
@@ -227,6 +231,16 @@ export class ShopifyService {
           },
         });
         created++;
+
+        // Trigger automation for new products (non-blocking)
+        // This runs AUTO_GENERATE_METADATA_ON_NEW_PRODUCT rule
+        this.automationService
+          .runNewProductSeoTitleAutomation(projectId, newProduct.id, userId)
+          .catch((err) => {
+            this.logger.warn(
+              `[ShopifySync] Automation failed for new product ${newProduct.id}: ${err.message}`,
+            );
+          });
       }
     }
 

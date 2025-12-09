@@ -20,21 +20,34 @@ This document covers testing for **Phase AE-2 – Product Automation Library**, 
 ### 2.1 Metadata Automations
 
 **Rules:**
-- `AUTO_GENERATE_METADATA_ON_NEW_PRODUCT`
+- `AUTO_GENERATE_METADATA_ON_NEW_PRODUCT` (✅ Implemented in AUE-1)
 - `AUTO_GENERATE_METADATA_FOR_MISSING_METADATA`
 - `AUTO_GENERATE_METADATA_FOR_THIN_CONTENT`
 
 **Test Scenarios:**
 
+| ID | Scenario | Expected Behavior | Status |
+|----|----------|-------------------|--------|
+| META-001 | New product synced with missing SEO title | Automation triggers, generates title based on product data | ✅ AUE-1 |
+| META-002 | New product synced with missing SEO description | Automation triggers, generates description based on product data | ✅ AUE-1 |
+| META-003 | Product has weak/short title (< 30 chars) | Automation detects and improves title | Pending |
+| META-004 | Product has thin description (< 40 words) | Automation detects and expands description | Pending |
+| META-005 | Product has insufficient data for generation | Automation skips with logged reason ("insufficient_data") | ✅ AUE-1 |
+| META-006 | Daily automation limit reached | Automation skips with logged reason ("daily_limit_reached") | ✅ AUE-1 |
+| META-007 | User on Free plan hits automation cap | Automation blocked, user notified | ✅ AUE-1 |
+
+#### AUE-1 Specific Test Scenarios
+
 | ID | Scenario | Expected Behavior |
 |----|----------|-------------------|
-| META-001 | New product synced with missing SEO title | Automation triggers, generates title based on product data |
-| META-002 | New product synced with missing SEO description | Automation triggers, generates description based on product data |
-| META-003 | Product has weak/short title (< 30 chars) | Automation detects and improves title |
-| META-004 | Product has thin description (< 40 words) | Automation detects and expands description |
-| META-005 | Product has insufficient data for generation | Automation skips with logged reason ("insufficient_data") |
-| META-006 | Daily automation limit reached | Automation skips with logged reason ("daily_limit_reached") |
-| META-007 | User on Free plan hits automation cap | Automation blocked, user notified |
+| AUE1-001 | New product created during Shopify sync (missing SEO) | `runNewProductSeoTitleAutomation` triggered, `AutomationSuggestion` created |
+| AUE1-002 | New product created (SEO already populated) | Automation skips, no suggestion created |
+| AUE1-003 | Pro plan user: new product synced | Metadata auto-applied to product, suggestion marked `applied: true` |
+| AUE1-004 | Free plan user: new product synced | Suggestion created but NOT applied, user must manually apply |
+| AUE1-005 | AI usage recorded | `AiUsageEvent` created with feature `automation_new_product` |
+| AUE1-006 | Daily AI limit exceeded | Automation skips gracefully, logged |
+| AUE1-007 | Non-existent product ID | Automation handles gracefully, no error thrown |
+| AUE1-008 | Shopify sync continues if automation fails | Sync completes successfully, automation error logged |
 
 ### 2.2 Content Automations
 
@@ -197,3 +210,4 @@ After any changes to automation logic, verify:
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2025-12-08 | Initial Product Automations testing document (Phase AE-2) |
+| 1.1 | 2025-12-09 | Added AUE-1 specific test scenarios for new product SEO title automation |

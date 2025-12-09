@@ -277,9 +277,9 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 
 | Field | Value |
 |-------|-------|
-| **Manual Testing Doc(s)** | `docs/testing/automation-engine.md`, `docs/testing/automation-engine-product-automations.md`, `docs/manual-testing/phase-ae-1-automation-engine-foundations.md`, `docs/manual-testing/phase-ae-2-product-automations.md` |
-| **Automated Tests** | Planned |
-| **Last Verified (Manual)** | 2025-12-08 |
+| **Manual Testing Doc(s)** | `docs/testing/automation-engine.md`, `docs/testing/automation-engine-product-automations.md`, `docs/manual-testing/phase-ae-1-automation-engine-foundations.md`, `docs/manual-testing/phase-ae-2-product-automations.md`, `docs/manual-testing/phase-aue-1-automation-new-product-seo-title.md` |
+| **Automated Tests** | `apps/api/test/e2e/automation-new-product-seo-title.e2e-spec.ts` |
+| **Last Verified (Manual)** | 2025-12-09 |
 | **Last Verified (Automated)** | N/A |
 | **Owner** | DEO Team |
 
@@ -299,6 +299,14 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 - [ ] AE-2.1: appliedAt timestamp recorded when auto-apply occurs
 - [ ] AE-2.1: "Applied by Automation Engine" badge displays correctly
 - [ ] AE-2.1: Automation Activity page shows applied/pending suggestions
+- [ ] AUE-1: `AUTO_GENERATE_METADATA_ON_NEW_PRODUCT` triggers on Shopify product sync
+- [ ] AUE-1: New product with missing SEO creates AutomationSuggestion
+- [ ] AUE-1: New product with existing SEO skips automation
+- [ ] AUE-1: Pro/Business users get metadata auto-applied
+- [ ] AUE-1: Free users get suggestion only (no auto-apply)
+- [ ] AUE-1: AI usage recorded via `recordAiUsage`
+- [ ] AUE-1: Daily AI limit enforced; automation skips when limit reached
+- [ ] AUE-1: Automation failure doesn't block Shopify sync
 
 ---
 
@@ -361,3 +369,4 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 | 1.6 | 2025-12-08 | Updated CP-005 with DEO Score v2 explainability scenarios (Phase 2.6) |
 | 1.7 | 2025-12-09 | Added AE-1.1 Answer Engine detection implementation scenarios and manual testing doc to CP-011 |
 | 1.8 | 2025-12-09 | Added AE-1.2 Answer Engine generation and UI scenarios to CP-011 (POST /ai/product-answers, ProductAnswersPanel) |
+| 1.9 | 2025-12-09 | Added AUE-1 Automation Engine Vertical Slice scenarios to CP-012 (AUTO_GENERATE_METADATA_ON_NEW_PRODUCT) |

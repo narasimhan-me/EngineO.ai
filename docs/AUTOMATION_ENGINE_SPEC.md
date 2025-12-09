@@ -584,6 +584,147 @@ New page at `/projects/[id]/automation/` showing:
 
 ---
 
+## 8.6 Phase AUE-1: Automation Engine Vertical Slice (New Product SEO Title Auto-Generation)
+
+### Implementation Status: ✅ COMPLETE
+
+Phase AUE-1 implements the first immediate automation rule: `AUTO_GENERATE_METADATA_ON_NEW_PRODUCT`.
+
+### Rule Definition
+
+| Field | Value |
+|-------|-------|
+| **Rule ID** | `AUTO_GENERATE_METADATA_ON_NEW_PRODUCT` |
+| **Kind** | Immediate |
+| **Trigger** | New product synced from Shopify |
+| **Target Surface** | `product` |
+| **Action** | Generate SEO title and description |
+
+### Trigger Flow
+
+```
+┌─────────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐
+│   Shopify Sync      │ --> │  New Product        │ --> │  Automation         │
+│   (syncProducts)    │     │  Detected           │     │  Service Triggered  │
+└─────────────────────┘     └─────────────────────┘     └─────────────────────┘
+                                                                   │
+                                                                   ▼
+┌─────────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐
+│  Apply to Product   │ <-- │  Generate Metadata  │ <-- │  Check Entitlements │
+│  (Pro/Business)     │     │  (AI Service)       │     │  (Daily AI Limit)   │
+└─────────────────────┘     └─────────────────────┘     └─────────────────────┘
+```
+
+### Backend Implementation
+
+#### ShopifyModule
+
+Updated to import `ProjectsModule` with `forwardRef` to access `AutomationService`:
+
+```typescript
+@Module({
+  imports: [
+    JwtModule.registerAsync({ ... }),
+    forwardRef(() => ProjectsModule),
+  ],
+  // ...
+})
+export class ShopifyModule {}
+```
+
+#### ShopifyService
+
+Injects `AutomationService` and triggers automation for new products:
+
+```typescript
+constructor(
+  private readonly prisma: PrismaService,
+  private readonly config: ConfigService,
+  @Inject(forwardRef(() => AutomationService))
+  private readonly automationService: AutomationService,
+) { ... }
+
+async syncProducts(projectId: string, userId: string) {
+  // ... existing sync logic ...
+
+  if (existingProduct) {
+    // Update existing
+  } else {
+    const newProduct = await this.prisma.product.create({ ... });
+
+    // Trigger automation (non-blocking)
+    this.automationService
+      .runNewProductSeoTitleAutomation(projectId, newProduct.id, userId)
+      .catch((err) => {
+        this.logger.warn(`Automation failed: ${err.message}`);
+      });
+  }
+}
+```
+
+#### AutomationService
+
+New method `runNewProductSeoTitleAutomation`:
+
+```typescript
+async runNewProductSeoTitleAutomation(
+  projectId: string,
+  productId: string,
+  userId: string,
+): Promise<void> {
+  // 1. Check daily AI limit
+  // 2. Load product
+  // 3. Skip if SEO fields already populated
+  // 4. Generate metadata via AI
+  // 5. Record AI usage
+  // 6. Create AutomationSuggestion
+  // 7. Auto-apply if Pro/Business plan
+}
+```
+
+### Plan Behavior
+
+| Plan | Behavior |
+|------|----------|
+| **Free** | Creates suggestion only; user must manually apply |
+| **Pro** | Auto-applies generated metadata to product |
+| **Business** | Auto-applies generated metadata to product |
+
+### Safety Features
+
+1. **Non-blocking execution** - Automation failures don't block Shopify sync
+2. **Daily AI limit check** - Respects entitlements before generating metadata
+3. **AI usage tracking** - Records usage via `recordAiUsage`
+4. **Skip when populated** - Won't overwrite existing SEO fields
+5. **Audit trail** - Creates `AutomationSuggestion` with `source: 'automation_new_product_v1'`
+
+### E2E Test Coverage
+
+File: `apps/api/test/e2e/automation-new-product-seo-title.e2e-spec.ts`
+
+| Test | Description |
+|------|-------------|
+| Creates suggestion for missing SEO | Verifies suggestion created with `automation_new_product_v1` source |
+| Skips when SEO populated | Verifies no suggestion created when fields already exist |
+| Records AI usage | Verifies `AiUsageEvent` created |
+| Auto-applies for Pro plan | Verifies metadata applied and suggestion marked `applied: true` |
+| Does not auto-apply for Free | Verifies suggestion created but not applied |
+| Handles non-existent product | Verifies graceful handling without throwing |
+
+### AUE-1 Acceptance Criteria
+
+- [x] `ShopifyModule` imports `ProjectsModule` with `forwardRef`
+- [x] `ShopifyService` injects `AutomationService`
+- [x] `ShopifyService.syncProducts` triggers automation for new products
+- [x] `AutomationService.runNewProductSeoTitleAutomation` implemented
+- [x] Daily AI limit enforced via `ensureWithinDailyAiLimit`
+- [x] AI usage recorded via `recordAiUsage`
+- [x] Auto-apply for Pro/Business plans only
+- [x] E2E tests created
+- [x] Documentation updated
+
+---
+
 ## 9. Security & Safety
 
 ### Non-Destructive Behavior
@@ -629,3 +770,4 @@ New page at `/projects/[id]/automation/` showing:
 | 1.0 | 2025-12-08 | Initial Automation Engine specification (Phase AE-1 Framework) |
 | 1.1 | 2025-12-08 | Added Section 8: Product Automations (Phase AE-2) |
 | 1.2 | 2025-12-08 | Added Section 8.5: AE-2.1 Implementation (Metadata Product Automations) |
+| 1.3 | 2025-12-09 | Added Section 8.6: Phase AUE-1 (New Product SEO Title Auto-Generation) |
