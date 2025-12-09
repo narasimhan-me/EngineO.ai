@@ -18,6 +18,7 @@ import {
   type ProductMetadataSuggestion,
   type AutomationSuggestion,
 } from '@/components/products/optimization';
+import { ProductAnswersPanel, type ProductAnswersResponse } from '@/components/products/optimization/ProductAnswersPanel';
 import { useFeedback } from '@/components/feedback/FeedbackProvider';
 
 export default function ProductOptimizationPage() {
@@ -51,6 +52,11 @@ export default function ProductOptimizationPage() {
 
   // Shopify apply state
   const [applyingToShopify, setApplyingToShopify] = useState(false);
+
+  // Answer Engine states (AE-1.2)
+  const [answersResponse, setAnswersResponse] = useState<ProductAnswersResponse | null>(null);
+  const [loadingAnswers, setLoadingAnswers] = useState(false);
+  const [answersError, setAnswersError] = useState<string | null>(null);
 
   // Track if we've shown the auto-apply toast (one-time per page load)
   const autoApplyToastShown = useRef(false);
@@ -175,6 +181,40 @@ export default function ProductOptimizationPage() {
       }
     } finally {
       setLoadingSuggestion(false);
+    }
+  }, [product, feedback]);
+
+  const fetchAnswers = useCallback(async () => {
+    if (!product) return;
+
+    try {
+      setLoadingAnswers(true);
+      setAnswersError(null);
+
+      const result = await aiApi.generateProductAnswers(product.id);
+      setAnswersResponse(result as ProductAnswersResponse);
+
+      const answerCount = result.answers?.length || 0;
+      feedback.showSuccess(`Generated ${answerCount} answer(s) for this product.`);
+    } catch (err: unknown) {
+      console.error('Error generating answers:', err);
+
+      // Handle daily AI limit reached
+      if (err instanceof ApiError && err.code === 'AI_DAILY_LIMIT_REACHED') {
+        const limitMessage =
+          "Daily AI limit reached. You've used all AI suggestions available on your plan. Your limit resets tomorrow, or upgrade to continue.";
+        setAnswersError(limitMessage);
+        feedback.showLimit(limitMessage, '/settings/billing');
+        return;
+      }
+
+      // Generic error
+      const message =
+        err instanceof Error ? err.message : 'Failed to generate answers. Please try again.';
+      setAnswersError(message);
+      feedback.showError(message);
+    } finally {
+      setLoadingAnswers(false);
     }
   }, [product, feedback]);
 
@@ -346,6 +386,12 @@ export default function ProductOptimizationPage() {
                 loading={loadingSuggestion}
                 onGenerate={fetchSuggestion}
                 onApply={handleApplySuggestion}
+              />
+              <ProductAnswersPanel
+                response={answersResponse}
+                loading={loadingAnswers}
+                error={answersError}
+                onGenerate={fetchAnswers}
               />
               <ProductSeoEditor
                 title={editorTitle}

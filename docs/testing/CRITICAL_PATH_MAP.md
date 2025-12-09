@@ -240,12 +240,12 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 
 ### CP-011: Answer Engine (Answer Blocks & Answerability)
 
-**Description:** Answer Engine foundations including Answer Block model, answerability detection implementation, generation rules, and integration with DEO Score v2 and Issue Engine.
+**Description:** Answer Engine foundations including Answer Block model, answerability detection implementation, AI-based answer generation, and integration with DEO Score v2 and Issue Engine.
 
 | Field | Value |
 |-------|-------|
-| **Manual Testing Doc(s)** | `docs/testing/answer-engine.md`, `docs/manual-testing/phase-ae-1-answer-engine-foundations.md`, `docs/manual-testing/phase-ae-1.1-answer-engine-detection.md` |
-| **Automated Tests** | `apps/api/test/e2e/answer-engine.e2e-spec.ts` |
+| **Manual Testing Doc(s)** | `docs/testing/answer-engine.md`, `docs/manual-testing/phase-ae-1-answer-engine-foundations.md`, `docs/manual-testing/phase-ae-1.1-answer-engine-detection.md`, `docs/manual-testing/phase-ae-1.2-answer-engine-generation-and-ui.md` |
+| **Automated Tests** | `apps/api/test/e2e/answer-engine.e2e-spec.ts`, `apps/api/test/e2e/answer-generation.e2e-spec.ts` |
 | **Last Verified (Manual)** | 2025-12-09 |
 | **Last Verified (Automated)** | N/A |
 | **Owner** | DEO Team |
@@ -263,6 +263,11 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 - [ ] Detection respects non-hallucination rules (missing data → questions marked missing, no fabricated answers)
 - [ ] Unauthorized and cross-project access to answerability endpoint is correctly rejected
 - [ ] Answer Engine detection changes do not alter DEO Score v1/v2 API behavior
+- [ ] AE-1.2: `POST /ai/product-answers` endpoint returns ProductAnswersResponse with ephemeral answers
+- [ ] AE-1.2: AI generation respects non-hallucination rules (cannotAnswer: true for insufficient data)
+- [ ] AE-1.2: ProductAnswersPanel displays answers in Product Optimization workspace
+- [ ] AE-1.2: Daily AI limit enforcement works for answer generation
+- [ ] AE-1.2: Answers include confidence scores and facts-used metadata
 
 ---
 
@@ -355,3 +360,4 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 | 1.5 | 2025-12-08 | Added AE-2.1 key scenarios to CP-012 (Metadata Product Automations implementation) |
 | 1.6 | 2025-12-08 | Updated CP-005 with DEO Score v2 explainability scenarios (Phase 2.6) |
 | 1.7 | 2025-12-09 | Added AE-1.1 Answer Engine detection implementation scenarios and manual testing doc to CP-011 |
+| 1.8 | 2025-12-09 | Added AE-1.2 Answer Engine generation and UI scenarios to CP-011 (POST /ai/product-answers, ProductAnswersPanel) |

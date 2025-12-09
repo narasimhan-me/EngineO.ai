@@ -185,3 +185,24 @@ export interface ProjectAnswerabilityResponse {
   /** Per-product answerability summaries */
   products: ProductAnswerabilitySummary[];
 }
+
+/**
+ * Product-level Answer Engine response from the generation API.
+ * Contains answerability status and generated Answer Blocks.
+ */
+export interface ProductAnswersResponse {
+  /** Project ID */
+  projectId: string;
+
+  /** Product ID */
+  productId: string;
+
+  /** ISO timestamp of when this response was generated */
+  generatedAt: string;
+
+  /** Answerability status from detection */
+  answerabilityStatus: AnswerabilityStatus;
+
+  /** Generated Answer Blocks (ephemeral, not yet persisted) */
+  answers: AnswerBlock[];
+}

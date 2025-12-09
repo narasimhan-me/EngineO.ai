@@ -418,9 +418,91 @@ AE-1.1 remains under the `ae_v1` family for detection. Detection version is impl
 
 ---
 
+## 11. Phase AE-1.2 – Answer Generation & UI Integration
+
+### Scope
+
+Phase AE-1.2 implements AI-based Answer Block generation and UI integration:
+
+- **AnswerGenerationService** generates factual Answer Blocks using configured AI provider
+- **POST /ai/product-answers** endpoint returns `ProductAnswersResponse` with ephemeral answers
+- **ProductAnswersPanel** UI component displays answers in Product Optimization workspace
+- Answers are **ephemeral** (not persisted to database in AE-1.2)
+
+### API Endpoint
+
+```
+POST /ai/product-answers
+```
+
+**Request Body:**
+```json
+{
+  "productId": "string"
+}
+```
+
+**Response Shape (ProductAnswersResponse):**
+```typescript
+interface ProductAnswersResponse {
+  projectId: string;
+  productId: string;
+  generatedAt: string;  // ISO timestamp
+  answerabilityStatus: AnswerabilityStatus;
+  answers: AnswerBlock[];  // Ephemeral, not persisted
+}
+```
+
+**Error Responses:**
+
+- `400 Bad Request` – Product not found or access denied
+- `401 Unauthorized` – Missing or invalid token
+- `429 Too Many Requests` – Daily AI limit reached
+
+### Non-Hallucination Enforcement
+
+The AI prompt instructs the provider to:
+
+1. Only use facts explicitly present in product data
+2. Return `cannotAnswer: true` when data is insufficient
+3. Never infer, assume, or fabricate information
+4. Assign appropriate confidence scores (0.7+ required for answer inclusion)
+
+### UI Integration
+
+The `ProductAnswersPanel` component is integrated into the Product Optimization workspace center column, displaying:
+
+- Answerability status badge
+- Answerability score (0-100)
+- Warning for missing questions
+- Expandable list of generated answers with confidence badges
+- Generate/Regenerate button
+
+### Entitlements
+
+Answer generation shares the daily AI limit with other AI features (`automationSuggestionsPerDay`). The `product_answers` feature type is recorded in `AiUsageEvent`.
+
+---
+
+## 12. Acceptance Criteria (Phase AE-1.2)
+
+- [x] `ProductAnswersResponse` type defined in shared package
+- [x] `AnswerGenerationService` implemented with AI provider integration
+- [x] `POST /ai/product-answers` endpoint returns `ProductAnswersResponse`
+- [x] Endpoint enforces product ownership (400 for non-owners, 400 for missing products)
+- [x] Generation respects non-hallucination rule (AI returns `cannotAnswer: true` when appropriate)
+- [x] Daily AI limit enforcement via `EntitlementsService`
+- [x] E2E tests cover happy path, authorization, and edge cases
+- [x] `ProductAnswersPanel` component displays answers in Product Optimization workspace
+- [x] Web API client updated with `generateProductAnswers` method
+- [x] DEO Score v1/v2 and detection APIs continue unchanged
+
+---
+
 ## Document History
 
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2025-12-08 | Initial Answer Engine specification (Phase AE 1.0) |
 | 1.1 | 2025-12-09 | Added Phase AE-1.1 Answerability detection implementation and /projects/:id/answerability API |
+| 1.2 | 2025-12-09 | Added Phase AE-1.2 Answer Generation & UI Integration with POST /ai/product-answers endpoint |

@@ -3,6 +3,8 @@ import { AiService } from './ai.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PrismaService } from '../prisma.service';
 import { EntitlementsService } from '../billing/entitlements.service';
+import { AnswerEngineService } from '../projects/answer-engine.service';
+import { ProductAnswersResponse } from '@engineo/shared';
 
 class MetadataDto {
   crawlResultId: string;
@@ -14,6 +16,10 @@ class ProductMetadataDto {
   targetKeywords?: string[];
 }
 
+class ProductAnswersDto {
+  productId: string;
+}
+
 @Controller('ai')
 @UseGuards(JwtAuthGuard)
 export class AiController {
@@ -21,6 +27,7 @@ export class AiController {
     private readonly aiService: AiService,
     private readonly prisma: PrismaService,
     private readonly entitlementsService: EntitlementsService,
+    private readonly answerEngineService: AnswerEngineService,
   ) {}
 
   @Post('metadata')
@@ -169,6 +176,131 @@ export class AiController {
 
       // eslint-disable-next-line no-console
       console.error('[AI][ProductOptimize] ai.optimize.failed', {
+        userId,
+        projectId: product.projectId,
+        productId: dto.productId,
+        planId,
+        limit,
+        dailyCount: dailyCount + (providerCalled ? 1 : 0),
+        error,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * POST /ai/product-answers
+   * Generate AI Answer Blocks for a product (Phase AE-1.2)
+   *
+   * Uses existing product data to generate factual, structured answers
+   * to the 10 canonical buyer/AI questions. Answers are ephemeral (not persisted).
+   */
+  @Post('product-answers')
+  async generateProductAnswers(
+    @Request() req: any,
+    @Body() dto: ProductAnswersDto,
+  ): Promise<ProductAnswersResponse> {
+    const userId = req.user.id;
+
+    // Load product and verify ownership
+    const product = await this.prisma.product.findUnique({
+      where: { id: dto.productId },
+      include: {
+        project: true,
+      },
+    });
+
+    if (!product) {
+      throw new BadRequestException('Product not found');
+    }
+
+    if (product.project.userId !== userId) {
+      throw new BadRequestException('Access denied');
+    }
+
+    // Enforce daily AI limit before calling provider
+    const { planId, limit, dailyCount } =
+      await this.entitlementsService.ensureWithinDailyAiLimit(
+        userId,
+        product.projectId,
+        'product_answers',
+      );
+
+    // eslint-disable-next-line no-console
+    console.log('[AI][ProductAnswers] ai.answers.started', {
+      userId,
+      projectId: product.projectId,
+      productId: dto.productId,
+      planId,
+      limit,
+      dailyCount,
+    });
+
+    let providerCalled = false;
+    let recordedUsage = false;
+
+    try {
+      // Get answerability detection from AnswerEngineService
+      const answerabilityStatus = this.answerEngineService.computeAnswerabilityForProduct({
+        id: product.id,
+        title: product.title,
+        description: product.description,
+        seoTitle: product.seoTitle,
+        seoDescription: product.seoDescription,
+      });
+
+      providerCalled = true;
+
+      // Generate AI answers
+      const answers = await this.aiService.generateProductAnswers(
+        {
+          id: product.id,
+          projectId: product.projectId,
+          title: product.title,
+          description: product.description,
+          seoTitle: product.seoTitle,
+          seoDescription: product.seoDescription,
+        },
+        answerabilityStatus,
+      );
+
+      await this.entitlementsService.recordAiUsage(
+        userId,
+        product.projectId,
+        'product_answers',
+      );
+      recordedUsage = true;
+
+      // eslint-disable-next-line no-console
+      console.log('[AI][ProductAnswers] ai.answers.success', {
+        userId,
+        projectId: product.projectId,
+        productId: dto.productId,
+        planId,
+        limit,
+        dailyCount: dailyCount + 1,
+        answersGenerated: answers.length,
+      });
+
+      return {
+        projectId: product.projectId,
+        productId: product.id,
+        generatedAt: new Date().toISOString(),
+        answerabilityStatus,
+        answers,
+      };
+    } catch (error) {
+      if (providerCalled && !recordedUsage) {
+        await this.entitlementsService.recordAiUsage(
+          userId,
+          product.projectId,
+          'product_answers',
+        );
+        recordedUsage = true;
+      }
+
+      // eslint-disable-next-line no-console
+      console.error('[AI][ProductAnswers] ai.answers.failed', {
         userId,
         projectId: product.projectId,
         productId: dto.productId,

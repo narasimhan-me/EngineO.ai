@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GeminiClient, GeminiGenerateResponse } from './gemini.client';
+import {
+  AnswerGenerationService,
+  ProductForAnswerGeneration,
+} from '../projects/answer-generation.service';
+import { AnswerBlock, AnswerabilityStatus } from '@engineo/shared';
 
 interface MetadataInput {
   url: string;
@@ -24,6 +29,7 @@ export class AiService {
   constructor(
     private readonly configService: ConfigService,
     private readonly geminiClient: GeminiClient,
+    private readonly answerGenerationService: AnswerGenerationService,
   ) {
     this.apiKey = this.configService.get<string>('AI_API_KEY') || '';
     this.provider =
@@ -190,5 +196,23 @@ Respond in JSON format only:
       title: '',
       description: '',
     };
+  }
+
+  /**
+   * Generates AI Answer Blocks for a product.
+   * Delegates to AnswerGenerationService for actual generation.
+   *
+   * @param product Product data for answer generation
+   * @param answerabilityStatus Detection results from AnswerEngineService
+   * @returns Array of generated AnswerBlock objects (ephemeral)
+   */
+  async generateProductAnswers(
+    product: ProductForAnswerGeneration,
+    answerabilityStatus: AnswerabilityStatus,
+  ): Promise<AnswerBlock[]> {
+    return this.answerGenerationService.generateAnswersForProduct(
+      product,
+      answerabilityStatus,
+    );
   }
 }

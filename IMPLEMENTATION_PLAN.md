@@ -7473,6 +7473,85 @@ export interface AnswerabilityStatus {
 
 ---
 
+## Phase AE-1.2 – Answer Engine Generation & UI Integration
+
+**Status:** Complete
+
+**Goal:** Implement AI-based Answer Block generation and integrate into Product Optimization workspace UI.
+
+### Scope
+
+Phase AE-1.2 implements:
+
+1. **AnswerGenerationService** – Generates factual Answer Blocks using configured AI provider
+2. **POST /ai/product-answers** – API endpoint returning `ProductAnswersResponse` with ephemeral answers
+3. **ProductAnswersPanel** – UI component displaying answers in Product Optimization workspace
+4. **Entitlements enforcement** – Daily AI limit applied to answer generation
+
+### Implementation Changes
+
+**Backend:**
+
+- `apps/api/src/projects/answer-generation.service.ts` – New service for AI answer generation
+- `apps/api/src/ai/ai.service.ts` – Added `generateProductAnswers` method
+- `apps/api/src/ai/ai.controller.ts` – Added `POST /ai/product-answers` endpoint
+- `apps/api/src/projects/answer-engine.service.ts` – Exposed `computeAnswerabilityForProduct` for reuse
+- `apps/api/src/ai/ai.module.ts` – Added AnswerGenerationService, imported ProjectsModule
+- `apps/api/src/projects/projects.module.ts` – Exported AnswerEngineService
+
+**Frontend:**
+
+- `apps/web/src/components/products/optimization/ProductAnswersPanel.tsx` – New UI component
+- `apps/web/src/app/projects/[id]/products/[productId]/page.tsx` – Integrated ProductAnswersPanel
+- `apps/web/src/lib/api.ts` – Added `generateProductAnswers` method
+
+**Shared Types:**
+
+- `packages/shared/src/answer-engine.ts` – Added `ProductAnswersResponse` interface
+
+**Tests:**
+
+- `apps/api/test/e2e/answer-generation.e2e-spec.ts` – E2E tests for generation endpoint
+
+**Documentation:**
+
+- Updated `docs/ANSWER_ENGINE_SPEC.md` with Section 11-12 (AE-1.2 implementation)
+- Created `docs/manual-testing/phase-ae-1.2-answer-engine-generation-and-ui.md`
+- Updated `docs/testing/CRITICAL_PATH_MAP.md` CP-011 with AE-1.2 scenarios
+
+### Non-Hallucination Enforcement
+
+The AI prompt instructs providers to:
+
+1. Only use facts explicitly present in product data
+2. Return `cannotAnswer: true` when data is insufficient
+3. Never infer, assume, or fabricate information
+4. Assign appropriate confidence scores (0.7+ required for inclusion)
+
+### Constraints
+
+- No Prisma schema changes in AE-1.2
+- Answers are ephemeral (not persisted to database)
+- Answer persistence deferred to AE-1.3+
+- No DEO Score v2 integration changes
+
+### Acceptance Criteria (Completed)
+
+- [x] `ProductAnswersResponse` type defined in shared package
+- [x] `AnswerGenerationService` implemented with AI provider integration
+- [x] `POST /ai/product-answers` endpoint returns `ProductAnswersResponse`
+- [x] Endpoint enforces product ownership (400 for non-owners/missing products)
+- [x] Generation respects non-hallucination rule (AI returns `cannotAnswer: true` when appropriate)
+- [x] Daily AI limit enforcement via `EntitlementsService`
+- [x] E2E tests cover happy path, auth, and edge cases
+- [x] `ProductAnswersPanel` displays answers in Product Optimization workspace
+- [x] Web API client updated with `generateProductAnswers` method
+- [x] DEO Score v1/v2 and detection APIs continue unchanged
+
+**Manual Testing:** `docs/testing/answer-engine.md`, `docs/manual-testing/phase-ae-1.2-answer-engine-generation-and-ui.md`
+
+---
+
 ## Phase AE-1 – Automation Engine Foundations (Framework & Spec)
 
 **Status:** Complete

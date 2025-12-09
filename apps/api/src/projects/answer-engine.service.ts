@@ -277,7 +277,7 @@ export class AnswerEngineService {
 
     // 3. Analyze each product
     const productSummaries: ProductAnswerabilitySummary[] = products.map((product) => {
-      const status = this.analyzeProductAnswerability(product);
+      const status = this.computeAnswerabilityForProduct(product);
       return {
         productId: product.id,
         productTitle: product.title || 'Untitled Product',
@@ -298,8 +298,9 @@ export class AnswerEngineService {
 
   /**
    * Analyzes a single product's answerability using heuristics.
+   * Public to allow reuse by AnswerGenerationService.
    */
-  private analyzeProductAnswerability(product: {
+  computeAnswerabilityForProduct(product: {
     id: string;
     title: string | null;
     description: string | null;

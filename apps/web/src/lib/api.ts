@@ -257,6 +257,13 @@ export const aiApi = {
       method: 'POST',
       body: JSON.stringify({ productId, targetKeywords }),
     }),
+
+  /** Generate AI Answer Blocks for a product (Phase AE-1.2) */
+  generateProductAnswers: (productId: string) =>
+    fetchWithAuth('/ai/product-answers', {
+      method: 'POST',
+      body: JSON.stringify({ productId }),
+    }),
 };
 
 export const productsApi = {

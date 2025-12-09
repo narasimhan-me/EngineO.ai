@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ProjectsController } from './projects.controller';
 import { ProjectsService } from './projects.service';
 import { PrismaService } from '../prisma.service';
@@ -12,7 +12,7 @@ import { BillingModule } from '../billing/billing.module';
 import { SeoScanService } from '../seo-scan/seo-scan.service';
 
 @Module({
-  imports: [AiModule, BillingModule],
+  imports: [forwardRef(() => AiModule), BillingModule],
   controllers: [ProjectsController],
   providers: [
     ProjectsService,
@@ -25,6 +25,6 @@ import { SeoScanService } from '../seo-scan/seo-scan.service';
     AnswerEngineService,
     SeoScanService,
   ],
-  exports: [ProjectsService, DeoScoreService, AutomationService],
+  exports: [ProjectsService, DeoScoreService, AutomationService, AnswerEngineService],
 })
 export class ProjectsModule {}
