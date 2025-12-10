@@ -1,17 +1,24 @@
 // Integration test scaffolding for Automation Engine v1 – Shopify Answer Block Automations.
-// Uses Jest + NestJS testing patterns (TestingModule, Supertest, or equivalent) once implemented.
+// These tests are scaffolding; they will be wired to real implementations once
+// Automation Engine v1 and AE-1.3 Answer Block Persistence are implemented.
+// Uses Jest + NestJS testing patterns (TestingModule, Supertest, or equivalent) once available.
 //
 // Specs referenced:
 // - docs/AUTOMATION_ENGINE_SPEC.md (Section 8.7 – Shopify Answer Block Automations)
 // - docs/ANSWER_ENGINE_SPEC.md (Phase AE-1.3 – Answer Block Persistence)
 // - IMPLEMENTATION_PLAN.md (Phase AE-1.3 and v1 Shopify-Only Launch Scope)
 //
+// Fixtures referenced (from apps/api test helpers):
+// - apps/api/test/fixtures/shopify-product.fixtures.ts
+// - apps/api/test/fixtures/automation-events.fixtures.ts
+//
 // Planned integration scenarios (scaffolding only):
 //
 // 1) product_synced → Automation Engine → worker execution → logging
 //    - GIVEN a Shopify product sync event for a project with eligible products
 //      (missing or weak Answer Blocks, sufficient underlying metadata),
-//    - WHEN Automation Engine v1 processes a product_synced trigger,
+//    - WHEN Automation Engine v1 processes a product_synced trigger created via
+//      makeProductSyncedEvent(shopifyProductMissingSeo, plan),
 //    - THEN an Answer Block automation job is enqueued,
 //      the worker executes it,
 //      Answer Blocks are created/updated in the persistence layer,
@@ -20,7 +27,8 @@
 // 2) issue_detected (missing/weak Answer Blocks) → AEO pipeline → persistence → logging
 //    - GIVEN answerability-related issues emitted by the Issues Engine
 //      (e.g., not_answer_ready, weak_intent_match),
-//    - WHEN Automation Engine v1 processes issue_detected triggers,
+//    - WHEN Automation Engine v1 processes issue_detected triggers created via
+//      makeIssueDetectedEvent(shopifyProductNoAnswerBlocks, issueFixture, plan),
 //    - THEN it invokes the Answer Engine pipeline (mocked) to generate/refine Answer Blocks,
 //      persists results via the AE-1.3 data layer (Prisma or equivalent),
 //      and records before/after snapshots in the automation logs.
@@ -35,7 +43,8 @@
 // Implementation notes / TODOs:
 // - Use NestJS TestingModule + Supertest patterns already used by other integration/e2e tests
 //   in apps/api/test once the concrete modules/services exist.
-// - Mock Shopify webhook/payloads for product_synced triggers (TODO: define fixture format).
+// - Use shopify-product.fixtures.ts for constructing mock Shopify payloads.
+// - Use automation-events.fixtures.ts for constructing high-level event payloads.
 // - Mock Answer Engine generation calls (AEO pipeline) to avoid real AI traffic.
 // - Verify persistence via the actual ORM models once AE-1.3 is implemented
 //   (e.g., AnswerBlock table), but keep those checks behind TODOs for now.
@@ -45,3 +54,24 @@
 // TODO:
 // - Add actual Jest describe/it blocks and NestJS bootstrap code once
 //   Automation Engine v1 pipeline APIs and modules are available.
+
+import {
+  basicShopifyProduct,
+  shopifyProductMissingSeo,
+  shopifyProductThinDescription,
+  shopifyProductNoAnswerBlocks,
+} from '../../../apps/api/test/fixtures/shopify-product.fixtures';
+import {
+  makeProductSyncedEvent,
+  makeIssueDetectedEvent,
+  TestPlanId,
+} from '../../../apps/api/test/fixtures/automation-events.fixtures';
+
+// NOTE:
+// - The imports above are scaffolding; they will be used inside real integration tests
+//   once the NestJS modules, queues, and Answer Block persistence layer are implemented.
+// - Example future usage (pseudo-code):
+//
+//   const event = makeProductSyncedEvent(shopifyProductMissingSeo, 'pro' as TestPlanId);
+//   await automationEngine.handleEvent(event);
+//   // Assert job enqueued, AnswerBlocks persisted, logs written.

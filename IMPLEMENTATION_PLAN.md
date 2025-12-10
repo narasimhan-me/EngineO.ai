@@ -8065,6 +8065,7 @@ These Phases 23–30 plus Phases UX-1, UX-1.1, UX-2, UX-3, UX-4, UX-5, UX-6, UX-
   - Execution logs per automation run (rule id, target product, before/after highlights, status).
 - **Test scaffolding for Automation Engine v1:**
   - Create unit, integration, and E2E test scaffolding for Automation Engine v1 (including Shopify Answer Block automations) under `tests/unit/automation/`, `tests/integration/automation/`, and `tests/e2e/automation/` so future implementation work can wire real behavior into pre-defined scenarios.
+  - Backend test fixtures for Shopify product payloads and automation events are defined under `apps/api/test/fixtures` for reuse across unit and integration tests.
 - **Entitlements at launch:**
   - **Free:** basic metadata automation only (no Answer Block auto-generation; no scheduled/background rules).
   - **Pro + Business:** full Automation Engine v1 scope for products (immediate + scheduled-light automations, metadata + answers) within per-plan product and execution caps.
