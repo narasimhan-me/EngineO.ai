@@ -268,6 +268,27 @@ export const aiApi = {
 
 export const productsApi = {
   list: (projectId: string) => fetchWithAuth(`/projects/${projectId}/products`),
+
+  getAnswerBlocks: (productId: string) =>
+    fetchWithAuth(`/products/${productId}/answer-blocks`),
+
+  upsertAnswerBlocks: (productId: string, blocks: any[]) =>
+    fetchWithAuth(`/products/${productId}/answer-blocks`, {
+      method: 'POST',
+      body: JSON.stringify({ blocks }),
+    }),
+
+  triggerAnswerBlockAutomation: (
+    productId: string,
+    triggerType: 'product_synced' | 'issue_detected' = 'issue_detected',
+  ) =>
+    fetchWithAuth(`/products/${productId}/answer-blocks/automation-run`, {
+      method: 'POST',
+      body: JSON.stringify({ triggerType }),
+    }),
+
+  getAnswerBlockAutomationLogs: (productId: string) =>
+    fetchWithAuth(`/products/${productId}/automation-logs`),
 };
 
 export const shopifyApi = {

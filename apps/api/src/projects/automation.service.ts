@@ -751,4 +751,62 @@ export class AutomationService {
       `[AnswerBlockAutomation] Enqueued job for product ${product.id} (project ${product.projectId}, trigger=${triggerType}, plan=${planId})`,
     );
   }
+
+  /**
+   * Return Answer Block automation logs for a product.
+   * Validates ownership via the Product's project relationship.
+   */
+  async getAnswerBlockAutomationLogsForProduct(
+    productId: string,
+    userId: string,
+  ): Promise<{
+    productId: string;
+    projectId: string;
+    logs: {
+      id: string;
+      createdAt: string;
+      triggerType: string;
+      action: string;
+      status: string;
+      planId: string;
+      modelUsed: string | null;
+      errorMessage: string | null;
+    }[];
+  }> {
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      include: {
+        project: true,
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    if (product.project.userId !== userId) {
+      throw new ForbiddenException('You do not have access to this product');
+    }
+
+    const logs = await this.prisma.answerBlockAutomationLog.findMany({
+      where: { productId: product.id },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+
+    return {
+      productId: product.id,
+      projectId: product.projectId,
+      logs: logs.map((log) => ({
+        id: log.id,
+        createdAt: log.createdAt.toISOString(),
+        triggerType: log.triggerType,
+        action: log.action,
+        status: log.status,
+        planId: log.planId,
+        modelUsed: log.modelUsed ?? null,
+        errorMessage: log.errorMessage ?? null,
+      })),
+    };
+  }
 }

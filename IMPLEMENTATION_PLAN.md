@@ -8252,7 +8252,7 @@ These Phases 23–30 plus Phases UX-1, UX-1.1, UX-2, UX-3, UX-4, UX-5, UX-6, UX-
 - [x] Roadmap alignment to existing phases documented
 - [x] Manual testing doc created
 
-**Manual Testing:** `docs/manual-testing/v1-shopify-launch-scope.md`, `docs/manual-testing/phase-ae-1.3-answer-block-persistence.md`, `docs/manual-testing/automation-engine-v1-shopify-answer-block-automations.md`
+**Manual Testing:** `docs/manual-testing/v1-shopify-launch-scope.md`, `docs/manual-testing/phase-ae-1.3-answer-block-persistence.md`, `docs/manual-testing/automation-engine-v1-shopify-answer-block-automations.md`, `docs/manual-testing/phase-ux-2-product-workspace-aeo-and-automation-ui.md`
 
 **Note:** This patch does not change critical path definitions, but v1 launch scenarios must be mapped to existing critical paths in `docs/testing/CRITICAL_PATH_MAP.md` (Shopify Sync, Product Optimize, DEO Score Compute, Automation, Dashboard) and verified per `docs/testing/RELEASE_VERIFICATION_GATE.md`.
 

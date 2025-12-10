@@ -244,7 +244,7 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 
 | Field | Value |
 |-------|-------|
-| **Manual Testing Doc(s)** | `docs/testing/answer-engine.md`, `docs/manual-testing/phase-ae-1-answer-engine-foundations.md`, `docs/manual-testing/phase-ae-1.1-answer-engine-detection.md`, `docs/manual-testing/phase-ae-1.2-answer-engine-generation-and-ui.md` |
+| **Manual Testing Doc(s)** | `docs/testing/answer-engine.md`, `docs/manual-testing/phase-ae-1-answer-engine-foundations.md`, `docs/manual-testing/phase-ae-1.1-answer-engine-detection.md`, `docs/manual-testing/phase-ae-1.2-answer-engine-generation-and-ui.md`, `docs/manual-testing/phase-ux-2-product-workspace-aeo-and-automation-ui.md` |
 | **Automated Tests** | `apps/api/test/e2e/answer-engine.e2e-spec.ts`, `apps/api/test/e2e/answer-generation.e2e-spec.ts` |
 | **Last Verified (Manual)** | 2025-12-09 |
 | **Last Verified (Automated)** | N/A |
@@ -268,6 +268,7 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 - [ ] AE-1.2: ProductAnswersPanel displays answers in Product Optimization workspace
 - [ ] AE-1.2: Daily AI limit enforcement works for answer generation
 - [ ] AE-1.2: Answers include confidence scores and facts-used metadata
+- [ ] AE-1.3 / UX-2: Product Workspace AEO / Answers tab displays persisted Answer Blocks per product and supports user edits with plan-aware gating
 
 ---
 
@@ -277,7 +278,7 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 
 | Field | Value |
 |-------|-------|
-| **Manual Testing Doc(s)** | `docs/testing/automation-engine.md`, `docs/testing/automation-engine-product-automations.md`, `docs/manual-testing/phase-ae-1-automation-engine-foundations.md`, `docs/manual-testing/phase-ae-2-product-automations.md`, `docs/manual-testing/phase-aue-1-automation-new-product-seo-title.md` |
+| **Manual Testing Doc(s)** | `docs/testing/automation-engine.md`, `docs/testing/automation-engine-product-automations.md`, `docs/manual-testing/phase-ae-1-automation-engine-foundations.md`, `docs/manual-testing/phase-ae-2-product-automations.md`, `docs/manual-testing/phase-aue-1-automation-new-product-seo-title.md`, `docs/manual-testing/phase-ux-2-product-workspace-aeo-and-automation-ui.md` |
 | **Automated Tests** | `apps/api/test/e2e/automation-new-product-seo-title.e2e-spec.ts` |
 | **Last Verified (Manual)** | 2025-12-09 |
 | **Last Verified (Automated)** | N/A |
@@ -307,6 +308,7 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 - [ ] AUE-1: AI usage recorded via `recordAiUsage`
 - [ ] AUE-1: Daily AI limit enforced; automation skips when limit reached
 - [ ] AUE-1: Automation failure doesn't block Shopify sync
+- [ ] AUE-2 / UX-2: Product Workspace Automation History panel surfaces per-product Answer Block automation runs (triggerType, action, status, errors)
 
 ---
 

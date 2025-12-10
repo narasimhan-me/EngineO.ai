@@ -12,10 +12,11 @@ import { BillingModule } from '../billing/billing.module';
 import { SeoScanService } from '../seo-scan/seo-scan.service';
 import { ProductsModule } from '../products/products.module';
 import { AnswerBlockAutomationProcessor } from './answer-block-automation.processor';
+import { ProductAutomationController } from './product-automation.controller';
 
 @Module({
   imports: [forwardRef(() => AiModule), BillingModule, ProductsModule],
-  controllers: [ProjectsController],
+  controllers: [ProjectsController, ProductAutomationController],
   providers: [
     ProjectsService,
     PrismaService,

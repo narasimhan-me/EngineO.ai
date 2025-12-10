@@ -6,7 +6,7 @@ import Link from 'next/link';
 
 import type { DeoIssue } from '@engineo/shared';
 import { isAuthenticated } from '@/lib/auth';
-import { projectsApi, productsApi, aiApi, shopifyApi, ApiError } from '@/lib/api';
+import { projectsApi, productsApi, aiApi, shopifyApi, ApiError, billingApi } from '@/lib/api';
 import type { Product } from '@/lib/products';
 import { getProductStatus } from '@/lib/products';
 import {
@@ -19,6 +19,10 @@ import {
   type AutomationSuggestion,
 } from '@/components/products/optimization';
 import { ProductAnswersPanel, type ProductAnswersResponse } from '@/components/products/optimization/ProductAnswersPanel';
+import {
+  ProductAnswerBlocksPanel,
+  ProductAutomationHistoryPanel,
+} from '@/components/products/optimization';
 import { useFeedback } from '@/components/feedback/FeedbackProvider';
 
 export default function ProductOptimizationPage() {
@@ -36,6 +40,7 @@ export default function ProductOptimizationPage() {
 
   // Data states
   const [projectName, setProjectName] = useState<string | null>(null);
+  const [planId, setPlanId] = useState<string | null>(null);
   const [product, setProduct] = useState<Product | null>(null);
   const [productIssues, setProductIssues] = useState<DeoIssue[]>([]);
 
@@ -66,15 +71,27 @@ export default function ProductOptimizationPage() {
       setLoading(true);
       setError('');
 
-      // Fetch project, products, issues, and automation suggestions in parallel
-      const [projectData, productsData, issuesResponse, automationResponse] = await Promise.all([
+      // Fetch project, products, issues, automation suggestions, and entitlements in parallel
+      const [
+        projectData,
+        productsData,
+        issuesResponse,
+        automationResponse,
+        entitlements,
+      ] = await Promise.all([
         projectsApi.get(projectId),
         productsApi.list(projectId),
         projectsApi.deoIssues(projectId).catch(() => ({ issues: [] })),
         projectsApi.automationSuggestions(projectId).catch(() => ({ suggestions: [] })),
+        billingApi.getEntitlements().catch(() => null),
       ]);
 
       setProjectName(projectData.name);
+      if (entitlements && typeof (entitlements as any).plan === 'string') {
+        setPlanId((entitlements as any).plan as string);
+      } else {
+        setPlanId(null);
+      }
 
       // Find the specific product
       const foundProduct = productsData.find((p: Product) => p.id === productId);
@@ -393,6 +410,11 @@ export default function ProductOptimizationPage() {
                 error={answersError}
                 onGenerate={fetchAnswers}
               />
+              <ProductAnswerBlocksPanel
+                productId={product.id}
+                planId={planId}
+              />
+              <ProductAutomationHistoryPanel productId={product.id} />
               <ProductSeoEditor
                 title={editorTitle}
                 description={editorDescription}

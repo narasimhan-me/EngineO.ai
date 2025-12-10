@@ -15,7 +15,10 @@ const prisma = new PrismaClient({ adapter });
 
 export async function cleanupTestDb(): Promise<void> {
   // Delete in order to respect FK constraints
-  // Tables with FK to Project must be deleted first
+  // Tables with FK to Product must be deleted first
+  await prisma.$executeRawUnsafe('DELETE FROM "AnswerBlock" WHERE 1=1');
+  await prisma.$executeRawUnsafe('DELETE FROM "AnswerBlockAutomationLog" WHERE 1=1');
+  // Tables with FK to Project must be deleted next
   await prisma.$executeRawUnsafe('DELETE FROM "Integration" WHERE 1=1');
   await prisma.$executeRawUnsafe('DELETE FROM "DeoScoreSnapshot" WHERE 1=1');
   await prisma.$executeRawUnsafe('DELETE FROM "CrawlResult" WHERE 1=1');
