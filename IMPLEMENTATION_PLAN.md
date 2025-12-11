@@ -8060,7 +8060,74 @@ Shopify Sync → New Product Detected → AutomationService Triggered
 
 ---
 
-These Phases 23–30 plus Phases UX-1, UX-1.1, UX-2, UX-3, UX-4, UX-5, UX-6, UX-7, UX-8, AE-1 (Answer Engine), AE-1 (Automation Engine), AE-2 (Product Automations), UX-Content-1, UX-Content-2, and MARKETING-1 through MARKETING-6 extend your IMPLEMENTATION_PLAN.md and keep your roadmap cohesive:
+## Phase AEO-2 – Shopify Metafields Sync for Answer Blocks
+
+**Status:** Complete
+
+**Goal:** Sync persisted Answer Blocks into Shopify metafields so canonical buyer-question answers become part of the Shopify product data model for connected projects.
+
+### Scope
+
+- **Metafield definitions (Shopify Admin API):**
+  - Namespace `engineo`, keys per Answer Block type (e.g., `answer_what_is_it`, `answer_key_features`, `answer_how_it_works`, `answer_materials`, `answer_benefits`, `answer_dimensions`, `answer_usage`, `answer_warranty`, `answer_faq`, `answer_care_instructions`).
+  - Definitions created or ensured when a Shopify store is connected and reused on subsequent syncs.
+
+- **Answer Block → metafield sync:**
+  - Persisted `AnswerBlock` rows for a product are mapped to metafield payloads via a dedicated helper that:
+    - Maps known `questionId` values to keys in the `engineo` namespace.
+    - Trims answer text and skips empty answers.
+    - Skips unknown question IDs while recording them for observability.
+  - `ShopifyService.syncAnswerBlocksToShopify(productId)`:
+    - Fetches existing `engineo` metafields for the Shopify product.
+    - Upserts metafields for mapped keys via Shopify Admin API (`products/{productId}/metafields` and metafield update endpoints).
+    - Returns a structured result (`syncedCount`, `skippedUnknownQuestionIds`, `errors`, and `skippedReason` for no-op cases).
+
+- **Automation Engine integration (AUE-2 link):**
+  - `AnswerBlockAutomationProcessor` now optionally calls `ShopifyService.syncAnswerBlocksToShopify` after a successful Answer Block automation when the project flag is enabled.
+  - Additional `AnswerBlockAutomationLog` entries use `action: 'answer_blocks_synced_to_shopify'` with status indicating success/failure and an error message when sync fails.
+
+- **Settings flag and UX wiring:**
+  - New project-level flag `aeoSyncToShopifyMetafields` on `Project`:
+    - Default `false` to keep behavior strictly opt-in.
+    - Exposed via Project Settings (`/projects/:id/settings`) as:
+      - **"Sync Answer Blocks to Shopify metafields"** toggle under AI Automation Rules.
+  - Product Workspace → Answers (AEO) section:
+    - Adds subtle helper text: "These answers can be synced to Shopify as metafields when enabled in Settings." with a link to the project Settings page.
+
+### Rate Limiting & Safety
+
+- Shopify Admin API calls made by `ShopifyService` (OAuth token exchange, product fetch, metafield definition management, metafield upserts) now use a simple rate-limited fetch wrapper targeting ~2 requests/second (500ms minimum interval), with test mode bypass.
+- Metafield sync failures do not block Answer Block automation completion:
+  - Core generation/persistence logs remain `succeeded` even if metafield sync fails.
+  - Sync errors are captured as separate `answer_blocks_synced_to_shopify` log entries and surfaced via automation history.
+
+### Tests & Verification
+
+- **Unit tests:**
+  - `tests/unit/shopify-metafields/shopify-metafields-mapping.test.ts`
+  - Verifies Answer Block → metafield mapping:
+    - Known `questionId` values map to expected keys.
+    - Values are trimmed and empty/whitespace-only answers are skipped.
+    - Unknown `questionId` values are recorded in `skippedUnknownQuestionIds`.
+
+- **Integration tests:**
+  - `tests/integration/shopify-metafields/shopify-metafields-sync.integration.test.ts`
+  - Mocks Shopify Admin API and validates:
+    - Metafield definitions are created in namespace `engineo` when missing.
+    - `syncAnswerBlocksToShopify` upserts metafields for products with persisted Answer Blocks.
+    - Result objects correctly report `syncedCount` and contain no errors on success paths.
+
+- **Critical Path Map updates:**
+  - `docs/testing/CRITICAL_PATH_MAP.md`:
+    - CP-006 (Shopify Sync) now lists AEO-2 metafield sync scenarios and links to this manual testing doc.
+    - CP-011 (Answer Engine) references AEO-2 as part of end-to-end Answer Block flows.
+    - CP-012 (Automation Engine) includes coverage for `answer_blocks_synced_to_shopify` log entries and metafield sync behavior.
+
+**Manual Testing:** `docs/manual-testing/phase-aeo-2-shopify-metafields-sync.md`
+
+---
+
+These Phases 23–30 plus Phases UX-1, UX-1.1, UX-2, UX-3, UX-4, UX-5, UX-6, UX-7, UX-8, AE-1 (Answer Engine), AE-1 (Automation Engine), AE-2 (Product Automations), AEO-2 (Shopify Metafields Sync), UX-Content-1, UX-Content-2, and MARKETING-1 through MARKETING-6 extend your IMPLEMENTATION_PLAN.md and keep your roadmap cohesive:
 
 - Phases 12–17: Core feature sets (automation, content, performance, competitors, local, social).
 - Phases 18–22: Security, subscription management, monitoring, fairness & limits.
