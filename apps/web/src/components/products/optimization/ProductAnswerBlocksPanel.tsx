@@ -62,6 +62,7 @@ export function ProductAnswerBlocksPanel({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [automationRunning, setAutomationRunning] = useState(false);
+  const [syncingToShopify, setSyncingToShopify] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -174,6 +175,78 @@ export function ProductAnswerBlocksPanel({
       feedback.showError(message);
     } finally {
       setAutomationRunning(false);
+    }
+  }, [productId, isFreePlan, feedback]);
+
+  const handleManualSyncToShopify = useCallback(async () => {
+    if (!productId) {
+      return;
+    }
+    if (isFreePlan) {
+      feedback.showLimit(
+        'Shopify Answer Block metafield sync is available on paid plans. Upgrade to enable Answer Block sync.',
+        '/settings/billing',
+      );
+      return;
+    }
+    try {
+      setSyncingToShopify(true);
+      setError(null);
+      const result: any = await productsApi.syncAnswerBlocksToShopify(productId);
+      if (!result) {
+        feedback.showError(
+          'Failed to sync Answer Blocks to Shopify. Please try again.',
+        );
+        return;
+      }
+      const status = result.status as string | undefined;
+      const reason = result.reason as string | undefined;
+      const syncedCount = result.syncedCount as number | undefined;
+      if (status === 'succeeded') {
+        const countMessage =
+          typeof syncedCount === 'number' && syncedCount > 0
+            ? `Synced ${syncedCount} Answer Block${
+                syncedCount === 1 ? '' : 's'
+              } to Shopify metafields.`
+            : 'Answer Blocks synced to Shopify metafields.';
+        feedback.showSuccess(countMessage);
+      } else if (status === 'skipped') {
+        if (reason === 'sync_toggle_off') {
+          feedback.showInfo(
+            'Sync is disabled in Project Settings. Enable "Sync Answer Blocks to Shopify metafields" to allow automatic sync.',
+          );
+        } else if (reason === 'plan_not_entitled') {
+          feedback.showLimit(
+            'Your current plan does not include Shopify Answer Block metafield sync. Upgrade to enable this feature.',
+            '/settings/billing',
+          );
+        } else if (reason === 'daily_cap_reached') {
+          feedback.showLimit(
+            'Daily sync limit reached for Answer Blocks. Try again tomorrow or upgrade your plan for higher limits.',
+            '/settings/billing',
+          );
+        } else {
+          feedback.showInfo('Sync was skipped for this product.');
+        }
+      } else {
+        const message =
+          (Array.isArray(result.errors) && result.errors.length > 0
+            ? result.errors.join(', ')
+            : null) ||
+          'Failed to sync Answer Blocks to Shopify. Please try again.';
+        feedback.showError(message);
+      }
+    } catch (err: unknown) {
+      // eslint-disable-next-line no-console
+      console.error('Error syncing Answer Blocks to Shopify', err);
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : 'Failed to sync Answer Blocks to Shopify. Please try again.';
+      setError(message);
+      feedback.showError(message);
+    } finally {
+      setSyncingToShopify(false);
     }
   }, [productId, isFreePlan, feedback]);
 
@@ -435,6 +508,18 @@ export function ProductAnswerBlocksPanel({
                   />
                 </svg>
                 {isFreePlan ? 'Automation gated by plan' : 'Run Answer Block automation'}
+              </button>
+              <button
+                type="button"
+                onClick={handleManualSyncToShopify}
+                disabled={syncingToShopify}
+                className={`inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+                  syncingToShopify
+                    ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
+                    : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {syncingToShopify ? 'Syncing…' : 'Sync now'}
               </button>
             </div>
           </div>

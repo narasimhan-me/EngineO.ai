@@ -8093,6 +8093,11 @@ Shopify Sync → New Product Detected → AutomationService Triggered
       - **"Sync Answer Blocks to Shopify metafields"** toggle under AI Automation Rules.
   - Product Workspace → Answers (AEO) section:
     - Adds subtle helper text: "These answers can be synced to Shopify as metafields when enabled in Settings." with a link to the project Settings page.
+    - **"Sync now" button:** Allows users to manually trigger Answer Block sync to Shopify metafields with clear feedback (success/skip/fail).
+      - Entitlement gating: Free plan users see an upgrade prompt; paid plans can sync.
+      - Toggle gating: Shows informative message when project toggle is off.
+      - Daily quota: Respects existing AI usage limits with graceful skip message when cap is reached.
+      - Automation logging: Records `triggerType = 'manual_sync'` with appropriate status in `AnswerBlockAutomationLog`.
 
 ### Rate Limiting & Safety
 
@@ -8109,6 +8114,12 @@ Shopify Sync → New Product Detected → AutomationService Triggered
     - Known `questionId` values map to expected keys.
     - Values are trimmed and empty/whitespace-only answers are skipped.
     - Unknown `questionId` values are recorded in `skippedUnknownQuestionIds`.
+  - `tests/unit/automation/automation-engine.rules.test.ts`
+  - Verifies manual Shopify sync behavior:
+    - Skips on Free plan with `plan_not_entitled` reason.
+    - Skips when project toggle is off with `sync_toggle_off` reason.
+    - Succeeds when toggle is on and plan is entitled.
+    - Skips when daily cap is reached with `daily_cap_reached` reason.
 
 - **Integration tests:**
   - `tests/integration/shopify-metafields/shopify-metafields-sync.integration.test.ts`

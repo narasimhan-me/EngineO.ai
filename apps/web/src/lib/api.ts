@@ -290,6 +290,11 @@ export const productsApi = {
 
   getAnswerBlockAutomationLogs: (productId: string) =>
     fetchWithAuth(`/products/${productId}/automation-logs`),
+
+  syncAnswerBlocksToShopify: (productId: string) =>
+    fetchWithAuth(`/products/${productId}/answer-blocks/sync-to-shopify`, {
+      method: 'POST',
+    }),
 };
 
 export const shopifyApi = {

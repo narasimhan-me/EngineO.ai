@@ -157,6 +157,50 @@ Expected Results:
 
 ---
 
+### Scenario AEO2-HP-005: Manual "Sync now" from Answer Blocks panel
+
+ID: AEO2-HP-005
+
+Preconditions:
+- [ ] All from AEO2-HP-003 (Shopify connected, metafield definitions present, aeoSyncToShopifyMetafields enabled).
+- [ ] Workspace on Pro or Business plan.
+- [ ] At least one product with persisted Answer Blocks.
+
+Steps:
+1. In Product Workspace → Answers (AEO), open a product that already has Answer Blocks.
+2. Confirm the "Answer Blocks (Canonical Answers)" panel is visible and shows at least one block.
+3. Click the "Sync now" button in the Answer Blocks panel.
+4. Wait for the toast/notification indicating the result of the sync.
+5. In Shopify Admin, open the same product and inspect Product → Metafields → engineo.* values.
+
+Expected Results:
+- UI: "Sync now" button is visible whenever Answer Blocks exist and shows a short loading state while the request is in flight.
+- UI: On success, a success toast appears (optionally mentioning the number of Answer Blocks synced) and no validation errors are shown.
+- Shopify Admin: Metafields under the engineo namespace update to match the latest Answer Block content for the product (only keys with Answer Blocks are written).
+- Automation history: AnswerBlockAutomationLog contains an entry with triggerType = 'manual_sync', action = 'answer_blocks_synced_to_shopify', and status = 'succeeded'.
+
+Variants:
+- **Toggle OFF:**
+  - aeoSyncToShopifyMetafields is disabled in Project Settings.
+  - "Sync now" still appears in the Answer Blocks panel.
+  - Clicking the button surfaces a clear "Sync is off in Settings" style message and no Shopify writes occur.
+  - Automation history shows a new AnswerBlockAutomationLog row with triggerType = 'manual_sync', action = 'answer_blocks_synced_to_shopify', status = 'skipped', and errorMessage containing sync_toggle_off.
+- **Free plan:**
+  - Workspace is on the Free plan.
+  - Clicking "Sync now" shows an upgrade/limit-style toast and does not perform a Shopify write.
+  - The manual sync endpoint either is not called or returns status = 'skipped', reason = 'plan_not_entitled'.
+  - No Shopify metafield changes are observed; if logged, AnswerBlockAutomationLog shows a skipped entry with plan_not_entitled.
+- **Partial blocks:**
+  - Only a subset of canonical questions have Answer Blocks for the product.
+  - After clicking "Sync now", only the corresponding metafield keys (e.g., engineo.answer_what_is_it, engineo.answer_key_features) are written/updated.
+  - No unexpected metafields are created for missing questions.
+- **Shopify GraphQL failure:**
+  - Simulate or force a failure in the metafieldsSet call (e.g., by pointing to a mock that returns errors).
+  - UI surfaces a clear error toast/message indicating the sync failed.
+  - Automation history shows a failed 'answer_blocks_synced_to_shopify' entry with triggerType = 'manual_sync' and an errorMessage derived from the underlying Shopify error(s).
+
+---
+
 ## Edge Cases
 
 ### AEO2-EC-001: Unknown or Future Question IDs

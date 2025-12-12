@@ -30,9 +30,10 @@ import {
   testPrisma,
 } from '../../../apps/api/test/utils/test-db';
 
-describe('AutomationService.triggerAnswerBlockAutomationForProduct (rule-level behavior)', () => {
+describe('AutomationService rule-level behavior for Answer Blocks', () => {
   let entitlementsService: EntitlementsService;
   let automationService: AutomationService;
+  let shopifyServiceStub: { syncAnswerBlocksToShopify: jest.Mock };
 
   beforeAll(() => {
     const prisma = testPrisma as any;
@@ -41,10 +42,14 @@ describe('AutomationService.triggerAnswerBlockAutomationForProduct (rule-level b
       generateMetadata: jest.fn(),
       generateProductAnswers: jest.fn(),
     } as any;
+    shopifyServiceStub = {
+      syncAnswerBlocksToShopify: jest.fn(),
+    };
     automationService = new AutomationService(
       prisma,
       aiServiceStub,
       entitlementsService,
+      shopifyServiceStub as any,
     );
   });
 
@@ -55,6 +60,9 @@ describe('AutomationService.triggerAnswerBlockAutomationForProduct (rule-level b
 
   beforeEach(async () => {
     await cleanupTestDb();
+    if (shopifyServiceStub) {
+      shopifyServiceStub.syncAnswerBlocksToShopify.mockReset();
+    }
   });
 
   async function createUserProjectAndProduct(
@@ -215,5 +223,204 @@ describe('AutomationService.triggerAnswerBlockAutomationForProduct (rule-level b
       where: { productId: missingProductId },
     });
     expect(logs.length).toBe(0);
+  });
+
+  it('skips manual Shopify sync on the Free plan', async () => {
+    const plan: TestPlanId = 'free';
+    const { user, project, product } = await createUserProjectAndProduct(
+      plan,
+      shopifyProductNoAnswerBlocks,
+    );
+
+    await testPrisma.answerBlock.create({
+      data: {
+        productId: product.id,
+        questionId: 'what_is_it',
+        questionText: 'What is it?',
+        answerText: 'A canonical test answer',
+        confidenceScore: 0.9,
+        sourceType: 'generated',
+        sourceFieldsUsed: [],
+      },
+    });
+
+    const result = await automationService.syncAnswerBlocksToShopifyNow(
+      product.id,
+      user.id,
+    );
+
+    expect(result.status).toBe('skipped');
+    expect(result.reason).toBe('plan_not_entitled');
+    expect(result.productId).toBe(product.id);
+    expect(result.projectId).toBe(project.id);
+
+    const logs = await testPrisma.answerBlockAutomationLog.findMany({
+      where: { productId: product.id, triggerType: 'manual_sync' },
+    });
+    expect(logs).toHaveLength(1);
+    expect(logs[0].action).toBe('answer_blocks_synced_to_shopify');
+    expect(logs[0].status).toBe('skipped');
+    expect(logs[0].errorMessage).toContain('plan_not_entitled');
+
+    expect(shopifyServiceStub.syncAnswerBlocksToShopify).not.toHaveBeenCalled();
+  });
+
+  it('skips manual Shopify sync when project toggle is off', async () => {
+    const plan: TestPlanId = 'pro';
+    const { user, project, product } = await createUserProjectAndProduct(
+      plan,
+      shopifyProductNoAnswerBlocks,
+    );
+
+    await testPrisma.project.update({
+      where: { id: project.id },
+      data: {
+        aeoSyncToShopifyMetafields: false,
+      },
+    });
+
+    await testPrisma.answerBlock.create({
+      data: {
+        productId: product.id,
+        questionId: 'what_is_it',
+        questionText: 'What is it?',
+        answerText: 'A canonical test answer',
+        confidenceScore: 0.9,
+        sourceType: 'generated',
+        sourceFieldsUsed: [],
+      },
+    });
+
+    const result = await automationService.syncAnswerBlocksToShopifyNow(
+      product.id,
+      user.id,
+    );
+
+    expect(result.status).toBe('skipped');
+    expect(result.reason).toBe('sync_toggle_off');
+
+    const logs = await testPrisma.answerBlockAutomationLog.findMany({
+      where: { productId: product.id, triggerType: 'manual_sync' },
+    });
+    expect(logs).toHaveLength(1);
+    expect(logs[0].action).toBe('answer_blocks_synced_to_shopify');
+    expect(logs[0].status).toBe('skipped');
+    expect(logs[0].errorMessage).toContain('sync_toggle_off');
+
+    expect(shopifyServiceStub.syncAnswerBlocksToShopify).not.toHaveBeenCalled();
+  });
+
+  it('manually syncs Answer Blocks to Shopify when toggle is on and plan is entitled', async () => {
+    const plan: TestPlanId = 'pro';
+    const { user, project, product } = await createUserProjectAndProduct(
+      plan,
+      shopifyProductNoAnswerBlocks,
+    );
+
+    await testPrisma.project.update({
+      where: { id: project.id },
+      data: {
+        aeoSyncToShopifyMetafields: true,
+      },
+    });
+
+    await testPrisma.answerBlock.create({
+      data: {
+        productId: product.id,
+        questionId: 'what_is_it',
+        questionText: 'What is it?',
+        answerText: 'A canonical test answer',
+        confidenceScore: 0.9,
+        sourceType: 'generated',
+        sourceFieldsUsed: [],
+      },
+    });
+
+    shopifyServiceStub.syncAnswerBlocksToShopify.mockResolvedValue({
+      productId: product.id,
+      shopDomain: 'test-store.myshopify.com',
+      syncedCount: 2,
+      skippedUnknownQuestionIds: [],
+      errors: [],
+    });
+
+    const result = await automationService.syncAnswerBlocksToShopifyNow(
+      product.id,
+      user.id,
+    );
+
+    expect(result.status).toBe('succeeded');
+    expect(result.syncedCount).toBe(2);
+    expect(result.errors).toEqual([]);
+
+    expect(shopifyServiceStub.syncAnswerBlocksToShopify).toHaveBeenCalledTimes(1);
+    expect(shopifyServiceStub.syncAnswerBlocksToShopify).toHaveBeenCalledWith(
+      product.id,
+    );
+
+    const logs = await testPrisma.answerBlockAutomationLog.findMany({
+      where: { productId: product.id, triggerType: 'manual_sync' },
+    });
+    expect(logs).toHaveLength(1);
+    expect(logs[0].action).toBe('answer_blocks_synced_to_shopify');
+    expect(logs[0].status).toBe('succeeded');
+  });
+
+  it('skips manual Shopify sync when the daily cap is reached', async () => {
+    const plan: TestPlanId = 'pro';
+    const { user, project, product } = await createUserProjectAndProduct(
+      plan,
+      shopifyProductNoAnswerBlocks,
+    );
+
+    await testPrisma.project.update({
+      where: { id: project.id },
+      data: {
+        aeoSyncToShopifyMetafields: true,
+      },
+    });
+
+    await testPrisma.answerBlock.create({
+      data: {
+        productId: product.id,
+        questionId: 'what_is_it',
+        questionText: 'What is it?',
+        answerText: 'A canonical test answer',
+        confidenceScore: 0.9,
+        sourceType: 'generated',
+        sourceFieldsUsed: [],
+      },
+    });
+
+    const { limit } = await entitlementsService.getAiSuggestionLimit(user.id);
+    const now = new Date();
+    for (let i = 0; i < limit; i += 1) {
+      await testPrisma.aiUsageEvent.create({
+        data: {
+          userId: user.id,
+          projectId: project.id,
+          feature: 'shopify_answer_block_sync',
+          createdAt: now,
+        },
+      });
+    }
+
+    const result = await automationService.syncAnswerBlocksToShopifyNow(
+      product.id,
+      user.id,
+    );
+
+    expect(result.status).toBe('skipped');
+    expect(result.reason).toBe('daily_cap_reached');
+
+    expect(shopifyServiceStub.syncAnswerBlocksToShopify).not.toHaveBeenCalled();
+
+    const logs = await testPrisma.answerBlockAutomationLog.findMany({
+      where: { productId: product.id, triggerType: 'manual_sync' },
+    });
+    expect(logs).toHaveLength(1);
+    expect(logs[0].status).toBe('skipped');
+    expect(logs[0].action).toBe('answer_blocks_synced_to_shopify');
+    expect(logs[0].errorMessage).toContain('daily_cap_reached');
   });
 });

@@ -1,8 +1,10 @@
 import {
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import {
   AutomationIssueType,
@@ -13,6 +15,7 @@ import { AiService } from '../ai/ai.service';
 import { EntitlementsService } from '../billing/entitlements.service';
 import { answerBlockAutomationQueue } from '../queues/queues';
 import { PlanId } from '../billing/plans';
+import { ShopifyService } from '../shopify/shopify.service';
 
 const AUTOMATION_SOURCE = 'automation_v1';
 
@@ -31,6 +34,8 @@ export class AutomationService {
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
     private readonly entitlementsService: EntitlementsService,
+    @Inject(forwardRef(() => ShopifyService))
+    private readonly shopifyService: ShopifyService,
   ) {}
 
   /**
@@ -808,5 +813,170 @@ export class AutomationService {
         errorMessage: log.errorMessage ?? null,
       })),
     };
+  }
+
+  /**
+   * Manually sync persisted Answer Blocks for a product to Shopify metafields.
+   * Applies plan/entitlement gating, project-level toggle, and a simple daily cap using
+   * the existing AI limit helper. Logs outcomes using the AnswerBlockAutomationLog
+   * pattern with triggerType = 'manual_sync' and action = 'answer_blocks_synced_to_shopify'.
+   */
+  async syncAnswerBlocksToShopifyNow(
+    productId: string,
+    userId: string,
+  ): Promise<{
+    productId: string;
+    projectId: string;
+    status: 'succeeded' | 'failed' | 'skipped';
+    reason?: string;
+    syncedCount?: number;
+    errors?: string[];
+  }> {
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      include: {
+        project: true,
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    if (product.project.userId !== userId) {
+      throw new ForbiddenException('You do not have access to this product');
+    }
+
+    const planId: PlanId = await this.entitlementsService.getUserPlan(userId);
+    const triggerType = 'manual_sync';
+
+    // Free plan: no Shopify metafield writes – skip with logged reason.
+    if (planId === 'free') {
+      await this.prisma.answerBlockAutomationLog.create({
+        data: {
+          projectId: product.projectId,
+          productId: product.id,
+          triggerType,
+          planId,
+          action: 'answer_blocks_synced_to_shopify',
+          status: 'skipped',
+          errorMessage: 'plan_not_entitled',
+        },
+      });
+      return {
+        productId: product.id,
+        projectId: product.projectId,
+        status: 'skipped',
+        reason: 'plan_not_entitled',
+      };
+    }
+
+    // Project-level toggle: must be explicitly enabled.
+    if (!product.project.aeoSyncToShopifyMetafields) {
+      await this.prisma.answerBlockAutomationLog.create({
+        data: {
+          projectId: product.projectId,
+          productId: product.id,
+          triggerType,
+          planId,
+          action: 'answer_blocks_synced_to_shopify',
+          status: 'skipped',
+          errorMessage: 'sync_toggle_off',
+        },
+      });
+      return {
+        productId: product.id,
+        projectId: product.projectId,
+        status: 'skipped',
+        reason: 'sync_toggle_off',
+      };
+    }
+
+    // Daily cap / quota gating using existing AI limit helper.
+    try {
+      await this.entitlementsService.ensureWithinDailyAiLimit(
+        userId,
+        product.projectId,
+        'shopify_answer_block_sync',
+      );
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Daily limit reached for Shopify Answer Block sync';
+      await this.prisma.answerBlockAutomationLog.create({
+        data: {
+          projectId: product.projectId,
+          productId: product.id,
+          triggerType,
+          planId,
+          action: 'answer_blocks_synced_to_shopify',
+          status: 'skipped',
+          errorMessage: `daily_cap_reached: ${message}`,
+        },
+      });
+      return {
+        productId: product.id,
+        projectId: product.projectId,
+        status: 'skipped',
+        reason: 'daily_cap_reached',
+      };
+    }
+
+    try {
+      const syncResult = await this.shopifyService.syncAnswerBlocksToShopify(
+        product.id,
+      );
+      // Record usage only when we actually attempted a sync.
+      await this.entitlementsService.recordAiUsage(
+        userId,
+        product.projectId,
+        'shopify_answer_block_sync',
+      );
+      const status: 'succeeded' | 'failed' =
+        syncResult.errors.length > 0 ? 'failed' : 'succeeded';
+      await this.prisma.answerBlockAutomationLog.create({
+        data: {
+          projectId: product.projectId,
+          productId: product.id,
+          triggerType,
+          planId,
+          action: 'answer_blocks_synced_to_shopify',
+          status,
+          errorMessage: syncResult.errors.length
+            ? `Metafield sync errors: ${syncResult.errors.join(', ')}`
+            : null,
+          modelUsed: 'ae_v1',
+        },
+      });
+      return {
+        productId: product.id,
+        projectId: product.projectId,
+        status,
+        reason: syncResult.skippedReason,
+        syncedCount: syncResult.syncedCount,
+        errors: syncResult.errors,
+      };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      await this.prisma.answerBlockAutomationLog.create({
+        data: {
+          projectId: product.projectId,
+          productId: product.id,
+          triggerType,
+          planId,
+          action: 'answer_blocks_synced_to_shopify',
+          status: 'failed',
+          errorMessage: message,
+        },
+      });
+      return {
+        productId: product.id,
+        projectId: product.projectId,
+        status: 'failed',
+        reason: 'error',
+        errors: [message],
+      };
+    }
   }
 }

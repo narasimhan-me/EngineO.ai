@@ -15,6 +15,7 @@ class TriggerAnswerBlockAutomationDto {
  * Routes:
  *   POST /products/:id/answer-blocks/automation-run
  *   GET  /products/:id/automation-logs
+ *   POST /products/:id/answer-blocks/sync-to-shopify
  */
 @Controller('products')
 @UseGuards(JwtAuthGuard)
@@ -57,6 +58,23 @@ export class ProductAutomationController {
   @Get(':id/automation-logs')
   async getAnswerBlockAutomationLogs(@Request() req: any, @Param('id') productId: string) {
     return this.automationService.getAnswerBlockAutomationLogsForProduct(
+      productId,
+      req.user.id,
+    );
+  }
+
+  /**
+   * POST /products/:id/answer-blocks/sync-to-shopify
+   *
+   * Manually syncs persisted Answer Blocks for a product to Shopify metafields.
+   * Uses AutomationService.syncAnswerBlocksToShopifyNow with entitlement and toggle gating.
+   */
+  @Post(':id/answer-blocks/sync-to-shopify')
+  async syncAnswerBlocksToShopifyNow(
+    @Request() req: any,
+    @Param('id') productId: string,
+  ) {
+    return this.automationService.syncAnswerBlocksToShopifyNow(
       productId,
       req.user.id,
     );
