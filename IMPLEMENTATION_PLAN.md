@@ -8454,7 +8454,50 @@ Shopify Sync → New Product Detected → AutomationService Triggered
 
 ---
 
-These Phases 23–30 plus Phases UX-1, UX-1.1, UX-2, UX-3, UX-4, UX-5, UX-6, UX-7, UX-8, AE-1 (Answer Engine), AE-1 (Automation Engine), AE-2 (Product Automations), AEO-2 (Shopify Metafields Sync), SHOP-API-1 (GraphQL Migration), INFRA-REDIS-1 (Redis Background Activity Flags), DASH-1 (Dashboard v1), DASH-1.1 (Dashboard v1.1 UX Polish Pass), UX-Content-1, UX-Content-2, and MARKETING-1 through MARKETING-6 extend your IMPLEMENTATION_PLAN.md and keep your roadmap cohesive:
+## Phase DASH-1.2 – Project Dashboard v1.2 (Diagnostics Drawer & Redundancy Cleanup)
+
+**Status:** Complete
+
+**Goal:** Reduce visual and cognitive load on the Project Overview dashboard by turning the “Diagnostics & reference” section into a true, muted drawer and tightening issue/product callouts so that primary actions remain focused on “What Matters Right Now” and “Top blockers”.
+
+### Scope
+
+- **Diagnostics Drawer Reframe:**
+  - Renamed “Diagnostics & reference” to “Diagnostics & system details” and converted it into a slim row that acts as a drawer trigger.
+  - Collapsed state shows a single, low-prominence row with helper copy and a “Show details” / “Hide details” toggle.
+  - Expanded state uses a 2-column layout:
+    - Left column (Evidence): Signals summary and crawl tools / DEO issues controls.
+    - Right column (System): Shopify integration card, Active Integrations, Auto Crawl card, and Project Stats card.
+
+- **Visual Tiering & Muted Styling:**
+  - Updated diagnostics cards to be visually muted relative to “What Matters Right Now” and “Top blockers”:
+    - Smaller headers, lighter borders/backgrounds, and removal of strong, card-like shadows.
+    - Kept existing green/gray states for connected/disabled conditions, avoiding new red states except for pre-existing error/broken cases.
+
+- **Issues & Top Products Redundancy Guardrails:**
+  - Ensured the main dashboard issues surface is the “Top blockers” panel, capped at 3 issues with outcome-style helper text and a single primary CTA: “View all issues”.
+  - Confirmed “Top Products to Fix” appears only once in the “What Matters Right Now” section and continues to show at most 3 products, using existing derivation logic.
+  - Left the full issues experience in the modal and Issues page unchanged; this phase is UX-only and does not alter scoring or selection logic.
+
+### Files Changed
+
+- `apps/web/src/app/projects/[id]/overview/page.tsx` – Updated the diagnostics section label and copy, restructured its inner layout into a true 2-column drawer (Evidence vs System), and muted diagnostics card styling while preserving all existing buttons and links.
+- `docs/manual-testing/phase-dashboard-v1-2-diagnostics-drawer.md` – New manual testing doc for Dashboard v1.2 diagnostics drawer behavior, redundancy checks, and regression coverage.
+
+### Acceptance Criteria
+
+- [x] “Diagnostics & system details” appears as a slim, collapsed row by default with the specified helper copy and “Show details” / “Hide details” toggle.
+- [x] Expanding the diagnostics drawer renders a 2-column layout on large screens, with Evidence content in the left column and System details (Shopify integration, Active Integrations, Auto Crawl, Project Stats) in the right column.
+- [x] All diagnostics cards are visually muted (smaller headers, softer borders/backgrounds, reduced emphasis) compared to primary dashboard action areas.
+- [x] The dashboard issues panel surfaces only “Top blockers” (maximum 3) with outcome-style descriptions and a single “View all issues” CTA.
+- [x] “Top Products to Fix” appears only once on the dashboard and remains limited to 3 products, using existing data and ranking logic.
+- [x] No backend services, APIs, or metrics were changed; this phase is strictly a layout and copy update.
+
+**Manual Testing:** `docs/manual-testing/phase-dashboard-v1-2-diagnostics-drawer.md`
+
+---
+
+These Phases 23–30 plus Phases UX-1, UX-1.1, UX-2, UX-3, UX-4, UX-5, UX-6, UX-7, UX-8, AE-1 (Answer Engine), AE-1 (Automation Engine), AE-2 (Product Automations), AEO-2 (Shopify Metafields Sync), SHOP-API-1 (GraphQL Migration), INFRA-REDIS-1 (Redis Background Activity Flags), DASH-1 (Dashboard v1), DASH-1.1 (Dashboard v1.1 UX Polish Pass), DASH-1.2 (Dashboard v1.2 Diagnostics Drawer & Redundancy Cleanup), UX-Content-1, UX-Content-2, and MARKETING-1 through MARKETING-6 extend your IMPLEMENTATION_PLAN.md and keep your roadmap cohesive:
 
 - Phases 12–17: Core feature sets (automation, content, performance, competitors, local, social).
 - Phases 18–22: Security, subscription management, monitoring, fairness & limits.

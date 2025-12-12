@@ -878,36 +878,36 @@ export default function ProjectOverviewPage() {
         </div>
       </section>
 
-      {/* Diagnostics & reference (muted / collapsible) */}
+      {/* Diagnostics & system details (drawer) */}
       <section className="mt-8">
         <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-semibold text-gray-900">Diagnostics & reference</h2>
+              <h2 className="text-sm font-semibold text-gray-900">Diagnostics & system details</h2>
               <p className="mt-1 text-xs text-gray-500">
-                Detailed signals, crawl tools, integrations, and auto-crawl configuration.
+                Signals, integrations, crawl tools, and auto-crawl configuration.
               </p>
             </div>
             <button
               type="button"
               onClick={() => setShowDiagnostics((prev) => !prev)}
               className="text-xs font-medium text-blue-600 hover:text-blue-800"
-            >
-              {showDiagnostics ? 'Hide details' : 'Show details'}
-            </button>
+              >
+                {showDiagnostics ? 'Hide details' : 'Show details'}
+              </button>
           </div>
           {showDiagnostics && (
-            <div className="mt-4 grid gap-6 lg:grid-cols-3">
-              {/* Column 1: Signals & Crawl / DEO Issues */}
-              <div className="space-y-6">
-                <div className="rounded-lg bg-white p-6 shadow-sm">
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              {/* Left column: Evidence (signals and crawl tools) */}
+              <div className="space-y-4">
+                <div className="rounded-lg border border-gray-200 bg-white p-4">
                   <h3 className="mb-3 text-sm font-semibold text-gray-900">Signals summary</h3>
                   <DeoSignalsSummary signals={deoSignals} loading={deoSignalsLoading} />
                   <div className="mt-4">
                     <ProjectHealthCards signals={deoSignals} />
                   </div>
                 </div>
-                <div className="rounded-lg bg-white p-6 shadow-sm">
+                <div className="rounded-lg border border-gray-200 bg-white p-4">
                   <div className="flex flex-col gap-4">
                     <div>
                       <h3 className="text-sm font-semibold text-gray-900">Crawl & DEO Issues</h3>
@@ -975,9 +975,9 @@ export default function ProjectOverviewPage() {
                   </div>
                 </div>
               </div>
-              {/* Column 2: Shopify Integration */}
-              <div className="space-y-6">
-                <div id="shopify-integration" className="rounded-lg bg-white p-6 shadow-sm">
+              {/* Right column: System (integrations, auto-crawl, stats) */}
+              <div className="space-y-4">
+                <div id="shopify-integration" className="rounded-lg border border-gray-200 bg-white p-4">
                   <h3 className="mb-4 text-sm font-semibold text-gray-900">Shopify Integration</h3>
                   {status.shopify.connected ? (
                     <div className="rounded-lg border border-green-200 bg-green-50 p-4">
@@ -1064,52 +1064,8 @@ export default function ProjectOverviewPage() {
                     </div>
                   )}
                 </div>
-              </div>
-              {/* Column 3: Project stats, integrations, auto crawl */}
-              <div className="space-y-6">
-                <div className="rounded-lg bg-white p-6 shadow-sm">
-                  <h3 className="mb-4 text-sm font-semibold text-gray-900">Project Stats</h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Total Crawls</span>
-                      <span className="text-sm font-medium text-gray-900">
-                        {overview?.crawlCount ?? 0}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Issues Found</span>
-                      <span
-                        className={`text-sm font-medium ${
-                          overview?.issueCount === 0 ? 'text-green-600' : 'text-orange-600'
-                        }`}
-                      >
-                        {overview?.issueCount ?? 0}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Products</span>
-                      <span className="text-sm font-medium text-gray-900">
-                        {overview?.productCount ?? 0}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Products with SEO</span>
-                      <span className="text-sm font-medium text-gray-900">
-                        {overview?.productsWithAppliedSeo ?? 0}
-                      </span>
-                    </div>
-                    {scanResults.length > 0 && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Last Scan</span>
-                        <span className="text-sm font-medium text-gray-900">
-                          {new Date(scanResults[0].scannedAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
                 {status.integrations.length > 0 && (
-                  <div className="rounded-lg bg-white p-6 shadow-sm">
+                  <div className="rounded-lg border border-gray-200 bg-white p-4">
                     <h3 className="mb-4 text-sm font-semibold text-gray-900">Active Integrations</h3>
                     <div className="space-y-3 text-sm">
                       {status.integrations.map((integration) => (
@@ -1127,7 +1083,7 @@ export default function ProjectOverviewPage() {
                     </div>
                   </div>
                 )}
-                <div className="rounded-lg bg-white p-6 shadow-sm">
+                <div className="rounded-lg border border-gray-200 bg-white p-4">
                   <div className="mb-3 flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-gray-900">Auto Crawl</h3>
                     <Link
@@ -1167,6 +1123,47 @@ export default function ProjectOverviewPage() {
                       <p className="text-xs text-gray-500">
                         Frequency: {formatCrawlFrequency(status.crawlFrequency)}
                       </p>
+                    )}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-white p-4">
+                  <h3 className="mb-4 text-sm font-semibold text-gray-900">Project Stats</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Total Crawls</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {overview?.crawlCount ?? 0}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Issues Found</span>
+                      <span
+                        className={`text-sm font-medium ${
+                          overview?.issueCount === 0 ? 'text-green-600' : 'text-orange-600'
+                        }`}
+                      >
+                        {overview?.issueCount ?? 0}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Products</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {overview?.productCount ?? 0}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Products with SEO</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {overview?.productsWithAppliedSeo ?? 0}
+                      </span>
+                    </div>
+                    {scanResults.length > 0 && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Last Scan</span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {new Date(scanResults[0].scannedAt).toLocaleDateString()}
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>
