@@ -8403,7 +8403,58 @@ Shopify Sync → New Product Detected → AutomationService Triggered
 
 ---
 
-These Phases 23–30 plus Phases UX-1, UX-1.1, UX-2, UX-3, UX-4, UX-5, UX-6, UX-7, UX-8, AE-1 (Answer Engine), AE-1 (Automation Engine), AE-2 (Product Automations), AEO-2 (Shopify Metafields Sync), SHOP-API-1 (GraphQL Migration), INFRA-REDIS-1 (Redis Background Activity Flags), DASH-1 (Dashboard v1), UX-Content-1, UX-Content-2, and MARKETING-1 through MARKETING-6 extend your IMPLEMENTATION_PLAN.md and keep your roadmap cohesive:
+## Phase DASH-1.1 – Project Dashboard v1.1 (UX Polish Pass)
+
+**Status:** Complete
+
+**Goal:** Use existing overview data to improve the Project Dashboard's visual hierarchy, with Answer Blocks and "Top Products to Fix" as the primary narrative, while keeping all prior functionality intact.
+
+### Scope
+
+- **Status Ribbon:**
+  - Replaced the First DEO Win confirmation card with a slim status ribbon that appears after all activation steps are complete.
+  - Ribbon copy: "You've completed your first DEO win. Your visibility is improving."
+  - Kept CTAs for daily crawls and issues as de-emphasized, link-style actions.
+
+- **Primary Focus – "What Matters Right Now":**
+  - Introduced a new highlighted section that groups:
+    - AEO Status card (Shopify Sync ON/OFF, products with Answer Blocks, last sync timestamp/status).
+    - Top Products to Fix card with up to 3 products and "Needs fix" labels.
+  - AEO Status card uses softer indigo styling and surfaces only the most important Answer Block sync fields.
+
+- **DEO Score (Secondary):**
+  - Demoted DEO Score into a secondary section with:
+    - Interpretation line: "Your biggest growth opportunities are Answer Readiness and Visibility."
+    - Collapsible component breakdown, hidden by default and expanded via a "View full DEO Score" button.
+  - Kept DEO Freshness recompute controls unchanged in behavior.
+
+- **Issues Simplification:**
+  - Dashboard now shows only the top 3 blockers in a "Top blockers" panel.
+  - Issues are phrased as outcomes using recommendedFix/description via a small helper, with a single CTA: "View all issues".
+
+- **Diagnostics & Reference:**
+  - Grouped signals summary, crawl tools, Shopify integration, project stats, active integrations, and auto-crawl configuration into a muted "Diagnostics & reference" section.
+  - Section is collapsed by default and expanded via a "Show details" toggle; underlying behavior and links remain unchanged.
+
+### Files Changed
+
+- `apps/web/src/app/projects/[id]/overview/page.tsx` – Restructured layout into Status Ribbon, "What Matters Right Now", secondary DEO Score/Top blockers, and collapsible Diagnostics & reference; limited dashboard issues to 3, and adjusted colors to prefer orange over red for issue counts.
+- `docs/manual-testing/phase-dashboard-v1-1-ux-polish.md` – New manual testing doc for Dashboard v1.1 UX polish scenarios.
+
+### Acceptance Criteria
+
+- [x] First DEO Win completion renders as a slim status ribbon with the specified copy and link-style CTAs.
+- [x] "What Matters Right Now" section prominently shows AEO Status (Shopify Sync, products with Answer Blocks, last sync status/timestamp) and up to 3 Top Products to Fix with "Needs fix" labels.
+- [x] DEO Score section is visually secondary, with the breakdown collapsed by default and expandable via "View full DEO Score".
+- [x] Dashboard issues panel shows at most 3 top blockers with outcome-style descriptions and a single "View all issues" CTA.
+- [x] Diagnostics, crawl tools, integrations, and auto-crawl config are collapsed by default under a muted "Diagnostics & reference" section, but remain fully accessible when expanded.
+- [x] No new backend calls or metrics were introduced; all behavior uses existing DASH-1 data.
+
+**Manual Testing:** `docs/manual-testing/phase-dashboard-v1-1-ux-polish.md`
+
+---
+
+These Phases 23–30 plus Phases UX-1, UX-1.1, UX-2, UX-3, UX-4, UX-5, UX-6, UX-7, UX-8, AE-1 (Answer Engine), AE-1 (Automation Engine), AE-2 (Product Automations), AEO-2 (Shopify Metafields Sync), SHOP-API-1 (GraphQL Migration), INFRA-REDIS-1 (Redis Background Activity Flags), DASH-1 (Dashboard v1), DASH-1.1 (Dashboard v1.1 UX Polish Pass), UX-Content-1, UX-Content-2, and MARKETING-1 through MARKETING-6 extend your IMPLEMENTATION_PLAN.md and keep your roadmap cohesive:
 
 - Phases 12–17: Core feature sets (automation, content, performance, competitors, local, social).
 - Phases 18–22: Security, subscription management, monitoring, fairness & limits.

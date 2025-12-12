@@ -16,7 +16,6 @@ import { DeoScoreCard } from '@/components/projects/DeoScoreCard';
 import { DeoComponentBreakdown } from '@/components/projects/DeoComponentBreakdown';
 import { DeoSignalsSummary } from '@/components/projects/DeoSignalsSummary';
 import { ProjectHealthCards } from '@/components/projects/ProjectHealthCards';
-import { IssuesSummaryCard } from '@/components/issues/IssuesSummaryCard';
 import { IssuesList } from '@/components/issues/IssuesList';
 import { FirstDeoWinChecklist } from '@/components/projects/FirstDeoWinChecklist';
 import { useFeedback } from '@/components/feedback/FeedbackProvider';
@@ -118,6 +117,16 @@ interface ProjectOverview {
   lastAnswerBlockSyncAt?: string | null;
 }
 
+function formatIssueOutcome(issue: DeoIssue): string {
+  if (issue.recommendedFix && issue.recommendedFix.trim().length > 0) {
+    return issue.recommendedFix;
+  }
+  if (issue.description && issue.description.trim().length > 0) {
+    return issue.description;
+  }
+  return issue.title;
+}
+
 export default function ProjectOverviewPage() {
   const router = useRouter();
   const params = useParams();
@@ -149,6 +158,8 @@ export default function ProjectOverviewPage() {
   const [deoIssuesLoading, setDeoIssuesLoading] = useState(false);
   const [deoIssuesError, setDeoIssuesError] = useState<string | null>(null);
   const [showIssuesPanel, setShowIssuesPanel] = useState(false);
+  const [showDeoBreakdown, setShowDeoBreakdown] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [showFirstWinCard, setShowFirstWinCard] = useState(true);
 
   const feedback = useFeedback();
@@ -432,7 +443,7 @@ export default function ProjectOverviewPage() {
 
   const aeoSyncEnabled = status?.aeoSyncToShopifyMetafields ?? false;
   const issuesForCards: DeoIssue[] =
-    ((deoIssues?.issues as DeoIssue[]) ?? []).slice(0, 5);
+    ((deoIssues?.issues as DeoIssue[]) ?? []).slice(0, 3);
   const topProductsToFix = (() => {
     if (!deoIssues?.issues || !products.length) {
       return [] as { product: Product; reasons: string[] }[];
@@ -580,37 +591,34 @@ export default function ProjectOverviewPage() {
         />
       )}
 
-      {/* First DEO Win Confirmation Card */}
+      {/* First DEO Win Status Ribbon */}
       {hasRunCrawl && hasDeoScore && hasOptimizedThreeProducts && showFirstWinCard && (
-        <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4 shadow-sm">
-          <div className="flex items-start justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-green-800">
-                Nice — you&apos;ve optimized 3 products. Your DEO visibility is already improving.
-              </h3>
-              <p className="mt-1 text-xs text-green-700">
-                You&apos;ve completed the First DEO Win path. Keep going!
+        <div className="mb-4 rounded-md border border-green-100 bg-green-50 px-3 py-2 text-xs text-green-800">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1">
+              <p className="font-medium">
+                You&apos;ve completed your first DEO win. Your visibility is improving.
               </p>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-3">
                 <Link
                   href={`/projects/${projectId}/settings`}
-                  className="inline-flex items-center rounded-md border border-green-600 bg-white px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-50"
+                  className="inline-flex items-center text-[11px] font-medium text-green-700 hover:text-green-900"
                 >
                   Set up daily crawls
                 </Link>
                 <Link
                   href={`/projects/${projectId}/issues`}
-                  className="inline-flex items-center rounded-md border border-green-600 bg-white px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-50"
+                  className="inline-flex items-center text-[11px] font-medium text-green-700 hover:text-green-900"
                 >
-                  Open Issues Engine
+                  View issues
                 </Link>
               </div>
             </div>
             <button
               onClick={() => setShowFirstWinCard(false)}
-              className="text-green-600 hover:text-green-800"
+              className="mt-0.5 text-green-600 hover:text-green-800"
             >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -618,15 +626,161 @@ export default function ProjectOverviewPage() {
         </div>
       )}
 
-      {/* Top section: DEO Score + Components + Freshness */}
+      {/* Primary Focus Section: What Matters Right Now */}
+      <section className="mt-6">
+        <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4 sm:p-5">
+          <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-indigo-900">What Matters Right Now</h2>
+              <p className="mt-1 text-xs text-indigo-800">
+                Focus on Answer Block readiness and quick wins for your key products.
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* AEO Status (primary card) */}
+            <div className="rounded-lg bg-white p-4 shadow-sm ring-1 ring-indigo-100">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-900">AEO Status</h3>
+                <span
+                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide ${
+                    aeoSyncEnabled
+                      ? 'bg-green-50 text-green-700'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  Shopify Sync {aeoSyncEnabled ? 'On' : 'Off'}
+                </span>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Products with Answer Blocks</span>
+                  <span className="font-medium text-gray-900">
+                    {overview?.productsWithAnswerBlocks ?? 0}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Last Answer Blocks sync</span>
+                  <span className="font-medium text-gray-900">
+                    {overview?.lastAnswerBlockSyncAt
+                      ? new Date(
+                          overview.lastAnswerBlockSyncAt as string,
+                        ).toLocaleString()
+                      : 'No sync yet'}
+                  </span>
+                </div>
+                {overview?.lastAnswerBlockSyncStatus && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Last sync status</span>
+                    <span className="font-medium text-gray-900">
+                      {overview.lastAnswerBlockSyncStatus}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => router.push(`/projects/${projectId}/products`)}
+                  className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                >
+                  View Answer Blocks
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push(`/projects/${projectId}/products`)}
+                  className="inline-flex items-center rounded-md border border-blue-600 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                >
+                  Sync now
+                </button>
+              </div>
+            </div>
+            {/* Top Products to Fix (primary action area) */}
+            <div className="rounded-lg bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    Top Products to Fix
+                  </h3>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Quick wins where better answers and metadata can improve visibility.
+                  </p>
+                </div>
+              </div>
+              {topProductsToFix.length === 0 ? (
+                <p className="text-xs text-gray-500">
+                  Once issues are detected, you&apos;ll see the easiest products to improve here.
+                </p>
+              ) : (
+                <ul className="space-y-3">
+                  {topProductsToFix.map(({ product, reasons }) => (
+                    <li
+                      key={product.id}
+                      className="flex items-start justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            router.push(
+                              `/projects/${projectId}/products/${product.id}`,
+                            )
+                          }
+                          className="truncate text-sm font-medium text-blue-700 hover:text-blue-900"
+                        >
+                          {product.title || product.externalId}
+                        </button>
+                        {reasons.length > 0 && (
+                          <p className="mt-0.5 truncate text-xs text-gray-500">
+                            {reasons.join('; ')}
+                          </p>
+                        )}
+                      </div>
+                      <span className="ml-2 flex-shrink-0 rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-700">
+                        Needs fix
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* DEO Score & Top Issues (secondary) */}
       <section className="mt-6 grid gap-6 lg:grid-cols-2">
-        <div className="space-y-6">
+        <div className="space-y-4">
           <DeoScoreCard
             score={deoScore?.latestScore ?? null}
             lastComputedAt={deoScore?.latestSnapshot?.computedAt ?? null}
             onRunFirstCrawl={hasRunCrawl ? undefined : handleRunScan}
           />
-          <DeoComponentBreakdown score={deoScore?.latestScore ?? null} />
+          <p className="text-xs text-gray-600">
+            Your biggest growth opportunities are Answer Readiness and Visibility.
+          </p>
+          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-gray-700">DEO Score breakdown</h3>
+                <p className="mt-1 text-xs text-gray-500">
+                  See how content, answer readiness, and visibility contribute to your score.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDeoBreakdown((prev) => !prev)}
+                className="text-xs font-medium text-blue-600 hover:text-blue-800"
+              >
+                {showDeoBreakdown ? 'Hide breakdown' : 'View full DEO Score'}
+              </button>
+            </div>
+            {showDeoBreakdown && (
+              <div className="mt-3">
+                <DeoComponentBreakdown score={deoScore?.latestScore ?? null} />
+              </div>
+            )}
+          </div>
           <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -673,26 +827,24 @@ export default function ProjectOverviewPage() {
             </div>
           </div>
         </div>
-        {/* Right column: Signals + Issues */}
-        <div className="space-y-6">
-          <DeoSignalsSummary signals={deoSignals} loading={deoSignalsLoading} />
-          <ProjectHealthCards signals={deoSignals} />
+        {/* Right column: Top blockers */}
+        <div className="space-y-4">
           <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-900">Top Issues</h3>
+              <h3 className="text-sm font-semibold text-gray-900">Top blockers</h3>
               <button
                 type="button"
                 onClick={() => setShowIssuesPanel(true)}
                 className="text-xs font-medium text-blue-600 hover:text-blue-800"
               >
-                View all
+                View all issues
               </button>
             </div>
             {deoIssuesLoading ? (
               <p className="text-xs text-gray-500">Loading issues…</p>
             ) : issuesForCards.length === 0 ? (
               <p className="text-xs text-gray-500">
-                No issues found yet. Run a crawl to surface DEO issues.
+                No major blockers found yet. Run a crawl to surface DEO issues.
               </p>
             ) : (
               <ul className="space-y-2">
@@ -712,10 +864,10 @@ export default function ProjectOverviewPage() {
                         {issue.title}
                       </button>
                       <p className="mt-0.5 truncate text-[11px] text-gray-500">
-                        {issue.recommendedFix || issue.description}
+                        {formatIssueOutcome(issue)}
                       </p>
                     </div>
-                    <span className="ml-2 flex-shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-600">
+                    <span className="ml-2 flex-shrink-0 rounded-full bg-gray-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-600">
                       {issue.severity}
                     </span>
                   </li>
@@ -726,344 +878,303 @@ export default function ProjectOverviewPage() {
         </div>
       </section>
 
-      {/* Secondary section: Integrations + Crawl / Products overview */}
-      <section className="mt-8 grid gap-6 lg:grid-cols-3">
-        {/* Column 1: Crawl & DEO Issues */}
-        <div className="space-y-6">
-          {/* Crawl details entry point */}
-          <div className="rounded-lg bg-white p-6 shadow">
-            <div className="flex flex-col gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Crawl & DEO Issues</h2>
-                <p className="mt-1 text-sm text-gray-600">
-                  {hasRunCrawl
-                    ? 'View full crawl results, per-page issues, and detailed SEO/DEO diagnostics.'
-                    : "We haven't crawled your site yet. Run your first crawl to surface DEO issues and diagnostics."}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={handleRunScan}
-                  disabled={scanning}
-                  className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {scanning ? (
-                    <>
-                      <svg
-                        className="-ml-0.5 mr-1.5 h-3.5 w-3.5 animate-spin text-gray-700"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Running crawl...
-                    </>
-                  ) : (
-                    <>
-                      <svg
-                        className="mr-1.5 h-3.5 w-3.5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                        />
-                      </svg>
-                      Run Crawl
-                    </>
-                  )}
-                </button>
-                <Link
-                  href={`/projects/${projectId}/issues`}
-                  className="inline-flex items-center rounded-md bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
-                >
-                  View Crawl Details
-                </Link>
-              </div>
+      {/* Diagnostics & reference (muted / collapsible) */}
+      <section className="mt-8">
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">Diagnostics & reference</h2>
+              <p className="mt-1 text-xs text-gray-500">
+                Detailed signals, crawl tools, integrations, and auto-crawl configuration.
+              </p>
             </div>
+            <button
+              type="button"
+              onClick={() => setShowDiagnostics((prev) => !prev)}
+              className="text-xs font-medium text-blue-600 hover:text-blue-800"
+            >
+              {showDiagnostics ? 'Hide details' : 'Show details'}
+            </button>
           </div>
-        </div>
-
-        {/* Column 2: Shopify Integration */}
-        <div className="space-y-6">
-          <div id="shopify-integration" className="rounded-lg bg-white p-6 shadow">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Shopify Integration</h2>
-
-            {status.shopify.connected ? (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center">
-                    <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    <span className="text-green-800 font-semibold">Connected</span>
+          {showDiagnostics && (
+            <div className="mt-4 grid gap-6 lg:grid-cols-3">
+              {/* Column 1: Signals & Crawl / DEO Issues */}
+              <div className="space-y-6">
+                <div className="rounded-lg bg-white p-6 shadow-sm">
+                  <h3 className="mb-3 text-sm font-semibold text-gray-900">Signals summary</h3>
+                  <DeoSignalsSummary signals={deoSignals} loading={deoSignalsLoading} />
+                  <div className="mt-4">
+                    <ProjectHealthCards signals={deoSignals} />
                   </div>
-                  <Link
-                    href={`/projects/${projectId}/products`}
-                    className="inline-flex items-center px-3 py-1.5 border border-green-600 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                  >
-                    <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                    </svg>
-                    View Products
-                  </Link>
                 </div>
-                <div className="text-sm text-gray-700 space-y-1">
-                  <p><span className="font-medium">Store:</span> {status.shopify.shopDomain}</p>
-                  {status.shopify.installedAt && (
-                    <p><span className="font-medium">Connected:</span> {new Date(status.shopify.installedAt).toLocaleDateString()}</p>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <p className="text-gray-700 mb-4">Connect your Shopify store to sync products and apply AI-generated SEO optimizations.</p>
-
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="shopDomain" className="block text-sm font-medium text-gray-700 mb-2">
-                      Shopify Store Domain
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        id="shopDomain"
-                        value={shopDomain}
-                        onChange={(e) => setShopDomain(e.target.value)}
-                        placeholder="your-store"
-                        className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <span className="flex items-center text-gray-600 text-sm">.myshopify.com</span>
+                <div className="rounded-lg bg-white p-6 shadow-sm">
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900">Crawl & DEO Issues</h3>
+                      <p className="mt-1 text-xs text-gray-600">
+                        {hasRunCrawl
+                          ? 'View full crawl results, per-page issues, and detailed SEO/DEO diagnostics.'
+                          : "We haven't crawled your site yet. Run your first crawl to surface DEO issues and diagnostics."}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={handleRunScan}
+                        disabled={scanning}
+                        className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {scanning ? (
+                          <>
+                            <svg
+                              className="-ml-0.5 mr-1.5 h-3.5 w-3.5 animate-spin text-gray-700"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              ></circle>
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              ></path>
+                            </svg>
+                            Running crawl...
+                          </>
+                        ) : (
+                          <>
+                            <svg
+                              className="mr-1.5 h-3.5 w-3.5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                              />
+                            </svg>
+                            Run Crawl
+                          </>
+                        )}
+                      </button>
+                      <Link
+                        href={`/projects/${projectId}/issues`}
+                        className="inline-flex items-center rounded-md bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                      >
+                        View Crawl Details
+                      </Link>
                     </div>
                   </div>
-
-                  <button
-                    onClick={handleConnectShopify}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                  >
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    Connect Shopify Store
-                  </button>
                 </div>
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Column 3: Project stats, AEO status, integrations, auto crawl */}
-        <div className="space-y-6">
-          <div className="rounded-lg bg-white p-6 shadow">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Project Stats</h2>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Total Crawls</span>
-                <span className="text-sm font-medium text-gray-900">{overview?.crawlCount ?? 0}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Issues Found</span>
-                <span className={`text-sm font-medium ${overview?.issueCount === 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {overview?.issueCount ?? 0}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Products</span>
-                <span className="text-sm font-medium text-gray-900">{overview?.productCount ?? 0}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Products with SEO</span>
-                <span className="text-sm font-medium text-gray-900">{overview?.productsWithAppliedSeo ?? 0}</span>
-              </div>
-              {scanResults.length > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Last Scan</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {new Date(scanResults[0].scannedAt).toLocaleDateString()}
-                  </span>
+              {/* Column 2: Shopify Integration */}
+              <div className="space-y-6">
+                <div id="shopify-integration" className="rounded-lg bg-white p-6 shadow-sm">
+                  <h3 className="mb-4 text-sm font-semibold text-gray-900">Shopify Integration</h3>
+                  {status.shopify.connected ? (
+                    <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+                      <div className="mb-2 flex items-center justify-between">
+                        <div className="flex items-center">
+                          <svg className="mr-2 h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path
+                              fillRule="evenodd"
+                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          <span className="font-semibold text-green-800">Connected</span>
+                        </div>
+                        <Link
+                          href={`/projects/${projectId}/products`}
+                          className="inline-flex items-center rounded-md border border-green-600 bg-white px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                        >
+                          <svg className="mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                            />
+                          </svg>
+                          View products
+                        </Link>
+                      </div>
+                      <div className="space-y-1 text-sm text-gray-700">
+                        <p>
+                          <span className="font-medium">Store:</span> {status.shopify.shopDomain}
+                        </p>
+                        {status.shopify.installedAt && (
+                          <p>
+                            <span className="font-medium">Connected:</span>{' '}
+                            {new Date(status.shopify.installedAt).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                      <p className="mb-4 text-sm text-gray-700">
+                        Connect your Shopify store to sync products and apply AI-generated SEO optimizations.
+                      </p>
+                      <div className="space-y-4">
+                        <div>
+                          <label
+                            htmlFor="shopDomain"
+                            className="mb-2 block text-sm font-medium text-gray-700"
+                          >
+                            Shopify Store Domain
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              id="shopDomain"
+                              value={shopDomain}
+                              onChange={(e) => setShopDomain(e.target.value)}
+                              placeholder="your-store"
+                              className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <span className="flex items-center text-sm text-gray-600">
+                              .myshopify.com
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleConnectShopify}
+                          className="inline-flex items-center rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                        >
+                          <svg className="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M13 10V3L4 14h7v7l9-11h-7z"
+                            />
+                          </svg>
+                          Connect Shopify Store
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* AEO Status */}
-          <div className="rounded-lg bg-white p-6 shadow">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">AEO Status</h2>
-              <span
-                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide ${
-                  aeoSyncEnabled
-                    ? 'bg-green-50 text-green-700'
-                    : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                Shopify Sync {aeoSyncEnabled ? 'On' : 'Off'}
-              </span>
-            </div>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Products with Answer Blocks</span>
-                <span className="font-medium text-gray-900">
-                  {overview?.productsWithAnswerBlocks ?? 0}
-                </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Last Answer Blocks sync</span>
-                <span className="font-medium text-gray-900">
-                  {overview?.lastAnswerBlockSyncAt
-                    ? new Date(
-                        overview.lastAnswerBlockSyncAt as string,
-                      ).toLocaleString()
-                    : 'No sync yet'}
-                </span>
-              </div>
-              {overview?.lastAnswerBlockSyncStatus && (
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Last sync status</span>
-                  <span className="font-medium text-gray-900">
-                    {overview.lastAnswerBlockSyncStatus}
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => router.push(`/projects/${projectId}/products`)}
-                className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
-              >
-                View Answer Blocks
-              </button>
-              <button
-                type="button"
-                onClick={() => router.push(`/projects/${projectId}/products`)}
-                className="inline-flex items-center rounded-md border border-blue-600 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
-              >
-                Sync now
-              </button>
-            </div>
-          </div>
-
-          {/* Active Integrations */}
-          {status.integrations.length > 0 && (
-            <div className="rounded-lg bg-white p-6 shadow">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Active Integrations</h2>
-              <div className="space-y-3">
-                {status.integrations.map((integration) => (
-                  <div key={integration.type} className="flex items-center gap-2 text-sm">
-                    <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    <span className="text-gray-700">{integration.type}</span>
+              {/* Column 3: Project stats, integrations, auto crawl */}
+              <div className="space-y-6">
+                <div className="rounded-lg bg-white p-6 shadow-sm">
+                  <h3 className="mb-4 text-sm font-semibold text-gray-900">Project Stats</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Total Crawls</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {overview?.crawlCount ?? 0}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Issues Found</span>
+                      <span
+                        className={`text-sm font-medium ${
+                          overview?.issueCount === 0 ? 'text-green-600' : 'text-orange-600'
+                        }`}
+                      >
+                        {overview?.issueCount ?? 0}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Products</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {overview?.productCount ?? 0}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Products with SEO</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {overview?.productsWithAppliedSeo ?? 0}
+                      </span>
+                    </div>
+                    {scanResults.length > 0 && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Last Scan</span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {new Date(scanResults[0].scannedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Auto Crawl Status */}
-          <div className="rounded-lg bg-white p-6 shadow">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold text-gray-900">Auto Crawl</h2>
-              <Link
-                href={`/projects/${projectId}/settings`}
-                className="text-xs text-blue-600 hover:text-blue-800"
-              >
-                Configure
-              </Link>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                {status.autoCrawlEnabled !== false ? (
-                  <>
-                    <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    <span className="text-sm text-gray-700">Enabled</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                    <span className="text-sm text-gray-500">Disabled</span>
-                  </>
+                </div>
+                {status.integrations.length > 0 && (
+                  <div className="rounded-lg bg-white p-6 shadow-sm">
+                    <h3 className="mb-4 text-sm font-semibold text-gray-900">Active Integrations</h3>
+                    <div className="space-y-3 text-sm">
+                      {status.integrations.map((integration) => (
+                        <div key={integration.type} className="flex items-center gap-2">
+                          <svg className="h-4 w-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path
+                              fillRule="evenodd"
+                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          <span className="text-gray-700">{integration.type}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
-              </div>
-              {status.autoCrawlEnabled !== false && status.crawlFrequency && (
-                <p className="text-xs text-gray-500">
-                  Frequency: {formatCrawlFrequency(status.crawlFrequency)}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Top Products to Fix */}
-      {topProductsToFix.length > 0 && (
-        <section className="mt-8">
-          <div className="rounded-lg bg-white p-6 shadow">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Top Products to Fix
-                </h2>
-                <p className="mt-1 text-xs text-gray-500">
-                  Products with the most AI-fixable, high-impact issues. Click a
-                  product to open its optimization workspace.
-                </p>
-              </div>
-            </div>
-            <ul className="space-y-3">
-              {topProductsToFix.map(({ product, reasons }) => (
-                <li
-                  key={product.id}
-                  className="flex items-start justify-between gap-3"
-                >
-                  <div className="min-w-0">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        router.push(
-                          `/projects/${projectId}/products/${product.id}`,
-                        )
-                      }
-                      className="truncate text-sm font-medium text-blue-700 hover:text-blue-900"
+                <div className="rounded-lg bg-white p-6 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-gray-900">Auto Crawl</h3>
+                    <Link
+                      href={`/projects/${projectId}/settings`}
+                      className="text-xs text-blue-600 hover:text-blue-800"
                     >
-                      {product.title || product.externalId}
-                    </button>
-                    {reasons.length > 0 && (
-                      <p className="mt-0.5 truncate text-xs text-gray-500">
-                        {reasons.join('; ')}
+                      Configure
+                    </Link>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      {status.autoCrawlEnabled !== false ? (
+                        <>
+                          <svg className="h-4 w-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path
+                              fillRule="evenodd"
+                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          <span className="text-sm text-gray-700">Enabled</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="h-4 w-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path
+                              fillRule="evenodd"
+                              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          <span className="text-sm text-gray-500">Disabled</span>
+                        </>
+                      )}
+                    </div>
+                    {status.autoCrawlEnabled !== false && status.crawlFrequency && (
+                      <p className="text-xs text-gray-500">
+                        Frequency: {formatCrawlFrequency(status.crawlFrequency)}
                       </p>
                     )}
                   </div>
-                  <span className="ml-2 flex-shrink-0 rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-700">
-                    Needs fix
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-      )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* All Issues Modal */}
       {showIssuesPanel && (
