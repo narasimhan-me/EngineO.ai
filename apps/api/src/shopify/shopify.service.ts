@@ -420,7 +420,7 @@ export class ShopifyService {
       const mutation = `
         mutation CreateEngineoMetafieldDefinition($definition: MetafieldDefinitionInput!) {
           metafieldDefinitionCreate(definition: $definition) {
-            metafieldDefinition {
+            createdDefinition {
               id
               key
               namespace
@@ -445,7 +445,7 @@ export class ShopifyService {
       try {
         const result = await this.executeShopifyGraphql<{
           metafieldDefinitionCreate: {
-            metafieldDefinition: {
+            createdDefinition: {
               id: string;
               key: string;
               namespace: string;
