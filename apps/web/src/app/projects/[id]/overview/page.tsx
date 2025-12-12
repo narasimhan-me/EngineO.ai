@@ -156,7 +156,7 @@ export default function ProjectOverviewPage() {
   const [deoSignalsLoading, setDeoSignalsLoading] = useState(false);
   const [deoIssues, setDeoIssues] = useState<DeoIssuesResponse | null>(null);
   const [deoIssuesLoading, setDeoIssuesLoading] = useState(false);
-  const [deoIssuesError, setDeoIssuesError] = useState<string | null>(null);
+  const [, setDeoIssuesError] = useState<string | null>(null);
   const [showIssuesPanel, setShowIssuesPanel] = useState(false);
   const [showDeoBreakdown, setShowDeoBreakdown] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
