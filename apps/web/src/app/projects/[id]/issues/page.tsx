@@ -7,7 +7,7 @@ import Link from 'next/link';
 import type { DeoIssue, DeoIssueFixType } from '@engineo/shared';
 import { ISSUE_UI_CONFIG } from '@/components/issues/IssuesList';
 import { isAuthenticated, getToken } from '@/lib/auth';
-import { projectsApi } from '@/lib/api';
+import { ApiError, aiApi, projectsApi } from '@/lib/api';
 import { useFeedback } from '@/components/feedback/FeedbackProvider';
 
 type SeverityFilter = 'all' | 'critical' | 'warning' | 'info';
@@ -23,6 +23,7 @@ export default function IssuesPage() {
   const [projectName, setProjectName] = useState<string | null>(null);
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
   const [rescanning, setRescanning] = useState(false);
+  const [fixingIssueId, setFixingIssueId] = useState<string | null>(null);
 
   const feedback = useFeedback();
 
@@ -91,14 +92,22 @@ export default function IssuesPage() {
       ? issues
       : issues.filter((i) => i.severity === severityFilter);
 
-  // Get fix action for an issue
   const getFixAction = (issue: DeoIssue) => {
     const fixType = issue.fixType as DeoIssueFixType | undefined;
     const fixReady = issue.fixReady ?? false;
     const primaryProductId = issue.primaryProductId;
+    const issueType = (issue.type as string | undefined) || issue.id;
 
     if (fixType === 'aiFix' && fixReady && primaryProductId) {
+      const supportsInlineFix =
+        issueType === 'missing_seo_title' || issueType === 'missing_seo_description';
+      if (supportsInlineFix) {
+        return {
+          kind: 'ai-fix-now' as const,
+        };
+      }
       return {
+        kind: 'link' as const,
         label: 'Fix with AI',
         href: `/projects/${projectId}/products/${primaryProductId}?from=issues&issueId=${issue.id}`,
         variant: 'ai' as const,
@@ -107,7 +116,8 @@ export default function IssuesPage() {
 
     if (fixType === 'manualFix' && primaryProductId) {
       return {
-        label: 'Fix manually',
+        kind: 'link' as const,
+        label: 'Open',
         href: `/projects/${projectId}/products/${primaryProductId}?from=issues`,
         variant: 'manual' as const,
       };
@@ -115,7 +125,8 @@ export default function IssuesPage() {
 
     if (fixType === 'syncFix') {
       return {
-        label: 'Re-sync from Shopify',
+        kind: 'link' as const,
+        label: 'Sync',
         href: `/projects/${projectId}/products?action=sync`,
         variant: 'sync' as const,
       };
@@ -124,6 +135,7 @@ export default function IssuesPage() {
     // Default: go to products page
     if (issue.affectedProducts && issue.affectedProducts.length > 0) {
       return {
+        kind: 'link' as const,
         label: 'View affected',
         href: `/projects/${projectId}/products`,
         variant: 'default' as const,
@@ -131,6 +143,82 @@ export default function IssuesPage() {
     }
 
     return null;
+  };
+
+  const handleIssueClick = (issue: DeoIssue) => {
+    const primaryProductId = issue.primaryProductId;
+    if (primaryProductId) {
+      router.push(
+        `/projects/${projectId}/products/${primaryProductId}?from=issues&issueId=${issue.id}`,
+      );
+    }
+  };
+
+  const handleAiFixNow = async (issue: DeoIssue) => {
+    const primaryProductId = issue.primaryProductId;
+    const issueType = (issue.type as string | undefined) || issue.id;
+
+    if (!primaryProductId) {
+      feedback.showError('Cannot run AI fix: no primary product found for this issue.');
+      return;
+    }
+
+    if (
+      issueType !== 'missing_seo_title' &&
+      issueType !== 'missing_seo_description'
+    ) {
+      handleIssueClick(issue);
+      return;
+    }
+
+    try {
+      setFixingIssueId(issue.id);
+
+      const result: any = await aiApi.fixIssueLite(
+        primaryProductId,
+        issueType as 'missing_seo_title' | 'missing_seo_description',
+      );
+
+      const fieldLabel =
+        issueType === 'missing_seo_title' ? 'SEO title' : 'SEO description';
+      const remainingCount = Math.max((issue.count ?? 1) - 1, 0);
+
+      if (result && result.updated) {
+        const message = `${fieldLabel} generated for one product. ${remainingCount} remaining.`;
+        feedback.showSuccess(message);
+        await fetchIssues();
+      } else if (result && result.reason === 'already_has_value') {
+        feedback.showInfo(
+          `No changes applied: the ${fieldLabel} is already set for this product.`,
+        );
+        await fetchIssues();
+      } else if (result && result.reason === 'no_suggestion') {
+        feedback.showInfo(
+          `AI could not generate a usable ${fieldLabel} for this product.`,
+        );
+      } else {
+        feedback.showInfo(`No changes applied to the ${fieldLabel}.`);
+      }
+    } catch (err: unknown) {
+      console.error('Error running AI fix for issue:', err);
+
+      if (err instanceof ApiError && err.code === 'AI_DAILY_LIMIT_REACHED') {
+        const limitMessage =
+          'Token limit reached. Upgrade to continue fixing products.';
+        feedback.showLimit(limitMessage, '/settings/billing');
+        return;
+      }
+
+      if (err instanceof ApiError && err.code === 'ENTITLEMENTS_LIMIT_REACHED') {
+        const message = 'Upgrade to fix additional products with AI.';
+        feedback.showLimit(message, '/settings/billing');
+        return;
+      }
+
+      feedback.showError('Failed to run AI fix. Please try again.');
+    } finally {
+      setFixingIssueId(null);
+    }
   };
 
   if (loading) {
@@ -309,7 +397,11 @@ export default function IssuesPage() {
                 className="rounded-lg border border-gray-200 bg-white p-4"
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="flex-1">
+                  <button
+                    type="button"
+                    onClick={() => handleIssueClick(issue)}
+                    className="flex-1 text-left"
+                  >
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-gray-900">
                         {uiConfig.label}
@@ -327,13 +419,56 @@ export default function IssuesPage() {
                       </span>
                     </div>
                     <p className="mt-1 text-sm text-gray-600">{uiConfig.description}</p>
+                    {issue.fixType === 'aiFix' && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        Fixes one affected product at a time for safe review.
+                      </p>
+                    )}
                     <p className="mt-1 text-xs text-gray-500">
                       {issue.count} {issue.count === 1 ? 'item' : 'items'} affected
                     </p>
-                  </div>
+                  </button>
 
-                  {/* Fix Action */}
-                  {fixAction && (
+                  {fixAction && fixAction.kind === 'ai-fix-now' && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAiFixNow(issue);
+                      }}
+                      disabled={fixingIssueId === issue.id}
+                      className="inline-flex items-center justify-center whitespace-nowrap rounded-md border border-purple-500 bg-purple-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {fixingIssueId === issue.id ? (
+                        <>
+                          <svg
+                            className="-ml-0.5 mr-1.5 h-3.5 w-3.5 animate-spin text-white"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          Fixing…
+                        </>
+                      ) : (
+                        'Fix next'
+                      )}
+                    </button>
+                  )}
+
+                  {fixAction && fixAction.kind === 'link' && (
                     <Link
                       href={fixAction.href}
                       className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ${

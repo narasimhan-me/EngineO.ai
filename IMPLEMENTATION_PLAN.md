@@ -7170,6 +7170,97 @@ Enhance the Issues Engine with product-focused issue detection and actionable fi
 - [x] `docs/testing/issue-engine-lite.md` created with manual testing scenarios
 - [x] `docs/testing/CRITICAL_PATH_MAP.md` updated with CP-009: Issue Engine Lite
 
+### UX-7.4 One-Click AI Fix (Completed)
+
+**Goal:** Enable one-click AI fixes for `missing_seo_title` and `missing_seo_description` issues directly from the Issues page, with proper plan gating and daily AI limits.
+
+**Backend Changes:**
+
+1. **apps/api/src/ai/product-issue-fix.service.ts (NEW):**
+   - `ProductIssueFixService` with `fixMissingSeoFieldFromIssue()` method
+   - Validates product ownership
+   - Enforces Free plan gating (ENTITLEMENTS_LIMIT_REACHED)
+   - Enforces daily AI limits via `EntitlementsService.ensureWithinDailyAiLimit()`
+   - Calls `AiService.generateMetadata()` to generate SEO content
+   - Persists AI-generated SEO field to product
+   - Returns structured response with `updated`, `field`, and `reason` fields
+
+2. **apps/api/src/ai/ai.module.ts:**
+   - Added `ProductIssueFixService` to providers and exports
+
+3. **apps/api/src/ai/ai.controller.ts:**
+   - Added `POST /ai/product-metadata/fix-from-issue` endpoint
+   - Accepts `{ productId, issueType }` body
+   - Delegates to `ProductIssueFixService`
+
+**Frontend Changes:**
+
+1. **apps/web/src/lib/api.ts:**
+   - Added `aiApi.fixIssueLite(productId, issueType)` function
+
+2. **apps/web/src/app/projects/[id]/issues/page.tsx:**
+   - Added `fixingIssueId` state for loading indicator
+   - Added `handleAiFixNow()` handler for inline AI fixes
+   - Updated `getFixAction()` to return `kind: 'ai-fix-now'` for supported issue types
+   - Added "Fix now" button with spinner for `missing_seo_title` and `missing_seo_description`
+   - Proper error handling for AI_DAILY_LIMIT_REACHED and ENTITLEMENTS_LIMIT_REACHED
+   - Success/info toasts for fix outcomes
+
+**Tests:**
+
+1. **tests/unit/automation/product-issue-fix.service.test.ts:**
+   - Ownership validation test
+   - Plan gating test (Free vs Pro)
+   - AI daily limit propagation test
+
+2. **tests/integration/automation/issue-lite-ai-fix.integration.test.ts:**
+   - End-to-end test: Pro plan fixes missing SEO title
+
+**UX-7.4 Acceptance Criteria (Completed):**
+
+- [x] "Fix next" button appears for `missing_seo_title` and `missing_seo_description` issues
+- [x] Free plan users see upgrade toast when attempting AI fix
+- [x] Pro/Business users can run one-click AI fixes
+- [x] AI fixes respect daily AI limits with proper error messaging
+- [x] Success/info toasts provide clear feedback on fix outcomes
+- [x] Issue list refreshes after successful fix
+- [x] Unit and integration tests cover core scenarios
+- [x] `docs/manual-testing/phase-ux-7-issues-engine-lite.md` documents AI fix testing
+
+### UX-7.1 – Microcopy Clarification (Fix next) (Completed)
+
+**Goal:** Clarify Issue Engine Lite "Fix" actions to emphasize per-item safety and improve user understanding of the fix workflow.
+
+**Changes:**
+
+1. **Button Label:**
+   - Updated AI fix buttons from "Fix now" to "Fix next" on the Issues page
+
+2. **Helper Copy:**
+   - Added helper text under AI-fixable issues: "Fixes one affected product at a time for safe review."
+
+3. **Success Toasts:**
+   - Updated success toasts to show SEO field and remaining count:
+     - "SEO title generated for one product. X remaining."
+     - "SEO description generated for one product. X remaining."
+
+4. **Limit Toasts:**
+   - Entitlement limit: "Upgrade to fix additional products with AI."
+   - Token limit: "Token limit reached. Upgrade to continue fixing products."
+
+**Files Changed:**
+
+- `apps/web/src/app/projects/[id]/issues/page.tsx` — Updated button label, added helper text, improved toast messages
+- `docs/testing/issue-engine-lite.md` — Added UX-7.1 Microcopy Clarification addendum
+
+**UX-7.1 Acceptance Criteria (Completed):**
+
+- [x] Button label reads "Fix next" (not "Fix now")
+- [x] Helper text appears under AI-fixable issues
+- [x] Success toasts include remaining count
+- [x] Limit toasts use concise, actionable copy
+- [x] `docs/testing/issue-engine-lite.md` updated with UX-7.1 addendum
+
 ---
 
 ## Phase UX-8 – Issue Engine Full (IE-2.0)

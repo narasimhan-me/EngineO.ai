@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma.service';
 import { EntitlementsService } from '../billing/entitlements.service';
 import { AnswerEngineService } from '../projects/answer-engine.service';
 import { ProductAnswersResponse } from '@engineo/shared';
+import { ProductIssueFixService } from './product-issue-fix.service';
 
 class MetadataDto {
   crawlResultId: string;
@@ -28,6 +29,7 @@ export class AiController {
     private readonly prisma: PrismaService,
     private readonly entitlementsService: EntitlementsService,
     private readonly answerEngineService: AnswerEngineService,
+    private readonly productIssueFixService: ProductIssueFixService,
   ) {}
 
   @Post('metadata')
@@ -186,6 +188,38 @@ export class AiController {
       });
       throw error;
     }
+  }
+
+  /**
+   * POST /ai/product-metadata/fix-from-issue
+   *
+   * One-click AI fix for Issue Engine Lite metadata issues:
+   * - missing_seo_title
+   * - missing_seo_description
+   *
+   * Validates ownership, enforces entitlements and daily AI limits via EntitlementsService,
+   * and persists the generated SEO field on the targeted product.
+   */
+  @Post('product-metadata/fix-from-issue')
+  async fixProductMetadataFromIssue(
+    @Request() req: any,
+    @Body()
+    dto: {
+      productId: string;
+      issueType: 'missing_seo_title' | 'missing_seo_description';
+    },
+  ) {
+    const userId = req.user.id;
+
+    if (!dto.productId || !dto.issueType) {
+      throw new BadRequestException('productId and issueType are required');
+    }
+
+    return this.productIssueFixService.fixMissingSeoFieldFromIssue({
+      userId,
+      productId: dto.productId,
+      issueType: dto.issueType,
+    });
   }
 
   /**

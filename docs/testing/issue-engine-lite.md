@@ -116,7 +116,7 @@ Issue Engine Lite (UX-7) provides the foundation for product-focused issues with
 
 ---
 
-### Scenario 3: Fix with AI action
+### Scenario 3: Fix with AI action (per-product "Fix next")
 
 **ID:** HP-003
 
@@ -124,14 +124,16 @@ Issue Engine Lite (UX-7) provides the foundation for product-focused issues with
 - Issue with `fixType: 'aiFix'` and `fixReady: true` exists
 
 **Steps:**
-1. Find an issue with purple "Fix with AI" button
-2. Click the button
-3. Observe navigation
+1. Find an issue with AI-fixable status (purple "Fix next" action when eligible).
+2. Observe the helper copy under the issue description:
+   - "Fixes one affected product at a time for safe review."
+3. Click "Fix next".
 
 **Expected Results:**
-- **Navigation:** Routes to `/projects/[id]/products/[productId]?from=issues&issueId=[issueId]`
-- **UI:** Purple button with lightbulb icon visible
-- **Product Page:** Opens to the affected product ready for AI optimization
+- **UI:** Button label reads "Fix next" (not "Fix now").
+- **UX Hint:** Helper copy clearly communicates that each click fixes a single product at a time.
+- **Navigation / Behavior:** Same as previous UX-7 behavior:
+   - Either routes to the product surface or runs an inline AI fix, depending on implementation.
 
 ---
 
@@ -313,6 +315,35 @@ Issue Engine Lite (UX-7) provides the foundation for product-focused issues with
 | `missing_product_image` | Structural | Critical | syncFix |
 | `missing_price` | Structural | Critical | syncFix |
 | `missing_category` | Structural | Warning | manualFix |
+
+---
+
+## UX-7.1 – Microcopy Clarification (Addendum)
+
+### Goals
+
+- Ensure DEOs understand that Issue Engine Lite AI fixes apply to one affected product per click.
+- Communicate remaining workload via success toasts without changing underlying behavior.
+- Keep blocked states (entitlements and token limits) clearly messaged.
+
+### Additional Checks
+
+1. **Single-product scope messaging**
+   - For AI-fixable issues, helper text appears under the issue description:
+     - "Fixes one affected product at a time for safe review."
+   - Screen readers announce the issue label, description, helper text, and action label together.
+
+2. **Success toast copy**
+   - After clicking "Fix next" and successfully applying an AI fix for missing_seo_title or missing_seo_description, a toast appears in the format:
+     - "SEO title generated for one product. X remaining."
+     - "SEO description generated for one product. X remaining."
+   - Remaining count decreases by 1 for the corresponding issue after refresh/re-scan.
+
+3. **Blocked states**
+   - When the user is not entitled to run AI fixes (Free plan or similar), the limit toast copy is:
+     - "Upgrade to fix additional products with AI."
+   - When the AI daily/token limit is reached, the limit toast copy is:
+     - "Token limit reached. Upgrade to continue fixing products."
 
 ---
 

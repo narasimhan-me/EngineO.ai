@@ -259,6 +259,15 @@ export const aiApi = {
       body: JSON.stringify({ productId, targetKeywords }),
     }),
 
+  fixIssueLite: (
+    productId: string,
+    issueType: 'missing_seo_title' | 'missing_seo_description',
+  ) =>
+    fetchWithAuth('/ai/product-metadata/fix-from-issue', {
+      method: 'POST',
+      body: JSON.stringify({ productId, issueType }),
+    }),
+
   /** Generate AI Answer Blocks for a product (Phase AE-1.2) */
   generateProductAnswers: (productId: string) =>
     fetchWithAuth('/ai/product-answers', {
