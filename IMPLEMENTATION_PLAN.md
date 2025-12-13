@@ -764,8 +764,53 @@ Implement a single, scripted smoke-runner that exercises three core behaviors ag
 
 ### Status
 
-- Status: **PLANNED**
+- Status: **COMPLETE**
 - Manual Testing: `docs/manual-testing/test-3-live-shopify-smoke.md`
+
+### Implementation Summary
+
+**Env guard + configuration (live-test mode):**
+
+- Extended `apps/api/src/config/test-env-guard.ts` with:
+  - `assertLiveShopifyTestEnv()` – validates ENGINEO_LIVE_SHOPIFY_TEST=1, NODE_ENV!=production, DATABASE_URL_LIVE_TEST, SHOPIFY_API_KEY_TEST, SHOPIFY_API_SECRET_TEST, SHOPIFY_TEST_STORE_ALLOWLIST
+  - `validateStoreInAllowlist()` – validates store domain against allowlist
+  - `isLiveShopifyTestMode()` – checks if running in live test mode
+
+**Live Shopify smoke runner:**
+
+- Created `apps/api/scripts/shopify-live-smoke.ts`:
+  - Calls `assertLiveShopifyTestEnv()` immediately on startup
+  - Parses `SHOPIFY_TEST_STORE_ALLOWLIST` and `SHOPIFY_TEST_STORE_PRIMARY`
+  - Uses pre-issued offline token (Option B) for Shopify GraphQL Admin API
+  - Smoke sequence: verify token → create test product → update SEO → verify read-back → cleanup
+  - Test products named `engineo-live-test-{YYYYMMDD}-{shortSha}` with tag `engineo_live_test`
+  - Best-effort cleanup; tags `engineo_live_test_cleanup_pending` on failure
+  - Writes audit record and JSON report to `apps/api/artifacts/`
+  - Exit code 0 on success, non-zero on failure
+
+**Package scripts:**
+
+- Root `package.json`: `test:shopify:live`, `test:shopify:live:dry`
+- `apps/api/package.json`: `test:shopify:live`, `test:shopify:live:dry`
+
+**GitHub Actions workflow:**
+
+- Created `.github/workflows/shopify-live-smoke.yml`:
+  - Schedule: nightly at 3:00 AM UTC (`0 3 * * *`)
+  - Manual trigger: `workflow_dispatch` with inputs (storeDomain, runManualSync, dryRun)
+  - Never runs on PRs
+  - Requires secrets: DATABASE_URL_LIVE_TEST, SHOPIFY_API_KEY_TEST, SHOPIFY_API_SECRET_TEST, SHOPIFY_TEST_STORE_ALLOWLIST, SHOPIFY_TEST_STORE_PRIMARY, SHOPIFY_TEST_ACCESS_TOKEN
+  - Uploads artifacts on success and failure
+
+**Tests:**
+
+- `apps/api/test/integration/live-shopify-test-guard.test.ts` – unit tests for `assertLiveShopifyTestEnv()`
+- `apps/api/test/integration/live-shopify-smoke-runner.test.ts` – dry/mock mode tests for runner
+
+**Documentation:**
+
+- Updated `docs/TESTING.md` section 12 with full TEST-3 documentation
+- Created `docs/manual-testing/test-3-live-shopify-smoke.md` with verification steps
 
 ---
 

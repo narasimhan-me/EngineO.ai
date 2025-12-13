@@ -386,3 +386,126 @@ All E2E tests run against the local test DB, use mocked Shopify calls, and requi
     - `pnpm test:e2e` (TEST-2 E2E suite)
   - All Shopify and crawl-related calls are stubbed; no external network is required.
 
+---
+
+## 12. TEST-3 – Nightly / On-Demand Live Shopify Smoke Tests
+
+TEST-3 adds a separate, non-blocking live Shopify smoke lane that runs against an isolated live-test environment (dedicated DB + allowlisted dev stores) to validate real OAuth, real product SEO updates, and cleanup behavior under production-like conditions.
+
+**Key constraints:**
+
+- Uses real Shopify OAuth and GraphQL Admin API against Partner dev stores **only**.
+- Never touches the production DB or non-allowlisted stores.
+- Runs on a nightly schedule and via manual `workflow_dispatch`, but **not on every PR**.
+- Includes best-effort test data cleanup and an audit trail for each run.
+
+### Live-Test Database vs Regular Test Database
+
+| Aspect | Regular Test DB (`DATABASE_URL_TEST`) | Live-Test DB (`DATABASE_URL_LIVE_TEST`) |
+|--------|---------------------------------------|----------------------------------------|
+| Purpose | Unit/integration tests, E2E (mocked) | Live Shopify smoke tests |
+| Shopify calls | Mocked / stubbed | Real GraphQL Admin API |
+| Store connections | Fake / stubbed | Real allowlisted dev stores |
+| CI trigger | Every PR, push to main | Nightly schedule, manual dispatch |
+| Guard | `assertTestEnv()` | `assertLiveShopifyTestEnv()` |
+
+### Required Environment Variables
+
+```bash
+# Required for live Shopify smoke tests
+ENGINEO_LIVE_SHOPIFY_TEST=1
+DATABASE_URL_LIVE_TEST=postgresql://user:pass@host:5432/engineo_live_test
+SHOPIFY_API_KEY_TEST=your_test_app_key
+SHOPIFY_API_SECRET_TEST=your_test_app_secret
+SHOPIFY_TEST_STORE_ALLOWLIST=store1.myshopify.com,store2.myshopify.com
+SHOPIFY_TEST_STORE_PRIMARY=store1.myshopify.com  # optional, defaults to first
+SHOPIFY_TEST_ACCESS_TOKEN=shpat_xxx  # pre-issued offline token
+```
+
+### Allowlist + Guardrails Behavior
+
+The `assertLiveShopifyTestEnv()` guard enforces:
+
+1. `ENGINEO_LIVE_SHOPIFY_TEST=1` must be set.
+2. `NODE_ENV` must NOT be `"production"`.
+3. `DATABASE_URL_LIVE_TEST` must be set and include a safe pattern (e.g., `live_test`, `live-test`) if pointing to a cloud host.
+4. `SHOPIFY_API_KEY_TEST` and `SHOPIFY_API_SECRET_TEST` must be set (not prod keys).
+5. `SHOPIFY_TEST_STORE_ALLOWLIST` must be a non-empty comma-separated list of valid Shopify domains.
+6. If `SHOPIFY_TEST_STORE_PRIMARY` is set, it must be in the allowlist.
+
+If any check fails, the runner exits immediately with a loud error **before** any Shopify or DB calls.
+
+### Running Locally
+
+**Dry run (validate config only):**
+
+```bash
+pnpm test:shopify:live:dry
+```
+
+**Full live smoke test (requires valid secrets):**
+
+```bash
+# Create .env.live-test with required vars
+pnpm test:shopify:live
+```
+
+**With store override:**
+
+```bash
+pnpm test:shopify:live --store=my-dev-store.myshopify.com
+```
+
+### CI Workflow
+
+- **Workflow file:** `.github/workflows/shopify-live-smoke.yml`
+- **Schedule:** Nightly at 3:00 AM UTC
+- **Manual trigger:** `workflow_dispatch` with optional inputs:
+  - `storeDomain` – override target store (must be in allowlist)
+  - `runManualSync` – run manual sync step if implemented
+  - `dryRun` – validate config without Shopify calls
+
+**Never runs on PRs** – only on schedule and manual dispatch.
+
+### Cleanup Behavior
+
+After each smoke test run:
+
+1. The runner attempts to delete all created test products.
+2. If deletion fails, products are tagged with `engineo_live_test_cleanup_pending`.
+3. Cleanup status is recorded in the audit record: `success`, `partial`, `failed`, or `skipped`.
+
+### Audit Records and Artifacts
+
+Each run generates:
+
+- **Audit record:** `apps/api/artifacts/audit-<runId>.json`
+- **JSON report:** `apps/api/artifacts/report-<runId>.json`
+
+CI uploads these as artifacts on both success and failure. Audit records include:
+
+- `runId`, `storeDomain`, `startedAt`, `finishedAt`
+- `status`: `running`, `success`, `failure`, `cleanup_pending`
+- `createdProductIds`, `seoUpdateVerified`, `cleanupStatus`
+- `errorSummary` (if any)
+
+### Troubleshooting
+
+1. **Check audit records:** Download artifacts from the GitHub Actions run.
+2. **Check Shopify dev store:** Look for products tagged `engineo_live_test` or `engineo_live_test_cleanup_pending`.
+3. **Verify secrets:** Ensure all required secrets are configured in GitHub repository settings.
+4. **Store not in allowlist:** The runner refuses to run against stores not in `SHOPIFY_TEST_STORE_ALLOWLIST`.
+
+### Test Suites
+
+Unit tests for the guard and runner are in:
+
+- `apps/api/test/integration/live-shopify-test-guard.test.ts`
+- `apps/api/test/integration/live-shopify-smoke-runner.test.ts`
+
+Run with:
+
+```bash
+pnpm test:api -- live-shopify
+```
+

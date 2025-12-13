@@ -1,0 +1,155 @@
+name: TEST-3 - Live Shopify Smoke Tests
+
+# This workflow runs live Shopify smoke tests against allowlisted dev stores.
+# It is scheduled nightly and can be triggered manually.
+# NEVER runs on PRs or push events to prevent accidental live API calls.
+
+on:
+  schedule:
+    # Run nightly at 3:00 AM UTC (9:00 PM CST / 10:00 PM CDT)
+    - cron: '0 3 * * *'
+
+  workflow_dispatch:
+    inputs:
+      storeDomain:
+        description: 'Override target store domain (must be in allowlist)'
+        required: false
+        type: string
+      runManualSync:
+        description: 'Run manual sync step (if implemented)'
+        required: false
+        type: boolean
+        default: false
+      dryRun:
+        description: 'Dry run - validate config without Shopify calls'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  live-shopify-smoke:
+    runs-on: ubuntu-latest
+    # Only run if this is NOT a PR
+    if: github.event_name != 'pull_request'
+
+    env:
+      NODE_ENV: test
+      ENGINEO_ENV: test
+      ENGINEO_LIVE_SHOPIFY_TEST: '1'
+      # Database and Shopify secrets are loaded from GitHub Secrets
+      DATABASE_URL_LIVE_TEST: ${{ secrets.DATABASE_URL_LIVE_TEST }}
+      SHOPIFY_API_KEY_TEST: ${{ secrets.SHOPIFY_API_KEY_TEST }}
+      SHOPIFY_API_SECRET_TEST: ${{ secrets.SHOPIFY_API_SECRET_TEST }}
+      SHOPIFY_TEST_STORE_ALLOWLIST: ${{ secrets.SHOPIFY_TEST_STORE_ALLOWLIST }}
+      SHOPIFY_TEST_STORE_PRIMARY: ${{ secrets.SHOPIFY_TEST_STORE_PRIMARY }}
+      SHOPIFY_TEST_ACCESS_TOKEN: ${{ secrets.SHOPIFY_TEST_ACCESS_TOKEN }}
+      # Additional app secrets if needed
+      JWT_SECRET: ${{ secrets.JWT_SECRET || 'test_jwt_secret' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify secrets are configured
+        run: |
+          echo "Checking required secrets..."
+          if [ -z "$DATABASE_URL_LIVE_TEST" ]; then
+            echo "ERROR: DATABASE_URL_LIVE_TEST is not set"
+            exit 1
+          fi
+          if [ -z "$SHOPIFY_API_KEY_TEST" ]; then
+            echo "ERROR: SHOPIFY_API_KEY_TEST is not set"
+            exit 1
+          fi
+          if [ -z "$SHOPIFY_API_SECRET_TEST" ]; then
+            echo "ERROR: SHOPIFY_API_SECRET_TEST is not set"
+            exit 1
+          fi
+          if [ -z "$SHOPIFY_TEST_STORE_ALLOWLIST" ]; then
+            echo "ERROR: SHOPIFY_TEST_STORE_ALLOWLIST is not set"
+            exit 1
+          fi
+          if [ -z "$SHOPIFY_TEST_ACCESS_TOKEN" ]; then
+            echo "ERROR: SHOPIFY_TEST_ACCESS_TOKEN is not set"
+            exit 1
+          fi
+          echo "All required secrets are configured."
+
+      - name: Build API
+        run: pnpm --filter api build
+
+      - name: Run live Shopify smoke test
+        id: smoke-test
+        run: |
+          ARGS=""
+          if [ "${{ inputs.storeDomain }}" != "" ]; then
+            ARGS="$ARGS --store=${{ inputs.storeDomain }}"
+          fi
+          if [ "${{ inputs.runManualSync }}" == "true" ]; then
+            ARGS="$ARGS --manual-sync"
+          fi
+          if [ "${{ inputs.dryRun }}" == "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+
+          echo "Running: pnpm test:shopify:live $ARGS"
+          pnpm test:shopify:live $ARGS
+        continue-on-error: true
+
+      - name: Upload artifacts on failure
+        if: steps.smoke-test.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-smoke-test-artifacts
+          path: |
+            apps/api/artifacts/*.json
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload artifacts on success
+        if: steps.smoke-test.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-smoke-test-report
+          path: |
+            apps/api/artifacts/*.json
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Check test result
+        if: steps.smoke-test.outcome == 'failure'
+        run: |
+          echo "Live Shopify smoke test failed!"
+          echo "Check the uploaded artifacts for details."
+          exit 1
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Live Shopify Smoke Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.smoke-test.outcome }}" == "success" ]; then
+            echo ":white_check_mark: **PASSED**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo ":x: **FAILED**" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Store Override**: ${{ inputs.storeDomain || 'none' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Dry Run**: ${{ inputs.dryRun || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "See artifacts for detailed report." >> $GITHUB_STEP_SUMMARY

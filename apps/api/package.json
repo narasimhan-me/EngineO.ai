@@ -15,7 +15,9 @@
     "test:api": "jest --config jest.config.ts",
     "test:api:e2e": "jest --config jest.e2e.config.ts",
     "db:test:migrate": "ts-node scripts/db-test-migrate.ts",
-    "db:test:reset": "ts-node scripts/db-test-reset.ts"
+    "db:test:reset": "ts-node scripts/db-test-reset.ts",
+    "test:shopify:live": "ENGINEO_LIVE_SHOPIFY_TEST=1 ts-node scripts/shopify-live-smoke.ts",
+    "test:shopify:live:dry": "ENGINEO_LIVE_SHOPIFY_TEST=1 ts-node scripts/shopify-live-smoke.ts --dry-run"
   },
   "prisma": {
     "seed": "prisma db execute --file prisma/seed.sql"

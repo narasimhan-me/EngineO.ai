@@ -18,7 +18,9 @@
     "test:e2e": "pnpm --filter web test:e2e",
     "e2e:dev": "NODE_ENV=test ENGINEO_ENV=test ENGINEO_E2E=1 pnpm dev",
     "db:test:migrate": "pnpm --filter api db:test:migrate",
-    "db:test:reset": "pnpm --filter api db:test:reset"
+    "db:test:reset": "pnpm --filter api db:test:reset",
+    "test:shopify:live": "ENGINEO_LIVE_SHOPIFY_TEST=1 pnpm --filter api test:shopify:live",
+    "test:shopify:live:dry": "ENGINEO_LIVE_SHOPIFY_TEST=1 pnpm --filter api test:shopify:live:dry"
   },
   "engines": {
     "node": ">=20.0.0",
