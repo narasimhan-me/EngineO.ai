@@ -9,6 +9,24 @@ const FORBIDDEN_DB_HOST_SUBSTRINGS = [
 const SAFE_LOCAL_DB_SUBSTRINGS = ['localhost', '127.0.0.1'];
 
 /**
+ * Sanitize a database URL by removing credentials (username:password).
+ * Returns a URL safe for logging without exposing secrets.
+ */
+function sanitizeDbUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.username || parsed.password) {
+      parsed.username = '***';
+      parsed.password = '***';
+    }
+    return parsed.toString();
+  } catch {
+    // If URL parsing fails, mask anything that looks like credentials
+    return url.replace(/\/\/[^:]+:[^@]+@/, '//***:***@');
+  }
+}
+
+/**
  * Assert that the current process is running in a safe, isolated test
  * environment before executing any destructive operations against the DB.
  *
@@ -51,7 +69,7 @@ export function assertTestEnv(context: string = 'unknown'): void {
   if (hasForbiddenHost) {
     throw new Error(
       `[TEST ENV GUARD] DATABASE_URL appears to point to a managed/prod database host (context=${context}). ` +
-        `Refusing to run tests against: ${dbUrl}`,
+        `Refusing to run tests against: ${sanitizeDbUrl(dbUrl)}`,
     );
   }
 
@@ -67,7 +85,7 @@ export function assertTestEnv(context: string = 'unknown'): void {
     throw new Error(
       `[TEST ENV GUARD] DATABASE_URL does not look like a local test database (context=${context}). ` +
         `It should point to localhost/127.0.0.1 or include a test-specific DB name. ` +
-        `Current URL: ${dbUrl}`,
+        `Current URL: ${sanitizeDbUrl(dbUrl)}`,
     );
   }
 }
@@ -202,7 +220,7 @@ export function assertLiveShopifyTestEnv(
       if (!hasLiveTestPattern) {
         errors.push(
           `DATABASE_URL_LIVE_TEST appears to point to a cloud database host but does not contain a safe live-test pattern (e.g., "live_test", "live-test"). ` +
-            `Current URL: ${dbUrl}`,
+            `Current URL: ${sanitizeDbUrl(dbUrl)}`,
         );
       }
     }
@@ -224,7 +242,7 @@ export function assertLiveShopifyTestEnv(
       if (!isSafe) {
         errors.push(
           `DATABASE_URL_LIVE_TEST appears to point to a production database. ` +
-            `It must include a live-test identifier. Current URL: ${dbUrl}`,
+            `It must include a live-test identifier. Current URL: ${sanitizeDbUrl(dbUrl)}`,
         );
       }
     }

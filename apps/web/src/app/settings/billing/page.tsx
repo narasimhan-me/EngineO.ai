@@ -47,6 +47,8 @@ function BillingSettingsContent() {
   const feedback = useFeedback();
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const pollCountRef = useRef(0);
+  const pollingStartedRef = useRef(false);
+  const warningShownRef = useRef(false);
 
   // Max poll attempts (10 attempts * 2 seconds = 20 seconds max wait)
   const MAX_POLL_ATTEMPTS = 10;
@@ -74,6 +76,12 @@ function BillingSettingsContent() {
 
   // Poll for plan update after successful checkout redirect
   const startPollingForPlanUpdate = useCallback(async () => {
+    // Prevent multiple polling cycles from being started
+    if (pollingStartedRef.current) {
+      return;
+    }
+    pollingStartedRef.current = true;
+
     setPollingForUpdate(true);
     pollCountRef.current = 0;
 
@@ -106,10 +114,13 @@ function BillingSettingsContent() {
         // Clear processing banner and query params
         setSuccess('');
         router.replace('/settings/billing');
-        // Show warning that plan may take a moment to update
-        feedback.showWarning(
-          'Your subscription is being processed. Please refresh the page in a moment.',
-        );
+        // Show warning that plan may take a moment to update (only once)
+        if (!warningShownRef.current) {
+          warningShownRef.current = true;
+          feedback.showWarning(
+            'Your subscription is being processed. Please refresh the page in a moment.',
+          );
+        }
       }
     };
 
@@ -117,7 +128,7 @@ function BillingSettingsContent() {
     await poll();
 
     // Then poll at intervals if still needed
-    if (pollCountRef.current < MAX_POLL_ATTEMPTS) {
+    if (pollCountRef.current < MAX_POLL_ATTEMPTS && pollingStartedRef.current) {
       pollIntervalRef.current = setInterval(poll, POLL_INTERVAL_MS);
     }
   }, [fetchData, feedback, router]);
@@ -128,6 +139,9 @@ function BillingSettingsContent() {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
       }
+      // Reset refs for clean state if component remounts
+      pollingStartedRef.current = false;
+      warningShownRef.current = false;
     };
   }, []);
 

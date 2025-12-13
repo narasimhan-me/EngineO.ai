@@ -136,7 +136,7 @@ export default function ProjectOverviewPage() {
   const projectId = params.id as string;
   const [status, setStatus] = useState<IntegrationStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [shopDomain, setShopDomain] = useState('');
+  // shopDomain state removed - using startShopifyOAuth flow instead
   const [successMessage, setSuccessMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -344,23 +344,6 @@ export default function ProjectOverviewPage() {
     fetchProducts,
     fetchPlanId,
   ]);
-
-  const handleConnectShopify = () => {
-    if (!shopDomain) {
-      alert('Please enter your Shopify store domain');
-      return;
-    }
-
-    let formattedDomain = shopDomain.trim();
-    if (!formattedDomain.includes('.myshopify.com')) {
-      formattedDomain = `${formattedDomain}.myshopify.com`;
-    }
-
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-    const token = getToken();
-    const installUrl = `${API_URL}/shopify/install?shop=${formattedDomain}&projectId=${projectId}&token=${token}`;
-    window.location.href = installUrl;
-  };
 
   const startShopifyOAuth = () => {
     setError('');
