@@ -115,5 +115,5 @@ describe('Issue Engine Lite – AI Fix integration', () => {
     expect(after?.seoTitle).toBe('Generated SEO Title from Issue Fix');
     expect(aiServiceStub.generateMetadata).toHaveBeenCalledTimes(1);
   });
-}
+});
 

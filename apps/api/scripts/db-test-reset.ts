@@ -15,7 +15,7 @@ process.env.DATABASE_URL = dbUrl;
 
 // Drop and recreate schema + apply migrations for a clean test DB
 execSync(
-  './node_modules/.bin/prisma migrate reset --force --skip-generate --schema prisma/schema.prisma',
+  './node_modules/.bin/prisma migrate reset --force --schema prisma/schema.prisma',
   {
     stdio: 'inherit',
   },
