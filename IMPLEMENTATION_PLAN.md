@@ -600,6 +600,175 @@ All Shopify-related calls invoked during the flow are served by `ShopifyService`
 
 ---
 
+## TEST-3 – Nightly / On-Demand Live Shopify Smoke Tests (Real OAuth + Allowlist + Cleanup)
+
+### Phase Summary
+
+Add a separate, non-blocking live Shopify smoke lane that runs against an isolated live-test environment (dedicated DB + allowlisted dev stores) to validate that real OAuth, real product SEO updates, and (optionally) manual sync still work end-to-end under production-like conditions.
+
+TEST-3 must:
+
+- Use real Shopify OAuth and GraphQL Admin API against Partner dev stores only.
+- Never touch the production DB or non-allowlisted stores.
+- Run on a nightly schedule and via manual `workflow_dispatch`, but not on every PR.
+- Include best-effort test data cleanup and an audit trail for each run.
+
+### Implementation Highlights
+
+**Live test environment & safety guard**
+
+- Introduce a dedicated live-test flag and DB:
+  - `ENGINEO_LIVE_SHOPIFY_TEST=1` – required for any live Shopify smoke run.
+  - `DATABASE_URL_LIVE_TEST` – separate Postgres instance/schema from the main app and test DB.
+  - Optional: separate Redis/queue or disabled background jobs for this mode.
+
+- Extend `apps/api/src/config/test-env-guard.ts` with:
+  - `assertLiveShopifyTestEnv()` that refuses to run unless:
+    - `ENGINEO_LIVE_SHOPIFY_TEST=1`.
+    - `NODE_ENV !== "production"`.
+    - The effective DB URL matches known-safe patterns (e.g., host/name includes `live_test` or a configured safe host).
+    - Shopify app keys are explicitly the test app keys (e.g., `SHOPIFY_API_KEY_TEST`, `SHOPIFY_API_SECRET_TEST`), not production.
+    - A non-empty Shopify store allowlist is present.
+  - On any violation, the process exits hard with a loud error (no network calls made).
+
+**Shopify store allowlist**
+
+- Add env vars:
+  - `SHOPIFY_TEST_STORE_ALLOWLIST=store1.myshopify.com,store2.myshopify.com`
+  - `SHOPIFY_TEST_STORE_PRIMARY=store1.myshopify.com` (optional default).
+
+- All live Shopify tests must:
+  - Parse the allowlist and select a store (defaulting to `SHOPIFY_TEST_STORE_PRIMARY` when present).
+  - Refuse to:
+    - Initiate OAuth for any store not in the allowlist.
+    - Run at all if the allowlist is missing or empty.
+
+**Smoke scenarios (minimal but real)**
+
+Implement a single, scripted smoke-runner that exercises three core behaviors against an allowlisted dev store:
+
+1. **OAuth Connect**
+   - Preferred approach (Option A):
+     - Add a small, test-only OAuth harness route (e.g., `GET /testkit/live-shopify/oauth-url` and a callback handler) that generates the Shopify OAuth URL and handles the callback.
+     - Use a headless browser (Playwright or similar) within the runner to:
+       - Open the OAuth URL.
+       - Complete Shopify login + app install for the allowlisted store.
+       - Capture the callback and verify that a valid token and `shopDomain` are stored in the live-test DB.
+   - Fallback (Option B, only if A proves too brittle):
+     - Use a pre-issued offline token for the allowlisted dev store (injected via secret).
+     - Still verify that the app can read/write via Shopify Admin API.
+     - Keep the OAuth flow as an explicitly manual/on-demand check (documented) if not fully automated.
+
+2. **Update Product SEO**
+   - For each run, create one uniquely tagged test product in Shopify:
+     - Title includes a deterministic prefix: `engineo-live-test-{YYYYMMDD}-{shortSha}`.
+     - Optionally tag: `engineo_live_test`.
+   - Call the real EngineO API path used in production to apply SEO (e.g., `POST /shopify/update-product-seo` or equivalent).
+   - Verify via a Shopify Admin API read-back that:
+     - The product's SEO title and/or description match the expected test values.
+   - Record the created product ID(s) and result in the live-test audit table.
+
+3. **Optional: Manual Sync**
+   - If stable and fast, extend the smoke to:
+     - Seed or identify a small set of test products/metafields.
+     - Call the existing manual sync endpoint (e.g., `POST /products/:id/answer-blocks/sync-to-shopify` or similar).
+     - Verify via Shopify read-back that expected metafields are updated.
+   - If this proves flaky, keep the manual sync portion behind a flag (e.g., `ENGINEO_LIVE_SHOPIFY_MANUAL_SYNC=1`) and/or document as an optional extension.
+
+**Test data creation, cleanup, and audit**
+
+- Naming / tagging:
+  - Use a deterministic run ID: `engineo-live-test-{YYYYMMDD}-{shortSha}`.
+  - Ensure all created Shopify objects (products, metafields) include either:
+    - The run ID in title/handle, and/or
+    - A dedicated tag: `engineo_live_test`.
+
+- Cleanup:
+  - At the end of each smoke run (pass or fail), attempt to:
+    - Delete created test products, or
+    - Archive them, or
+    - Mark them with a `engineo_live_test_cleanup_pending` tag.
+  - If immediate deletion is not reliable, add a lightweight janitor job or script that:
+    - Runs periodically (nightly/weekly).
+    - Deletes or archives any objects older than N days with the test prefix/tag.
+
+- Audit logging:
+  - Add a small audit table in the live-test DB (or reuse an existing logging pattern) recording:
+    - `runId`, `storeDomain`, `createdProductIds`, `status` (passed | failed), timestamps, and error summaries.
+  - Ensure each CI run writes a JSON report that can be persisted as an artifact.
+
+**Runner script and commands**
+
+- Add a dedicated Node runner (e.g., `apps/api/scripts/shopify-live-smoke.ts`) that:
+  - Calls `assertLiveShopifyTestEnv()` on startup.
+  - Resolves the store from `SHOPIFY_TEST_STORE_ALLOWLIST` / `SHOPIFY_TEST_STORE_PRIMARY`.
+  - Executes the smoke sequence:
+    1. OAuth connect (Option A or fallback Option B).
+    2. Test product creation.
+    3. SEO update via EngineO API.
+    4. Optional manual sync, if enabled.
+    5. Shopify read-back verification.
+    6. Cleanup & audit logging.
+  - Exits with:
+    - `0` on success.
+    - Non-zero on any failure (or if safety checks prevent execution).
+
+- Expose a root script in `package.json`:
+  - `"test:shopify:live": "NODE_ENV=development ENGINEO_LIVE_SHOPIFY_TEST=1 pnpm --filter api exec node dist/apps/api/scripts/shopify-live-smoke.js"` (or equivalent TS runner).
+
+- Document how to run this locally only when using safe live-test creds and DB.
+
+**CI workflow – nightly + on-demand**
+
+- Add a separate GitHub Actions workflow file:
+  - `.github/workflows/shopify-live-smoke.yml`.
+
+- Triggers:
+  - `schedule` – nightly (e.g., `0 3 * * *` in America/Chicago or equivalent).
+  - `workflow_dispatch` – manual, with inputs for:
+    - `storeDomain` (optional override from the allowlist).
+    - `runManualSync` (boolean).
+
+- Job behavior:
+  - Uses dedicated secrets:
+    - `DATABASE_URL_LIVE_TEST`
+    - `SHOPIFY_API_KEY_TEST`
+    - `SHOPIFY_API_SECRET_TEST`
+    - `SHOPIFY_TEST_STORE_ALLOWLIST`
+    - `SHOPIFY_TEST_STORE_PRIMARY` (optional)
+    - Any required session/auth secrets for the app.
+  - Ensures `ENGINEO_LIVE_SHOPIFY_TEST=1` is set.
+  - Runs migrations against the live-test DB (if needed).
+  - Runs `pnpm test:shopify:live`.
+  - Uploads artifacts on failure:
+    - Runner logs.
+    - Any headless browser traces/screenshots if OAuth is automated via Playwright.
+    - The JSON report generated by the runner (audit entry).
+  - Never runs automatically on PRs; only on schedule and `workflow_dispatch`.
+
+**Documentation and manual testing**
+
+- Update `docs/TESTING.md` with a new TEST-3 section describing:
+  - What the live Shopify smoke covers.
+  - Required env vars and secrets.
+  - How to run `pnpm test:shopify:live` locally (only against safe dev stores).
+  - Safety constraints around `ENGINEO_LIVE_SHOPIFY_TEST`, distinct DB, and allowlist enforcement.
+  - Cleanup behavior and how to inspect audit records.
+
+- Add a manual testing doc:
+  - `docs/manual-testing/test-3-live-shopify-smoke.md` documenting:
+    - How to trigger the `workflow_dispatch` in GitHub Actions.
+    - How to confirm that the nightly schedule is running.
+    - How to triage failures (reading logs, audit table, Shopify dev store objects).
+    - What to check in Shopify (test products/metafields) after a run.
+
+### Status
+
+- Status: **PLANNED**
+- Manual Testing: `docs/manual-testing/test-3-live-shopify-smoke.md`
+
+---
+
 ## Testing Track
 
 ### Phase T0 – Backend API Test Foundation (Completed)
