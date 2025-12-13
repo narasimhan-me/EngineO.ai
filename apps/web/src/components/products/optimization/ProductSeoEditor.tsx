@@ -57,7 +57,7 @@ export function ProductSeoEditor({
             type="text"
             value={title}
             onChange={(e) => onTitleChange(e.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
             placeholder="Enter SEO title..."
           />
           <div className="mt-1 flex items-center justify-between text-xs">
@@ -81,7 +81,7 @@ export function ProductSeoEditor({
             value={description}
             onChange={(e) => onDescriptionChange(e.target.value)}
             rows={4}
-            className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full resize-none rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
             placeholder="Enter SEO description..."
           />
           <div className="mt-1 flex items-center justify-between text-xs">
