@@ -7,6 +7,7 @@ import { BillingModule } from '../billing/billing.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { AnswerGenerationService } from '../projects/answer-generation.service';
 import { ProductIssueFixService } from './product-issue-fix.service';
+import { TokenUsageService } from './token-usage.service';
 
 @Module({
   imports: [BillingModule, forwardRef(() => ProjectsModule)],
@@ -17,7 +18,8 @@ import { ProductIssueFixService } from './product-issue-fix.service';
     GeminiClient,
     AnswerGenerationService,
     ProductIssueFixService,
+    TokenUsageService,
   ],
-  exports: [AiService, AnswerGenerationService, ProductIssueFixService],
+  exports: [AiService, AnswerGenerationService, ProductIssueFixService, TokenUsageService],
 })
 export class AiModule {}

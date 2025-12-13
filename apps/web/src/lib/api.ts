@@ -209,6 +209,25 @@ export const projectsApi = {
 
   automationSuggestions: (id: string) => fetchWithAuth(`/projects/${id}/automation-suggestions`),
 
+  automationPlaybookEstimate: (
+    id: string,
+    playbookId: 'missing_seo_title' | 'missing_seo_description',
+  ) =>
+    fetchWithAuth(
+      `/projects/${id}/automation-playbooks/estimate?playbookId=${encodeURIComponent(
+        playbookId,
+      )}`,
+    ),
+
+  applyAutomationPlaybook: (
+    id: string,
+    playbookId: 'missing_seo_title' | 'missing_seo_description',
+  ) =>
+    fetchWithAuth(`/projects/${id}/automation-playbooks/apply`, {
+      method: 'POST',
+      body: JSON.stringify({ playbookId }),
+    }),
+
   delete: (id: string) =>
     fetchWithAuth(`/projects/${id}`, {
       method: 'DELETE',

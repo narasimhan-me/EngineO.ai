@@ -7312,6 +7312,171 @@ Enhance the Issues Engine with product-focused issue detection and actionable fi
 
 ---
 
+## Phase Automation-1 – Automation Playbooks v1 (Completed)
+
+**Status:** Complete
+
+**Goal:** Introduce bulk AI-powered fixes for missing SEO metadata through a safe, user-approved workflow with preview, estimate, and explicit apply steps.
+
+### Automation-1.1 Overview
+
+Automation Playbooks v1 enables DEOs to fix missing SEO titles and missing SEO descriptions in bulk across their product catalog. The workflow ensures user control through:
+
+1. **Preview Step** — Generate AI suggestions for a sample of affected products without persisting changes
+2. **Estimate Step** — Show total affected products, estimated token usage, and eligibility status
+3. **Apply Step** — Explicit confirmation before writing AI-generated values to products
+
+### Automation-1.2 Backend Changes
+
+**Prisma Schema (apps/api/prisma/schema.prisma):**
+
+```prisma
+model TokenUsage {
+  id        String   @id @default(cuid())
+  userId    String
+  source    String   // e.g. "metadata", "automation_playbook:missing_seo_title"
+  amount    Int
+  createdAt DateTime @default(now())
+}
+```
+
+**Token Usage Service (apps/api/src/ai/token-usage.service.ts):**
+
+- `TokenUsageService` with `log()` and `getMonthlyUsage()` methods
+- `ESTIMATED_METADATA_TOKENS_PER_CALL = 400` constant for token estimation
+- Records token usage for manual AI calls and automation playbooks
+
+**AI Module Updates (apps/api/src/ai/ai.module.ts):**
+
+- Added `TokenUsageService` to providers and exports
+
+**AI Controller Updates (apps/api/src/ai/ai.controller.ts):**
+
+- Injected `TokenUsageService` into controller
+- Added token logging after successful `suggestProductMetadata` calls
+- Source: `manual:product_optimize`
+
+**Automation Playbooks Service (apps/api/src/projects/automation-playbooks.service.ts):**
+
+- `AutomationPlaybooksService` with `estimatePlaybook()` and `applyPlaybook()` methods
+- Supports playbook IDs: `missing_seo_title`, `missing_seo_description`
+- `estimatePlaybook()` returns:
+  - `totalAffectedProducts` — count of products matching criteria
+  - `estimatedTokens` — approximate token cost
+  - `planId`, `eligible`, `canProceed`, `reasons` — entitlement status
+  - `aiDailyLimit` — current limit usage
+- `applyPlaybook()` iterates affected products, calls `ProductIssueFixService`, respects daily limits
+- Logs token usage with source: `automation_playbook:{playbookId}`
+
+**Projects Controller Updates (apps/api/src/projects/projects.controller.ts):**
+
+- `GET /projects/:id/automation-playbooks/estimate?playbookId=...` — estimate endpoint
+- `POST /projects/:id/automation-playbooks/apply` — apply endpoint with `{ playbookId }` body
+
+### Automation-1.3 Frontend Changes
+
+**API Client (apps/web/src/lib/api.ts):**
+
+- `projectsApi.automationPlaybookEstimate(id, playbookId)` — fetch estimate
+- `projectsApi.applyAutomationPlaybook(id, playbookId)` — apply playbook
+
+**Automation Activity Page (apps/web/src/app/projects/[id]/automation/page.tsx):**
+
+- Added Activity / Playbooks tab navigation
+- Uses `usePathname` for active tab highlighting
+
+**Automation Playbooks Page (apps/web/src/app/projects/[id]/automation/playbooks/page.tsx):**
+
+- New page with 3-step stepper: Preview → Estimate → Apply
+- Playbook selection cards showing affected products count
+- Preview section with Before/After comparison for sample products
+- Estimate section with token usage, daily limit, and eligibility display
+- Apply section with confirmation checkbox and progress indicator
+- "View updated products" and "Sync to Shopify" post-apply actions
+- Plan gating messaging for Free plan users
+- Error handling for AI limits and entitlements
+
+### Automation-1.4 Acceptance Criteria (Completed)
+
+- [x] TokenUsage model added to Prisma schema
+- [x] TokenUsageService logs token usage for manual and playbook AI calls
+- [x] AutomationPlaybooksService supports missing_seo_title and missing_seo_description playbooks
+- [x] Estimate endpoint returns affected products, token estimate, and eligibility
+- [x] Apply endpoint iterates products, respects daily limits, returns result summary
+- [x] Frontend Playbooks page shows Preview → Estimate → Apply workflow
+- [x] Free plan users see upgrade messaging and cannot apply playbooks
+- [x] Pro/Business users can preview, estimate, and apply playbooks
+- [x] Token usage logged with source `automation_playbook:{playbookId}`
+- [x] Activity / Playbooks tabs navigate between automation views
+- [x] `docs/manual-testing/phase-automation-1-playbooks.md` documents playbook testing
+
+**Manual Testing:** `docs/manual-testing/phase-automation-1-playbooks.md`
+
+---
+
+## Phase SHOP-UX-CTA-1 – Connect Shopify CTA Fix (Completed)
+
+**Status:** Complete
+
+**Goal:** Fix the "Connect Shopify" CTA button in the First DEO Win checklist to reliably initiate OAuth flow when the store domain is already known, providing clear UX feedback during the connection process.
+
+### SHOP-UX-CTA-1.1 Overview
+
+The First DEO Win checklist shows a "Connect your store" step for users who haven't connected Shopify yet. Previously, clicking this button only scrolled to the Shopify integration section. This phase improves the experience by:
+
+1. **Personalized CTA Label** — Shows "Connect {store-domain}" when the store domain is known
+2. **Direct OAuth Flow** — Initiates OAuth immediately when domain is available (no scroll/focus needed)
+3. **Loading State** — Shows "Connecting…" with disabled state during OAuth redirect
+4. **Fallback Behavior** — Scrolls to integration section only when domain is unknown
+
+### SHOP-UX-CTA-1.2 Backend Changes
+
+**Projects Service (apps/api/src/projects/projects.service.ts):**
+
+- Added `projectDomain` field to `getIntegrationStatus()` response
+- Returns project's `domain` field alongside Shopify integration status
+- Enables frontend to access store domain from multiple sources
+
+### SHOP-UX-CTA-1.3 Frontend Changes
+
+**FirstDeoWinChecklist Component (apps/web/src/components/projects/FirstDeoWinChecklist.tsx):**
+
+- Added `getConnectStoreCtaLabel(storeDomain?: string)` helper function:
+  - Returns "Connect {domain}" when storeDomain is provided
+  - Returns "Connect Shopify" as fallback
+- New props added to interface:
+  - `storeDomain?: string` — Store domain for personalized CTA
+  - `connectingSource?: boolean` — Loading state flag
+- Button renders with:
+  - `disabled` attribute when connecting
+  - `disabled:opacity-50 disabled:cursor-not-allowed` styling
+  - "Connecting…" label during redirect
+
+**Project Overview Page (apps/web/src/app/projects/[id]/overview/page.tsx):**
+
+- Added `connectingSource` state variable
+- Added `projectDomain` to `IntegrationStatus` interface
+- Updated `handleChecklistConnectSource()`:
+  - Checks for known `shopDomain` from integration status
+  - If available: sets loading state and redirects to OAuth URL immediately
+  - Fallback: scrolls to integration section and focuses input
+- Passes `storeDomain` and `connectingSource` props to `FirstDeoWinChecklist`
+
+### SHOP-UX-CTA-1.4 Acceptance Criteria (Completed)
+
+- [x] `getConnectStoreCtaLabel()` helper returns personalized label when domain available
+- [x] FirstDeoWinChecklist supports `storeDomain` and `connectingSource` props
+- [x] Button shows "Connecting…" and disabled state during OAuth redirect
+- [x] OAuth initiates immediately when store domain is known
+- [x] Fallback behavior scrolls to integration section when domain unknown
+- [x] `projectDomain` added to integration status API response
+- [x] Unit tests cover helper functions and button state logic
+- [x] Manual testing doc created
+
+**Manual Testing:** `docs/manual-testing/phase-shop-ux-cta-1-connect-shopify.md`
+
+---
+
 ## Phase UX-8 – Issue Engine Full (IE-2.0)
 
 **Status:** Complete

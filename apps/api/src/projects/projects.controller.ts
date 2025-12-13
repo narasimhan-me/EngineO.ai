@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,6 +9,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -27,6 +29,7 @@ import {
 } from '@engineo/shared';
 import { deoScoreQueue, crawlQueue } from '../queues/queues';
 import { AnswerEngineService } from './answer-engine.service';
+import { AutomationPlaybooksService, AutomationPlaybookId } from './automation-playbooks.service';
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard)
@@ -40,6 +43,7 @@ export class ProjectsController {
     private readonly answerEngineService: AnswerEngineService,
     private readonly entitlementsService: EntitlementsService,
     private readonly seoScanService: SeoScanService,
+    private readonly automationPlaybooksService: AutomationPlaybooksService,
   ) {}
 
   /**
@@ -280,5 +284,48 @@ export class ProjectsController {
     @Param('id') projectId: string,
   ): Promise<ProjectAnswerabilityResponse> {
     return this.answerEngineService.getProjectAnswerability(projectId, req.user.id);
+  }
+
+  /**
+   * GET /projects/:id/automation-playbooks/estimate
+   * Returns estimate for an automation playbook (affected products, token usage, eligibility).
+   */
+  @Get(':id/automation-playbooks/estimate')
+  async estimateAutomationPlaybook(
+    @Request() req: any,
+    @Param('id') projectId: string,
+    @Query('playbookId') playbookId: AutomationPlaybookId,
+  ) {
+    if (!playbookId) {
+      throw new BadRequestException('playbookId is required');
+    }
+    return this.automationPlaybooksService.estimatePlaybook(
+      req.user.id,
+      projectId,
+      playbookId,
+    );
+  }
+
+  /**
+   * POST /projects/:id/automation-playbooks/apply
+   * Apply an automation playbook to affected products.
+   */
+  @Post(':id/automation-playbooks/apply')
+  async applyAutomationPlaybook(
+    @Request() req: any,
+    @Param('id') projectId: string,
+    @Body()
+    body: {
+      playbookId: AutomationPlaybookId;
+    },
+  ) {
+    if (!body?.playbookId) {
+      throw new BadRequestException('playbookId is required');
+    }
+    return this.automationPlaybooksService.applyPlaybook(
+      req.user.id,
+      projectId,
+      body.playbookId,
+    );
   }
 }

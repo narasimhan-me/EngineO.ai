@@ -1,11 +1,27 @@
 'use client';
 
+/**
+ * Returns the appropriate CTA label for the "Connect your store" step.
+ * - If storeDomain is available: "Connect {domain}"
+ * - Otherwise: "Connect Shopify"
+ */
+function getConnectStoreCtaLabel(storeDomain?: string): string {
+  if (storeDomain) {
+    return `Connect ${storeDomain}`;
+  }
+  return 'Connect Shopify';
+}
+
 interface FirstDeoWinChecklistProps {
   projectName?: string;
   hasConnectedSource: boolean;
   hasRunCrawl: boolean;
   hasDeoScore: boolean;
   hasOptimizedThreeProducts: boolean;
+  /** The Shopify store domain (e.g. "my-store.myshopify.com") for personalized CTA */
+  storeDomain?: string;
+  /** True when the OAuth connection flow is in progress */
+  connectingSource?: boolean;
   onConnectSource: () => void;
   onRunFirstCrawl: () => void;
   onViewScoreAndIssues: () => void;
@@ -27,6 +43,8 @@ export function FirstDeoWinChecklist({
   hasRunCrawl,
   hasDeoScore,
   hasOptimizedThreeProducts,
+  storeDomain,
+  connectingSource,
   onConnectSource,
   onRunFirstCrawl,
   onViewScoreAndIssues,
@@ -39,7 +57,7 @@ export function FirstDeoWinChecklist({
       description:
         'Connect your Shopify store so EngineO can crawl your catalog and products.',
       done: hasConnectedSource,
-      ctaLabel: 'Connect Shopify',
+      ctaLabel: getConnectStoreCtaLabel(storeDomain),
       onAction: onConnectSource,
     },
     {
@@ -151,9 +169,10 @@ export function FirstDeoWinChecklist({
                 ) : (
                   <button
                     onClick={step.onAction}
-                    className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                    disabled={step.id === 'connect_source' && connectingSource}
+                    className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {step.ctaLabel}
+                    {step.id === 'connect_source' && connectingSource ? 'Connecting…' : step.ctaLabel}
                   </button>
                 )}
               </div>

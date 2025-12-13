@@ -226,3 +226,11 @@ model AiUsageEvent {
   @@index([userId, feature, createdAt])
   @@index([projectId, feature, createdAt])
 }
+
+model TokenUsage {
+  id        String   @id @default(cuid())
+  userId    String
+  source    String   // e.g. "metadata", "automation:playbook:missing_seo_title"
+  amount    Int
+  createdAt DateTime @default(now())
+}

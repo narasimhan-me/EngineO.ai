@@ -25,6 +25,7 @@ type CrawlFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 interface IntegrationStatus {
   projectId: string;
   projectName: string;
+  projectDomain?: string | null;
   integrations: Array<{
     type: string;
     externalId: string;
@@ -163,6 +164,7 @@ export default function ProjectOverviewPage() {
   const [showDeoFreshness, setShowDeoFreshness] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [showFirstWinCard, setShowFirstWinCard] = useState(true);
+  const [connectingSource, setConnectingSource] = useState(false);
 
   const feedback = useFeedback();
 
@@ -598,6 +600,17 @@ export default function ProjectOverviewPage() {
 
   // Checklist helper callbacks
   const handleChecklistConnectSource = () => {
+    // If we already know the store domain from the project, initiate OAuth immediately
+    const knownDomain = status?.shopify.shopDomain;
+    if (knownDomain) {
+      setConnectingSource(true);
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const token = getToken();
+      const installUrl = `${API_URL}/shopify/install?shop=${knownDomain}&projectId=${projectId}&token=${token}`;
+      window.location.href = installUrl;
+      return;
+    }
+    // Fallback: scroll to Shopify integration section and focus the input
     document.getElementById('shopify-integration')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     setTimeout(() => {
       document.getElementById('shopDomain')?.focus();
@@ -671,6 +684,8 @@ export default function ProjectOverviewPage() {
           hasRunCrawl={!!hasRunCrawl}
           hasDeoScore={hasDeoScore}
           hasOptimizedThreeProducts={hasOptimizedThreeProducts}
+          storeDomain={status?.shopify.shopDomain}
+          connectingSource={connectingSource}
           onConnectSource={handleChecklistConnectSource}
           onRunFirstCrawl={handleRunScan}
           onViewScoreAndIssues={handleChecklistViewScoreAndIssues}

@@ -6,6 +6,7 @@ import { EntitlementsService } from '../billing/entitlements.service';
 import { AnswerEngineService } from '../projects/answer-engine.service';
 import { ProductAnswersResponse } from '@engineo/shared';
 import { ProductIssueFixService } from './product-issue-fix.service';
+import { TokenUsageService, ESTIMATED_METADATA_TOKENS_PER_CALL } from './token-usage.service';
 
 class MetadataDto {
   crawlResultId: string;
@@ -30,6 +31,7 @@ export class AiController {
     private readonly entitlementsService: EntitlementsService,
     private readonly answerEngineService: AnswerEngineService,
     private readonly productIssueFixService: ProductIssueFixService,
+    private readonly tokenUsageService: TokenUsageService,
   ) {}
 
   @Post('metadata')
@@ -142,6 +144,11 @@ export class AiController {
         'product_optimize',
       );
       recordedUsage = true;
+      await this.tokenUsageService.log(
+        userId,
+        ESTIMATED_METADATA_TOKENS_PER_CALL,
+        'manual:product_optimize',
+      );
 
       // Basic observability for Optimize feature
       // eslint-disable-next-line no-console
@@ -174,6 +181,11 @@ export class AiController {
           'product_optimize',
         );
         recordedUsage = true;
+        await this.tokenUsageService.log(
+          userId,
+          ESTIMATED_METADATA_TOKENS_PER_CALL,
+          'manual:product_optimize',
+        );
       }
 
       // eslint-disable-next-line no-console

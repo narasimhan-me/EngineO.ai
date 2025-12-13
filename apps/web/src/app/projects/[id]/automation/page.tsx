@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 
 import { isAuthenticated } from '@/lib/auth';
@@ -24,6 +24,7 @@ export default function AutomationPage() {
   const router = useRouter();
   const params = useParams();
   const projectId = params.id as string;
+  const pathname = usePathname();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -117,6 +118,32 @@ export default function AutomationPage() {
         <p className="text-gray-600">
           View all automation suggestions and their status for this project.
         </p>
+      </div>
+
+      {/* Automation tabs */}
+      <div className="mb-6 border-b border-gray-200">
+        <div className="-mb-px flex gap-6 text-sm">
+          <Link
+            href={`/projects/${projectId}/automation`}
+            className={`border-b-2 px-1 pb-2 ${
+              pathname === `/projects/${projectId}/automation`
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Activity
+          </Link>
+          <Link
+            href={`/projects/${projectId}/automation/playbooks`}
+            className={`border-b-2 px-1 pb-2 ${
+              pathname?.startsWith(`/projects/${projectId}/automation/playbooks`)
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Playbooks
+          </Link>
+        </div>
       </div>
 
       {/* Error message */}

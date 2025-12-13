@@ -155,6 +155,7 @@ export class ProjectsService {
     return {
       projectId: project.id,
       projectName: project.name,
+      projectDomain: project.domain ?? null,
       integrations: project.integrations.map((i) => ({
         type: i.type,
         externalId: i.externalId,
