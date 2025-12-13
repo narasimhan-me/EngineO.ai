@@ -7862,6 +7862,201 @@ model TokenUsage {
 
 ---
 
+## AUTO-PB-1 – Automation Playbooks v1 (Preview → Estimate → Apply)
+
+### Phase Summary
+
+Introduce Automation Playbooks v1 as a guided, trust-first way to apply repeatable SEO metadata fixes across multiple products, without adding new heavy infrastructure:
+
+- **Target:** product SEO fields only (missing SEO title/description).
+- **Focus:** preview-first, explicit consent, strictly sequential apply.
+- **Non-goals:** scheduled/background runs, multi-playbook orchestration, non-product surfaces.
+
+This is a vertical slice on top of existing product optimize and Shopify sync capabilities, not a new automation engine.
+
+### Playbook Scope (v1)
+
+**Playbook: `fix_missing_seo_metadata` (Products)**
+
+- **Surface:** products only.
+- **Fix types included:**
+  - Missing SEO title.
+  - Missing SEO description.
+- **Explicit exclusions:**
+  - Weak content rewriting.
+  - Answer blocks, entities, non-product pages.
+  - Scheduled/background runs or auto-sync beyond existing flows.
+
+### Entry Points (UX)
+
+**Primary entry: Project Overview**
+
+- New card: "Automation Playbooks (Preview first)".
+- Visible only when:
+  - Store is connected.
+  - At least one crawl has completed.
+  - At least one product has missing SEO metadata.
+- CTA: "Preview Playbook" → navigates to the Playbooks flow for `fix_missing_seo_metadata`.
+
+**Secondary entry (optional, same destination)**
+
+- Product list/banner when multiple products share the same fixable issue:
+  - Example copy: "You have 12 products missing SEO titles — Preview Playbook".
+- Clicking the banner lands on the same Playbooks screen, pre-filtered for missing SEO metadata.
+
+### Playbook Flow (Preview → Estimate → Apply)
+
+**Step 1 – Preview (Trust-first)**
+
+- Screen shows:
+  - List of affected products (paginated for large sets).
+  - For each product:
+    - Current SEO title/description (or "Missing").
+    - Proposed AI-generated values (read-only).
+- Behavior:
+  - AI generation runs once for this preview and is cached.
+  - Preview does not write to Shopify or DB.
+  - User can manually refresh/re-generate preview if desired.
+
+**Step 2 – Estimate (Impact & Cost)**
+
+- Estimate panel displays:
+  - `affectedProductCount` – total products matching criteria.
+  - Estimated AI token usage (rough, rounded).
+  - Estimated time to apply (e.g. "~2–3 minutes").
+- Clear warning copy:
+  - "Changes will be applied one product at a time. You can stop at any time."
+- No confirmation yet; this step is informational and gating-aware.
+
+**Step 3 – Apply (Explicit Confirmation, Sequential Apply)**
+
+- Apply screen requires:
+  - Confirmation checkbox:
+    - "I understand this will update SEO metadata for these products."
+  - Primary button:
+    - "Apply changes".
+- Apply behavior:
+  - Executes sequentially, one product at a time.
+  - Internally reuses the existing single-item apply path (same logic as the per-product optimize/apply flow).
+  - Shows progress:
+    - "Applying 3 of 12…" with per-product feedback.
+- Failure behavior:
+  - On any failure:
+    - Stop execution.
+    - Surface a clear error message including product context.
+    - Allow the user to resume or re-run later (no hidden retries).
+- Hard rules:
+  - No parallel writes.
+  - No background jobs.
+  - No "silent bulk" or auto-retry behavior.
+
+### Data & Safety Rules
+
+**No new automation-specific tables (v1)**
+
+- Reuse:
+  - Existing product update logic.
+  - Existing AI generation logic and token usage tracking.
+- Optional:
+  - Temporary preview results may be stored ephemerally or in short-lived cache, but not as a new durable automation store.
+
+**Lightweight logging**
+
+- For each apply run, record (using existing logging patterns or minimal additions):
+  - `playbookId`.
+  - `projectId`.
+  - `productIds` affected.
+  - `startedAt` / `finishedAt`.
+  - `successCount` / `failureCount`.
+- No complex new reporting schema; keep it simple and consistent with existing logs.
+
+### Entitlements (Free vs Pro)
+
+**Free plan**
+
+- Preview always allowed (never gated).
+- Apply is:
+  - Either blocked entirely with an upgrade prompt, or
+  - Limited to a small number of products (e.g., 3 total) with clear messaging when the limit is reached.
+
+**Pro+ plans**
+
+- Preview allowed.
+- Full apply across all eligible products allowed, within existing AI/token limits.
+
+**Rules:**
+
+- Preview must never be gated.
+- Gating applies only at Apply step (and is reflected in Estimate messaging).
+
+### Out of Scope (AUTO-PB-1)
+
+- No scheduled automations or background jobs.
+- No "Fix all" actions without preview.
+- No multi-playbook selection or cross-surface orchestration.
+- No automatic Shopify sync beyond the existing single-item apply logic.
+
+### Testing & Documentation Requirements
+
+**Automated tests**
+
+- Backend (TEST-1 extension):
+  - Preview endpoint:
+    - Returns product + proposed SEO values.
+    - Does not mutate DB or Shopify.
+  - Apply endpoint:
+    - Updates products sequentially, reusing single-item apply logic.
+    - Stops on failure and reports progress.
+    - Enforces Free vs Pro gating.
+
+- E2E (TEST-2 extension):
+  - Happy path: Preview → Estimate → Apply for a Pro-plan project with multiple missing SEO products.
+  - Free-plan gating:
+    - Preview allowed.
+    - Apply blocked or limited with clear upgrade messaging.
+
+**Manual testing**
+
+- New doc: `docs/manual-testing/auto-pb-1-playbooks-v1.md` covering:
+  - Preview correctness (current vs proposed values).
+  - Estimate accuracy (counts + rough token/time estimates).
+  - Apply progress, sequential behavior, and failure handling.
+  - Plan gating differences between Free and Pro+.
+
+### Status
+
+- Status: **COMPLETE**
+- Manual Testing: `docs/manual-testing/auto-pb-1-playbooks-v1.md`
+- Backend Tests: `apps/api/test/e2e/automation-playbooks.e2e-spec.ts`
+
+#### Implementation Summary
+
+1. **Backend (already implemented):**
+   - `AutomationPlaybooksService` with `estimatePlaybook()` and `applyPlaybook()` methods
+   - Supports `missing_seo_title` and `missing_seo_description` playbooks
+   - Plan gating (Free plan blocked from bulk apply)
+   - Sequential apply with failure handling and daily AI limit enforcement
+   - Token usage logging
+
+2. **Frontend (already implemented):**
+   - 3-step wizard at `/projects/[id]/automation/playbooks`
+   - Step 1: Preview - AI-generated suggestions for sample products
+   - Step 2: Estimate - Token usage and plan eligibility display
+   - Step 3: Apply - Confirmation checkbox, sequential apply, Shopify sync option
+   - Navigation tabs (Activity | Playbooks)
+
+3. **Overview Entry Point (already implemented):**
+   - `NextDeoWinCard` component displays after First DEO Win completion
+   - Shows affected product counts for missing SEO metadata
+   - Links to Playbooks page with `?source=next_deo_win`
+
+4. **Tests Added:**
+   - Backend integration tests for estimate and apply endpoints
+   - Authorization and ownership validation
+   - Plan gating enforcement
+
+---
+
 ## Phase SHOP-UX-CTA-1 – Connect Shopify CTA Fix (Completed)
 
 **Status:** Complete

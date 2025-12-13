@@ -18,6 +18,7 @@ import { ContactModule } from './contact/contact.module';
 import { CrawlModule } from './crawl/crawl.module';
 import { RedisModule } from './infra/redis/redis.module';
 import { E2eTestkitController } from './testkit/e2e-testkit.controller';
+import { PrismaService } from './prisma.service';
 
 @Module({
   imports: [
@@ -44,6 +45,6 @@ import { E2eTestkitController } from './testkit/e2e-testkit.controller';
     CrawlModule,
   ],
   controllers: [E2eTestkitController],
-  providers: [],
+  providers: [PrismaService],
 })
 export class AppModule {}
