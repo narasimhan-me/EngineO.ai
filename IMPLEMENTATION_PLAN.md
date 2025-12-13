@@ -7261,6 +7261,55 @@ Enhance the Issues Engine with product-focused issue detection and actionable fi
 - [x] Limit toasts use concise, actionable copy
 - [x] `docs/testing/issue-engine-lite.md` updated with UX-7.1 addendum
 
+### UX-7.2 – Inline Preview Before Fix (Completed)
+
+**Goal:** Add an inline, per-item preview step for Issue Engine Lite AI fixes so DEOs can see the proposed SEO change before applying it.
+
+**Changes:**
+
+1. **Preview Flow:**
+   - "Fix next" no longer applies AI fixes immediately for metadata issues (missing_seo_title, missing_seo_description); instead, it opens an inline preview panel in the issue row.
+   - Preview panel shows the product being fixed, the field (SEO title/SEO description), the current value (or "Missing"), and an AI-generated preview value (read-only) using existing product metadata suggestion logic.
+
+2. **Inline Actions:**
+   - **Apply fix** — persists the AI-generated value via the existing Issue Engine Lite AI fix path and collapses the preview.
+   - **Cancel** — collapses the preview without persisting any changes or showing toasts, returning focus to the "Fix next" button.
+
+3. **Loading & Error States:**
+   - While generating the preview, an inline loading message "Generating preview…" is displayed.
+   - On preview generation failure, an inline error "Couldn't generate a preview. Try again." is shown.
+
+4. **Success Toasts:**
+   - On successful apply, a toast is shown in the form:
+     - "SEO title applied to '{Product Name}'. {remainingCount} remaining."
+     - "SEO description applied to '{Product Name}'. {remainingCount} remaining."
+
+5. **Limit Handling:**
+   - When preview generation is blocked by AI token limits, the preview does not open and the existing limit toast is reused:
+     - "Token limit reached. Upgrade to continue fixing products."
+   - Entitlement-based gating (Free vs Pro/Business) for applying fixes continues to use existing toasts:
+     - "Upgrade to fix additional products with AI."
+
+6. **Accessibility:**
+   - Preview panel is focusable and receives focus when opened.
+   - "Cancel" returns focus to the originating "Fix next" button.
+
+**Files Changed:**
+
+- `apps/web/src/app/projects/[id]/issues/page.tsx` — Added preview state, `handleOpenPreview`, `handleApplyFixFromPreview`, `handleCancelPreview` handlers, inline preview panel UI
+
+**UX-7.2 Acceptance Criteria (Completed):**
+
+- [x] "Fix next" opens an inline preview panel instead of applying immediately
+- [x] Preview shows product name, field label, current value, and AI preview
+- [x] "Apply fix" persists the change and shows success toast with product name
+- [x] "Cancel" closes preview without changes or toasts
+- [x] Focus moves to preview panel when opened, returns to button on cancel
+- [x] Token limit blocks preview with existing limit toast
+- [x] `docs/manual-testing/phase-ux-7-2-inline-preview.md` documents inline preview testing
+
+**Manual Testing:** `docs/manual-testing/phase-ux-7-2-inline-preview.md`
+
 ---
 
 ## Phase UX-8 – Issue Engine Full (IE-2.0)
