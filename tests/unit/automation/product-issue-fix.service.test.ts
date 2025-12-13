@@ -182,4 +182,3 @@ describe('ProductIssueFixService – Issue Engine Lite AI fixes', () => {
     expect(aiServiceStub.generateMetadata).not.toHaveBeenCalled();
   });
 });
-

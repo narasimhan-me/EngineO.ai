@@ -422,6 +422,111 @@ Establish a reliable, isolated automated testing foundation that:
 
 ---
 
+## TEST-1 – Backend Integration Coverage (Onboarding + DEO Win + Sync)
+
+### Phase Summary
+
+Expand from TEST-0's foundation into a reliable backend integration suite that protects:
+
+- First DEO Win onboarding checklist signals (connect store, run first crawl, DEO score presence, optimize 3 products).
+- Project overview metrics (`productsWithAppliedSeo` and related counts).
+- Issue Engine Lite metadata issue detection.
+- SEO apply persistence for the Shopify update-product-SEO flow.
+- AEO-2 manual Answer Block → Shopify metafield sync.
+- Auth and entitlement gating for critical paid-only operations.
+
+All TEST-1 tests remain deterministic, run against the isolated test DB, and keep Shopify calls fully mocked.
+
+### Implementation Highlights
+
+**Testkit expansion**
+
+Extended `apps/api/src/testkit/index.ts` with:
+
+- `seedConnectedStoreProject(prisma, { plan? })` – user + project + Shopify connection.
+- `seedCrawledProject(prisma, { plan? })` – connected project plus minimal CrawlResult and `lastCrawledAt` state.
+- `seedReviewedDeoProject(prisma, { plan?, score? })` – crawled project plus persisted DEO score snapshot.
+- `seedProductsNeedingSeo(prisma, { projectId, count })` – products missing SEO metadata.
+- `seedOptimizedProducts(prisma, { projectId, count? })` – products with applied SEO (title and description set) for DEO Win metrics.
+
+All helpers return created IDs/records and use deterministic `test_<label>_<timestamp>_<counter>` prefixes.
+
+**Onboarding checklist backend signals**
+
+New integration suite `apps/api/test/integration/onboarding-checklist.test.ts` verifies that:
+
+- `GET /projects/:id/integration-status` reflects a connected Shopify store once an integration exists.
+- `GET /projects/:id/overview` reports `crawlCount > 0` after a crawl exists.
+- `GET /projects/:id/deo-score` returns a non-null `latestScore` when a DEO snapshot is persisted.
+- `productsWithAppliedSeo >= 3` when three products are optimized, aligning with the "Optimize 3 products" checklist logic.
+
+Note: "Reviewed DEO Score" remains a frontend-only flag; backend tests validate DEO score presence via snapshots.
+
+**Project overview metrics**
+
+`apps/api/test/integration/project-overview.test.ts`:
+
+- Seeds a project with two products lacking SEO.
+- As products are updated with `seoTitle`/`seoDescription`, asserts that:
+  - `productCount` stays stable.
+  - `productsWithAppliedSeo` increments from 0 → 1 → 2 with no caching artifacts.
+
+**Issue Engine Lite determinism**
+
+`apps/api/test/integration/issue-engine-lite.test.ts`:
+
+- Seeds products missing SEO fields.
+- Calls `GET /projects/:id/deo-issues`.
+- Asserts the presence of `missing_seo_title` and `missing_seo_description` issues with `severity = 'critical'` under full-coverage conditions.
+
+**SEO apply persistence + Shopify mock contract**
+
+`apps/api/test/integration/seo-apply-persistence.test.ts`:
+
+- Uses `seedFirstDeoWinProjectReady` to create a DEO-ready project, products, and Shopify integration.
+- Calls `POST /shopify/update-product-seo` with JWT auth.
+- Asserts:
+  - HTTP 201 success.
+  - Product row in `Product` is updated with new `seoTitle` / `seoDescription`.
+  - `global.fetch` (Shopify GraphQL) is called exactly once with `operationName = 'UpdateProductSeo'` and the expected `ProductInput` payload.
+
+**AEO-2 manual sync endpoint**
+
+`apps/api/test/integration/aeo2-manual-sync.test.ts`:
+
+- Pro plan + toggle enabled:
+  - Seeds project, Answer Blocks, and enables `aeoSyncToShopifyMetafields`.
+  - Mocks Shopify GraphQL Admin API for metafield definitions and `metafieldsSet`.
+  - Calls `POST /products/:id/answer-blocks/sync-to-shopify`.
+  - Asserts a `status = 'succeeded'` response, non-zero `syncedCount`, expected metafield payloads, and corresponding `AnswerBlockAutomationLog` entries with `triggerType = 'manual_sync'`.
+
+- Free plan:
+  - Seeds a Free-plan project with Answer Blocks and toggle enabled.
+  - Asserts the endpoint returns `status = 'skipped'`, `reason = 'plan_not_entitled'`, and no Shopify calls are made.
+
+**Auth + entitlements**
+
+`apps/api/test/integration/auth-entitlements.test.ts`:
+
+- Verifies that unauthenticated access to `/projects` returns 401.
+- Verifies that calling `POST /ai/product-metadata/fix-from-issue` as a Free-plan user yields a 403 with `code = 'ENTITLEMENTS_LIMIT_REACHED'`.
+
+**Execution and CI**
+
+All new suites run under the existing Jest configuration for `apps/api` and execute as part of:
+
+- `pnpm test:api`
+- `pnpm test` in CI (TEST-0 + TEST-1 combined).
+
+AEO-2 and Shopify-related tests rely solely on `global.fetch` mocks; no live network is required.
+
+### Status
+
+- Status: **COMPLETE**
+- Manual Testing: `docs/manual-testing/test-1-backend-integration-suite.md`
+
+---
+
 ## Testing Track
 
 ### Phase T0 – Backend API Test Foundation (Completed)

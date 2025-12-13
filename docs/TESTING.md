@@ -223,3 +223,68 @@ See `docs/manual-testing/test-0-automated-testing-foundation.md` for a step-by-s
 - Confirming the test guard blocks accidental connections to non-local / non-test databases.
 - Running the Playwright smoke test (optional) against a running frontend.
 
+---
+
+## 10. TEST-1 – Backend Integration Coverage (Onboarding + DEO Win + Sync)
+
+TEST-1 builds on the TEST-0 foundation and adds higher-level backend integration coverage for the First DEO Win journey, Issue Engine Lite, SEO apply persistence, and AEO-2 manual sync.
+
+**Coverage:**
+
+- Onboarding checklist signals:
+  - `GET /projects/:id/integration-status` for connected source.
+  - `GET /projects/:id/overview` for crawl counts and productsWithAppliedSeo.
+  - `GET /projects/:id/deo-score` for DEO score presence.
+- Project overview metrics:
+  - `productsWithAppliedSeo` increments as products gain SEO metadata.
+- Issue Engine Lite:
+  - `GET /projects/:id/deo-issues` returns `missing_seo_title` and `missing_seo_description` issues with stable severity.
+- SEO apply persistence:
+  - `POST /shopify/update-product-seo` updates the Product row and calls the Shopify mock exactly once.
+- AEO-2 manual sync:
+  - `POST /products/:id/answer-blocks/sync-to-shopify` syncs Answer Blocks via mocked Shopify GraphQL and logs manual_sync automation entries.
+- Auth + entitlements:
+  - 401 for unauthenticated access to protected endpoints.
+  - 403 with `ENTITLEMENTS_LIMIT_REACHED` for Free-plan access to paid-only Issue Engine Lite fix endpoint.
+
+**New suites (Jest, backend):**
+
+- `apps/api/test/integration/onboarding-checklist.test.ts`
+- `apps/api/test/integration/project-overview.test.ts`
+- `apps/api/test/integration/issue-engine-lite.test.ts`
+- `apps/api/test/integration/seo-apply-persistence.test.ts`
+- `apps/api/test/integration/aeo2-manual-sync.test.ts`
+- `apps/api/test/integration/auth-entitlements.test.ts`
+
+**How to run TEST-1 suites:**
+
+- Full backend suite (includes TEST-0 + TEST-1):
+
+  ```bash
+  pnpm test:api
+  ```
+
+- Single suite (examples):
+
+  ```bash
+  # Onboarding checklist
+  pnpm --filter api test:api -- onboarding-checklist.test.ts
+
+  # Project overview metrics
+  pnpm --filter api test:api -- project-overview.test.ts
+
+  # AEO-2 manual sync
+  pnpm --filter api test:api -- aeo2-manual-sync.test.ts
+  ```
+
+**Shopify mocking (TEST-1):**
+
+- As in TEST-0, Shopify Admin API calls are never made over the network.
+- Integration tests override `global.fetch` to:
+  - Respond to `UpdateProductSeo` in SEO apply tests.
+  - Respond to `GetEngineoMetafieldDefinitions`, `CreateEngineoMetafieldDefinition`, and `SetEngineoMetafields` in AEO-2 manual sync tests.
+- Tests assert that:
+  - `global.fetch` is called the expected number of times.
+  - Metafield payloads reference the correct `ownerId` (`gid://shopify/Product/<externalId>`).
+- No live Shopify store or network connectivity is required.
+

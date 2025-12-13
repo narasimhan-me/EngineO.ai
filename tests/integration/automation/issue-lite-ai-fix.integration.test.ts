@@ -116,4 +116,3 @@ describe('Issue Engine Lite – AI Fix integration', () => {
     expect(aiServiceStub.generateMetadata).toHaveBeenCalledTimes(1);
   });
 });
-
