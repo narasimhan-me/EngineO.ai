@@ -2,6 +2,8 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { EntitlementsService } from '../billing/entitlements.service';
@@ -27,14 +29,34 @@ export interface PlaybookEstimate {
   };
 }
 
+export type PlaybookApplyItemStatus =
+  | 'UPDATED'
+  | 'SKIPPED'
+  | 'FAILED'
+  | 'LIMIT_REACHED';
+
+export interface PlaybookApplyItemResult {
+  productId: string;
+  status: PlaybookApplyItemStatus;
+  message: string;
+  updatedFields?: {
+    seoTitle?: boolean;
+    seoDescription?: boolean;
+  };
+}
+
 export interface PlaybookApplyResult {
   projectId: string;
   playbookId: AutomationPlaybookId;
   totalAffectedProducts: number;
-  attempted: number;
-  updated: number;
-  skipped: number;
+  attemptedCount: number;
+  updatedCount: number;
+  skippedCount: number;
   limitReached: boolean;
+  stopped: boolean;
+  stoppedAtProductId?: string;
+  failureReason?: string;
+  results: PlaybookApplyItemResult[];
 }
 
 @Injectable()
@@ -180,16 +202,36 @@ export class AutomationPlaybooksService {
     });
 
     const totalAffectedProducts = candidates.length;
+    const startedAt = new Date();
+
     if (totalAffectedProducts === 0) {
-      return {
+      const result: PlaybookApplyResult = {
         projectId,
         playbookId,
         totalAffectedProducts,
-        attempted: 0,
-        updated: 0,
-        skipped: 0,
+        attemptedCount: 0,
+        updatedCount: 0,
+        skippedCount: 0,
         limitReached: false,
+        stopped: false,
+        results: [],
       };
+      // eslint-disable-next-line no-console
+      console.log('[AutomationPlaybooks] apply.completed', {
+        projectId,
+        playbookId,
+        startedAt,
+        finishedAt: new Date(),
+        totalAffectedProducts,
+        attemptedCount: 0,
+        updatedCount: 0,
+        skippedCount: 0,
+        limitReached: false,
+        stopped: false,
+        stoppedAtProductId: undefined,
+        failureReason: undefined,
+      });
+      return result;
     }
 
     const { limit } =
@@ -203,15 +245,42 @@ export class AutomationPlaybooksService {
       limit === -1 ? candidates.length : Math.max(limit - dailyUsed, 0);
 
     if (remainingSuggestions <= 0 && limit !== -1) {
-      return {
+      const result: PlaybookApplyResult = {
         projectId,
         playbookId,
         totalAffectedProducts,
-        attempted: 0,
-        updated: 0,
-        skipped: 0,
+        attemptedCount: 0,
+        updatedCount: 0,
+        skippedCount: 0,
         limitReached: true,
+        stopped: true,
+        stoppedAtProductId: undefined,
+        failureReason: 'LIMIT_REACHED',
+        results: [
+          {
+            productId: 'LIMIT_REACHED',
+            status: 'LIMIT_REACHED',
+            message:
+              'Daily AI limit reached before Automation Playbook could start. No products were updated.',
+          },
+        ],
       };
+      // eslint-disable-next-line no-console
+      console.log('[AutomationPlaybooks] apply.completed', {
+        projectId,
+        playbookId,
+        startedAt,
+        finishedAt: new Date(),
+        totalAffectedProducts,
+        attemptedCount: 0,
+        updatedCount: 0,
+        skippedCount: 0,
+        limitReached: true,
+        stopped: true,
+        stoppedAtProductId: undefined,
+        failureReason: result.failureReason,
+      });
+      return result;
     }
 
     const toProcess =
@@ -219,18 +288,68 @@ export class AutomationPlaybooksService {
         ? candidates
         : candidates.slice(0, remainingSuggestions);
 
-    let attempted = 0;
-    let updated = 0;
-    let skipped = 0;
+    let attemptedCount = 0;
+    let updatedCount = 0;
+    let skippedCount = 0;
     let limitReached = false;
+    let stopped = false;
+    let stoppedAtProductId: string | undefined;
+    let failureReason: string | undefined;
+    const results: PlaybookApplyItemResult[] = [];
+
+    // eslint-disable-next-line no-console
+    console.log('[AutomationPlaybooks] apply.started', {
+      projectId,
+      playbookId,
+      totalAffectedProducts,
+      candidateCount: toProcess.length,
+      planId,
+      limit,
+      dailyUsed,
+    });
 
     for (const candidate of toProcess) {
       if (limit !== -1 && remainingSuggestions <= 0) {
         limitReached = true;
+        stopped = true;
+        stoppedAtProductId = candidate.id;
+        failureReason = 'LIMIT_REACHED';
+        results.push({
+          productId: candidate.id,
+          status: 'LIMIT_REACHED',
+          message:
+            'Not applied because the daily AI limit was reached for this workspace.',
+        });
         break;
       }
+
+      const updatedFields: { seoTitle?: boolean; seoDescription?: boolean } = {};
+
+      const markLimitReachedAndStop = (reason: string, message: string) => {
+        limitReached = true;
+        stopped = true;
+        stoppedAtProductId = candidate.id;
+        failureReason = reason;
+        results.push({
+          productId: candidate.id,
+          status: 'LIMIT_REACHED',
+          message,
+        });
+      };
+
+      const markFailureAndStop = (reason: string, message: string) => {
+        stopped = true;
+        stoppedAtProductId = candidate.id;
+        failureReason = reason;
+        results.push({
+          productId: candidate.id,
+          status: 'FAILED',
+          message,
+        });
+      };
+
       try {
-        attempted += 1;
+        attemptedCount += 1;
         const result =
           await this.productIssueFixService.fixMissingSeoFieldFromIssue({
             userId,
@@ -242,29 +361,142 @@ export class AutomationPlaybooksService {
           });
 
         if (result.updated) {
-          updated += 1;
+          updatedCount += 1;
+          if (result.field === 'seoTitle') {
+            updatedFields.seoTitle = true;
+          } else if (result.field === 'seoDescription') {
+            updatedFields.seoDescription = true;
+          }
+          results.push({
+            productId: candidate.id,
+            status: 'UPDATED',
+            message:
+              result.field === 'seoTitle'
+                ? 'Updated SEO title.'
+                : 'Updated SEO description.',
+            updatedFields,
+          });
         } else {
-          skipped += 1;
+          skippedCount += 1;
+          let message = 'Skipped.';
+          if (result.reason === 'already_has_value') {
+            message = 'Skipped: field already had a value.';
+          } else if (result.reason === 'no_suggestion') {
+            message = 'Skipped: no AI suggestion was available.';
+          }
+          results.push({
+            productId: candidate.id,
+            status: 'SKIPPED',
+            message,
+            updatedFields,
+          });
         }
 
         if (limit !== -1) {
           remainingSuggestions -= 1;
         }
       } catch (err: unknown) {
-        skipped += 1;
-        if (
-          err instanceof Error &&
-          'getStatus' in err &&
-          typeof (err as any).getStatus === 'function' &&
-          (err as any).getStatus() === 429
-        ) {
-          limitReached = true;
+        const status =
+          err instanceof HttpException ? err.getStatus() : undefined;
+        const response =
+          err instanceof HttpException ? err.getResponse() : undefined;
+        const code =
+          typeof response === 'object' &&
+          response !== null &&
+          'code' in response
+            ? (response as { code?: string }).code
+            : undefined;
+
+        // Daily AI limit reached (non-retryable)
+        if (status === HttpStatus.TOO_MANY_REQUESTS && code === 'AI_DAILY_LIMIT_REACHED') {
+          markLimitReachedAndStop(
+            'LIMIT_REACHED',
+            'Stopped because the daily AI limit was reached during this Automation Playbook run.',
+          );
           break;
         }
+
+        // Generic rate limit (retryable with bounded retries)
+        if (status === HttpStatus.TOO_MANY_REQUESTS) {
+          let lastError: unknown = err;
+          let retries = 0;
+          while (retries < 2) {
+            retries += 1;
+            await new Promise((resolve) =>
+              setTimeout(resolve, 200 * retries),
+            );
+            try {
+              const retryResult =
+                await this.productIssueFixService.fixMissingSeoFieldFromIssue({
+                  userId,
+                  productId: candidate.id,
+                  issueType:
+                    playbookId === 'missing_seo_title'
+                      ? 'missing_seo_title'
+                      : 'missing_seo_description',
+                });
+              if (retryResult.updated) {
+                updatedCount += 1;
+                if (retryResult.field === 'seoTitle') {
+                  updatedFields.seoTitle = true;
+                } else if (retryResult.field === 'seoDescription') {
+                  updatedFields.seoDescription = true;
+                }
+                results.push({
+                  productId: candidate.id,
+                  status: 'UPDATED',
+                  message:
+                    retryResult.field === 'seoTitle'
+                      ? 'Updated SEO title after retry.'
+                      : 'Updated SEO description after retry.',
+                  updatedFields,
+                });
+              } else {
+                skippedCount += 1;
+                let message = 'Skipped after retry.';
+                if (retryResult.reason === 'already_has_value') {
+                  message =
+                    'Skipped after retry: field already had a value.';
+                } else if (retryResult.reason === 'no_suggestion') {
+                  message =
+                    'Skipped after retry: no AI suggestion was available.';
+                }
+                results.push({
+                  productId: candidate.id,
+                  status: 'SKIPPED',
+                  message,
+                  updatedFields,
+                });
+              }
+              if (limit !== -1) {
+                remainingSuggestions -= 1;
+              }
+              lastError = undefined;
+              break;
+            } catch (retryErr: unknown) {
+              lastError = retryErr;
+            }
+          }
+          if (lastError) {
+            markFailureAndStop(
+              'RATE_LIMIT',
+              'Stopped due to repeated rate limit errors while applying this playbook.',
+            );
+            break;
+          }
+          continue;
+        }
+
+        const errorMessage =
+          err instanceof Error && err.message
+            ? err.message
+            : 'Failed to apply playbook to this product.';
+        markFailureAndStop('ERROR', errorMessage);
+        break;
       }
     }
 
-    const tokensUsed = updated * ESTIMATED_METADATA_TOKENS_PER_CALL;
+    const tokensUsed = updatedCount * ESTIMATED_METADATA_TOKENS_PER_CALL;
     if (tokensUsed > 0) {
       await this.tokenUsageService.log(
         project.userId,
@@ -273,14 +505,35 @@ export class AutomationPlaybooksService {
       );
     }
 
+    const finishedAt = new Date();
+    // eslint-disable-next-line no-console
+    console.log('[AutomationPlaybooks] apply.completed', {
+      projectId,
+      playbookId,
+      totalAffectedProducts,
+      attemptedCount,
+      updatedCount,
+      skippedCount,
+      limitReached,
+      stopped,
+      stoppedAtProductId,
+      failureReason,
+      startedAt,
+      finishedAt,
+    });
+
     return {
       projectId,
       playbookId,
       totalAffectedProducts,
-      attempted,
-      updated,
-      skipped,
+      attemptedCount,
+      updatedCount,
+      skippedCount,
       limitReached,
+      stopped,
+      stoppedAtProductId,
+      failureReason,
+      results,
     };
   }
 }

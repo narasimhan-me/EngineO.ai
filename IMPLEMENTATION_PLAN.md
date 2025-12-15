@@ -8102,6 +8102,114 @@ This is a vertical slice on top of existing product optimize and Shopify sync ca
 
 ---
 
+## AUTO-PB-1.1 – Automation Playbooks v1 Hardening (Per-Item Results & Stop-on-Failure)
+
+### Phase Summary
+
+Hardens the Automation Playbooks v1 feature with:
+- Per-item result tracking (UPDATED/SKIPPED/FAILED/LIMIT_REACHED statuses)
+- Stop-on-failure semantics with "Stopped safely" UX feedback
+- Enhanced preview clarity ("Sample preview showing up to 3 products")
+- Rate limit retry with bounded retries (up to 2)
+- Improved feedback messages for partial completions
+
+### Backend Changes
+
+**AutomationPlaybooksService (apps/api/src/projects/automation-playbooks.service.ts):**
+
+1. **New Response Shape:**
+   - `PlaybookApplyItemStatus`: 'UPDATED' | 'SKIPPED' | 'FAILED' | 'LIMIT_REACHED'
+   - `PlaybookApplyItemResult`: per-product result with productId, status, message, updatedFields
+   - `PlaybookApplyResult`: includes results array, stopped flag, stoppedAtProductId, failureReason
+
+2. **Stop-on-Failure Semantics:**
+   - Playbook stops immediately on unrecoverable errors
+   - Rate limits (429) trigger bounded retries (up to 2)
+   - AI_DAILY_LIMIT_REACHED stops with LIMIT_REACHED status
+   - All processed products have individual result records
+
+3. **Console Logging:**
+   - `[AutomationPlaybooks] apply.started` with context
+   - `[AutomationPlaybooks] apply.completed` with full result summary
+
+### Frontend Changes
+
+**apps/web/src/lib/api.ts:**
+
+1. **New Types:**
+   - `AutomationPlaybookId`
+   - `AutomationPlaybookApplyItemStatus`
+   - `AutomationPlaybookApplyItemResult`
+   - `AutomationPlaybookApplyResult`
+
+**apps/web/src/app/projects/[id]/automation/playbooks/page.tsx:**
+
+1. **State Changes:**
+   - `applyResult` now stores full `AutomationPlaybookApplyResult`
+
+2. **UX Enhancements:**
+   - Preview section shows "Sample preview (showing up to 3 products)" label
+   - Summary shows updatedCount, skippedCount, attemptedCount / totalAffectedProducts
+   - "Stopped safely" amber banner when playbook stops early
+   - Per-item results in expandable `<details>` panel with Product/Status/Message table
+   - Status badges: UPDATED (green), SKIPPED (gray), FAILED (red), LIMIT_REACHED (amber)
+   - Product links in results table navigate to product workspace
+
+3. **Feedback Messages:**
+   - Success: "Automation Playbook applied to X product(s)."
+   - Partial + limit: "Updated X product(s). Daily AI limit reached during execution."
+   - Partial + error: "Updated X product(s). Playbook stopped early due to an error."
+   - No updates + limit: "Daily AI limit reached before any products could be updated."
+   - No updates + error: "Playbook stopped due to an error: [reason]"
+
+### Test Changes
+
+**apps/api/test/utils/test-app.ts:**
+
+- Added `TestingModuleBuilder` override pattern for dependency injection
+- `createTestApp(override?)` accepts optional builder callback
+
+**apps/api/test/e2e/automation-playbooks.e2e-spec.ts:**
+
+- Added `ProductIssueFixServiceStub` with configurable failure modes
+- New tests:
+  - Per-item results verification
+  - Stop-on-failure behavior
+  - Rate limit retry exhaustion
+  - Daily AI limit reached mid-run
+  - Results array shape validation
+
+**apps/web/tests/first-deo-win.spec.ts:**
+
+- Added `AUTO-PB-1.1` Playwright E2E test describe block:
+  - Per-item results display after apply
+  - "Stopped safely" banner visibility
+  - Preview "Sample preview" label verification
+
+### Acceptance Criteria
+
+- [x] `PlaybookApplyResult` includes `results: PlaybookApplyItemResult[]`
+- [x] Each item has status: UPDATED | SKIPPED | FAILED | LIMIT_REACHED
+- [x] Playbook stops on unrecoverable error with `stopped: true`
+- [x] `stoppedAtProductId` identifies where playbook stopped
+- [x] `failureReason` provides error context
+- [x] Rate limit (429) triggers up to 2 retries with backoff
+- [x] AI_DAILY_LIMIT_REACHED stops with LIMIT_REACHED status
+- [x] Frontend displays per-item results in expandable panel
+- [x] "Stopped safely" banner shown when `stopped: true`
+- [x] Preview shows "Sample preview (showing up to 3 products)" label
+- [x] E2E tests cover per-item results and stop-on-failure
+- [x] Playwright tests cover new UX elements
+
+### Status
+
+- Status: **COMPLETE**
+- Manual Testing: `docs/manual-testing/auto-pb-1-1-playbooks-hardening.md`
+- Backend Tests: `apps/api/test/e2e/automation-playbooks.e2e-spec.ts`
+- Playwright Tests: `apps/web/tests/first-deo-win.spec.ts` (AUTO-PB-1.1 describe block)
+
+---
+
 ## Phase SHOP-UX-CTA-1 – Connect Shopify CTA Fix (Completed)
 
 **Status:** Complete

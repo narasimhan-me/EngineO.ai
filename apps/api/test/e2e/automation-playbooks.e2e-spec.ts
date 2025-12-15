@@ -1,7 +1,62 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, HttpException, HttpStatus } from '@nestjs/common';
 import request from 'supertest';
 import { createTestApp } from '../utils/test-app';
 import { cleanupTestDb, disconnectTestDb, testPrisma } from '../utils/test-db';
+import { ProductIssueFixService } from '../../src/ai/product-issue-fix.service';
+
+class ProductIssueFixServiceStub {
+  public mode:
+    | 'success'
+    | 'failOnSecond'
+    | 'rateLimitOnSecond'
+    | 'dailyLimitOnSecond' = 'success';
+  public callCount = 0;
+
+  async fixMissingSeoFieldFromIssue(input: {
+    userId: string;
+    productId: string;
+    issueType: 'missing_seo_title' | 'missing_seo_description';
+  }) {
+    this.callCount += 1;
+    const { productId, issueType } = input;
+
+    if (this.mode === 'failOnSecond' && this.callCount === 2) {
+      throw new Error('Synthetic failure for test');
+    }
+
+    if (this.mode === 'rateLimitOnSecond' && this.callCount === 2) {
+      throw new HttpException(
+        {
+          message: 'Synthetic rate limit for test',
+          error: 'RATE_LIMIT',
+          code: 'RATE_LIMIT',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    if (this.mode === 'dailyLimitOnSecond' && this.callCount === 2) {
+      throw new HttpException(
+        {
+          message: 'Synthetic daily AI limit for test',
+          error: 'AI_DAILY_LIMIT_REACHED',
+          code: 'AI_DAILY_LIMIT_REACHED',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    return {
+      productId,
+      projectId: 'test-project',
+      issueType,
+      updated: true,
+      field: issueType === 'missing_seo_title' ? 'seoTitle' : 'seoDescription',
+    };
+  }
+}
+
+const productIssueFixServiceStub = new ProductIssueFixServiceStub();
 
 async function signupAndLogin(
   server: any,
@@ -73,7 +128,11 @@ describe('Automation Playbooks (e2e)', () => {
   let server: any;
 
   beforeAll(async () => {
-    app = await createTestApp();
+    app = await createTestApp((builder) =>
+      builder
+        .overrideProvider(ProductIssueFixService)
+        .useValue(productIssueFixServiceStub),
+    );
     server = app.getHttpServer();
   });
 
@@ -85,6 +144,8 @@ describe('Automation Playbooks (e2e)', () => {
 
   beforeEach(async () => {
     await cleanupTestDb();
+    productIssueFixServiceStub.mode = 'success';
+    productIssueFixServiceStub.callCount = 0;
   });
 
   describe('GET /projects/:id/automation-playbooks/estimate', () => {
@@ -411,10 +472,248 @@ describe('Automation Playbooks (e2e)', () => {
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('totalAffectedProducts', 0);
-      expect(res.body).toHaveProperty('attempted', 0);
-      expect(res.body).toHaveProperty('updated', 0);
-      expect(res.body).toHaveProperty('skipped', 0);
+      expect(res.body).toHaveProperty('attemptedCount', 0);
+      expect(res.body).toHaveProperty('updatedCount', 0);
+      expect(res.body).toHaveProperty('skippedCount', 0);
       expect(res.body).toHaveProperty('limitReached', false);
+      expect(Array.isArray(res.body.results)).toBe(true);
+      expect(res.body.results).toHaveLength(0);
+    });
+
+    it('returns per-item results with statuses for successful apply', async () => {
+      const { token, userId } = await signupAndLogin(
+        server,
+        'playbook-apply-success@example.com',
+        'testpassword123',
+      );
+      const projectId = await createProject(
+        server,
+        token,
+        'Apply Success Project',
+        'apply-success.com',
+      );
+
+      await testPrisma.subscription.create({
+        data: {
+          userId,
+          stripeCustomerId: 'cus_test_apply_success',
+          stripeSubscriptionId: 'sub_test_apply_success',
+          status: 'active',
+          plan: 'pro',
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+      });
+
+      await createProduct(projectId, {
+        title: 'Product 1',
+        externalId: 'ext-1',
+        seoTitle: null,
+        seoDescription: 'Has description',
+      });
+      await createProduct(projectId, {
+        title: 'Product 2',
+        externalId: 'ext-2',
+        seoTitle: null,
+        seoDescription: 'Has description',
+      });
+
+      productIssueFixServiceStub.mode = 'success';
+
+      const res = await request(server)
+        .post(`/projects/${projectId}/automation-playbooks/apply`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ playbookId: 'missing_seo_title' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('totalAffectedProducts', 2);
+      expect(res.body).toHaveProperty('attemptedCount', 2);
+      expect(res.body).toHaveProperty('updatedCount', 2);
+      expect(res.body).toHaveProperty('skippedCount', 0);
+      expect(res.body).toHaveProperty('limitReached', false);
+      expect(res.body).toHaveProperty('stopped', false);
+      expect(Array.isArray(res.body.results)).toBe(true);
+      expect(res.body.results).toHaveLength(2);
+
+      const statuses = (res.body.results as Array<{ status: string }>).map(
+        (r) => r.status,
+      );
+      expect(statuses).toEqual(
+        expect.arrayContaining(['UPDATED', 'UPDATED']),
+      );
+    });
+
+    it('stops on first non-retryable failure and returns FAILED status', async () => {
+      const { token, userId } = await signupAndLogin(
+        server,
+        'playbook-apply-fail@example.com',
+        'testpassword123',
+      );
+      const projectId = await createProject(
+        server,
+        token,
+        'Apply Fail Project',
+        'apply-fail.com',
+      );
+
+      await testPrisma.subscription.create({
+        data: {
+          userId,
+          stripeCustomerId: 'cus_test_apply_fail',
+          stripeSubscriptionId: 'sub_test_apply_fail',
+          status: 'active',
+          plan: 'pro',
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+      });
+
+      await createProduct(projectId, {
+        title: 'Product 1',
+        externalId: 'ext-1',
+        seoTitle: null,
+        seoDescription: 'Has description',
+      });
+      await createProduct(projectId, {
+        title: 'Product 2',
+        externalId: 'ext-2',
+        seoTitle: null,
+        seoDescription: 'Has description',
+      });
+      await createProduct(projectId, {
+        title: 'Product 3',
+        externalId: 'ext-3',
+        seoTitle: null,
+        seoDescription: 'Has description',
+      });
+
+      productIssueFixServiceStub.mode = 'failOnSecond';
+
+      const res = await request(server)
+        .post(`/projects/${projectId}/automation-playbooks/apply`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ playbookId: 'missing_seo_title' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('attemptedCount', 2);
+      expect(res.body).toHaveProperty('updatedCount', 1);
+      expect(res.body).toHaveProperty('skippedCount', 0);
+      expect(res.body).toHaveProperty('stopped', true);
+      expect(res.body).toHaveProperty('failureReason', 'ERROR');
+      expect(Array.isArray(res.body.results)).toBe(true);
+      expect(res.body.results).toHaveLength(2);
+
+      const lastResult = res.body.results[res.body.results.length - 1];
+      expect(lastResult.status).toBe('FAILED');
+      expect(res.body.stoppedAtProductId).toBe(lastResult.productId);
+    });
+
+    it('stops with RATE_LIMIT failure after bounded retries', async () => {
+      const { token, userId } = await signupAndLogin(
+        server,
+        'playbook-apply-rate-limit@example.com',
+        'testpassword123',
+      );
+      const projectId = await createProject(
+        server,
+        token,
+        'Apply Rate Limit Project',
+        'apply-rate-limit.com',
+      );
+
+      await testPrisma.subscription.create({
+        data: {
+          userId,
+          stripeCustomerId: 'cus_test_apply_rate_limit',
+          stripeSubscriptionId: 'sub_test_apply_rate_limit',
+          status: 'active',
+          plan: 'pro',
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+      });
+
+      await createProduct(projectId, {
+        title: 'Product 1',
+        externalId: 'ext-1',
+        seoTitle: null,
+        seoDescription: 'Has description',
+      });
+      await createProduct(projectId, {
+        title: 'Product 2',
+        externalId: 'ext-2',
+        seoTitle: null,
+        seoDescription: 'Has description',
+      });
+
+      productIssueFixServiceStub.mode = 'rateLimitOnSecond';
+
+      const res = await request(server)
+        .post(`/projects/${projectId}/automation-playbooks/apply`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ playbookId: 'missing_seo_title' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('stopped', true);
+      expect(res.body).toHaveProperty('failureReason', 'RATE_LIMIT');
+      expect(res.body).toHaveProperty('limitReached', false);
+
+      const lastResult = res.body.results[res.body.results.length - 1];
+      expect(lastResult.status).toBe('FAILED');
+    });
+
+    it('stops with LIMIT_REACHED when daily AI limit is hit mid-run', async () => {
+      const { token, userId } = await signupAndLogin(
+        server,
+        'playbook-apply-daily-limit@example.com',
+        'testpassword123',
+      );
+      const projectId = await createProject(
+        server,
+        token,
+        'Apply Daily Limit Project',
+        'apply-daily-limit.com',
+      );
+
+      await testPrisma.subscription.create({
+        data: {
+          userId,
+          stripeCustomerId: 'cus_test_apply_daily_limit',
+          stripeSubscriptionId: 'sub_test_apply_daily_limit',
+          status: 'active',
+          plan: 'pro',
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+      });
+
+      await createProduct(projectId, {
+        title: 'Product 1',
+        externalId: 'ext-1',
+        seoTitle: null,
+        seoDescription: 'Has description',
+      });
+      await createProduct(projectId, {
+        title: 'Product 2',
+        externalId: 'ext-2',
+        seoTitle: null,
+        seoDescription: 'Has description',
+      });
+
+      productIssueFixServiceStub.mode = 'dailyLimitOnSecond';
+
+      const res = await request(server)
+        .post(`/projects/${projectId}/automation-playbooks/apply`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ playbookId: 'missing_seo_title' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('stopped', true);
+      expect(res.body).toHaveProperty('limitReached', true);
+      expect(res.body).toHaveProperty('failureReason', 'LIMIT_REACHED');
+
+      const lastResult = res.body.results[res.body.results.length - 1];
+      expect(lastResult.status).toBe('LIMIT_REACHED');
     });
   });
 

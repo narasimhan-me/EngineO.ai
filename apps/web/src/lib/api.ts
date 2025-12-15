@@ -145,6 +145,38 @@ async function fetchWithoutAuth(endpoint: string, options: RequestInit = {}) {
   }
 }
 
+export type AutomationPlaybookId = 'missing_seo_title' | 'missing_seo_description';
+
+export type AutomationPlaybookApplyItemStatus =
+  | 'UPDATED'
+  | 'SKIPPED'
+  | 'FAILED'
+  | 'LIMIT_REACHED';
+
+export interface AutomationPlaybookApplyItemResult {
+  productId: string;
+  status: AutomationPlaybookApplyItemStatus;
+  message: string;
+  updatedFields?: {
+    seoTitle?: boolean;
+    seoDescription?: boolean;
+  };
+}
+
+export interface AutomationPlaybookApplyResult {
+  projectId: string;
+  playbookId: AutomationPlaybookId;
+  totalAffectedProducts: number;
+  attemptedCount: number;
+  updatedCount: number;
+  skippedCount: number;
+  limitReached: boolean;
+  stopped: boolean;
+  stoppedAtProductId?: string;
+  failureReason?: string;
+  results: AutomationPlaybookApplyItemResult[];
+}
+
 export const authApi = {
   signup: (data: { email: string; password: string; name?: string; captchaToken: string }) =>
     fetchWithoutAuth('/auth/signup', {
@@ -209,10 +241,7 @@ export const projectsApi = {
 
   automationSuggestions: (id: string) => fetchWithAuth(`/projects/${id}/automation-suggestions`),
 
-  automationPlaybookEstimate: (
-    id: string,
-    playbookId: 'missing_seo_title' | 'missing_seo_description',
-  ) =>
+  automationPlaybookEstimate: (id: string, playbookId: AutomationPlaybookId) =>
     fetchWithAuth(
       `/projects/${id}/automation-playbooks/estimate?playbookId=${encodeURIComponent(
         playbookId,
@@ -221,12 +250,15 @@ export const projectsApi = {
 
   applyAutomationPlaybook: (
     id: string,
-    playbookId: 'missing_seo_title' | 'missing_seo_description',
-  ) =>
-    fetchWithAuth(`/projects/${id}/automation-playbooks/apply`, {
-      method: 'POST',
-      body: JSON.stringify({ playbookId }),
-    }),
+    playbookId: AutomationPlaybookId,
+  ): Promise<AutomationPlaybookApplyResult> =>
+    fetchWithAuth(
+      `/projects/${id}/automation-playbooks/apply`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ playbookId }),
+      },
+    ),
 
   delete: (id: string) =>
     fetchWithAuth(`/projects/${id}`, {

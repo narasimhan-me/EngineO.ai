@@ -14,6 +14,10 @@ import {
   projectsApi,
   shopifyApi,
 } from '@/lib/api';
+import type {
+  AutomationPlaybookApplyResult,
+  AutomationPlaybookApplyItemResult,
+} from '@/lib/api';
 import type { Product } from '@/lib/products';
 import { useFeedback } from '@/components/feedback/FeedbackProvider';
 
@@ -94,12 +98,7 @@ export default function AutomationPlaybooksPage() {
   const [estimate, setEstimate] = useState<PlaybookEstimate | null>(null);
   const [loadingEstimate, setLoadingEstimate] = useState(false);
   const [applying, setApplying] = useState(false);
-  const [applyResult, setApplyResult] = useState<{
-    updated: number;
-    skipped: number;
-    total: number;
-    limitReached: boolean;
-  } | null>(null);
+  const [applyResult, setApplyResult] = useState<AutomationPlaybookApplyResult | null>(null);
   const [confirmApply, setConfirmApply] = useState(false);
 
   const fetchInitialData = useCallback(async () => {
@@ -278,32 +277,34 @@ export default function AutomationPlaybooksPage() {
       setApplying(true);
       setError('');
       setApplyResult(null);
-      const data = (await projectsApi.applyAutomationPlaybook(
+      const data = await projectsApi.applyAutomationPlaybook(
         projectId,
         selectedPlaybookId,
-      )) as {
-        projectId: string;
-        playbookId: PlaybookId;
-        totalAffectedProducts: number;
-        attempted: number;
-        updated: number;
-        skipped: number;
-        limitReached: boolean;
-      };
-      setApplyResult({
-        updated: data.updated,
-        skipped: data.skipped,
-        total: data.totalAffectedProducts,
-        limitReached: data.limitReached,
-      });
-      if (data.updated > 0) {
-        feedback.showSuccess(
-          `Automation Playbook applied to ${data.updated} product(s).`,
-        );
+      );
+      setApplyResult(data);
+      if (data.updatedCount > 0) {
+        if (data.stopped && !data.limitReached) {
+          feedback.showInfo(
+            `Updated ${data.updatedCount} product(s). Playbook stopped early due to an error.`,
+          );
+        } else if (data.limitReached) {
+          feedback.showLimit(
+            `Updated ${data.updatedCount} product(s). Daily AI limit reached during execution.`,
+            '/settings/billing',
+          );
+        } else {
+          feedback.showSuccess(
+            `Automation Playbook applied to ${data.updatedCount} product(s).`,
+          );
+        }
       } else if (data.limitReached) {
         feedback.showLimit(
           'Daily AI limit reached before any products could be updated.',
           '/settings/billing',
+        );
+      } else if (data.stopped) {
+        feedback.showError(
+          `Playbook stopped due to an error: ${data.failureReason || 'Unknown error'}`,
         );
       } else {
         feedback.showInfo('No products were updated by this playbook.');
@@ -662,6 +663,9 @@ export default function AutomationPlaybooksPage() {
             )}
             {!loadingPreview && previewSamples.length > 0 && (
               <div className="mt-3 space-y-3">
+                <p className="text-xs font-medium text-gray-600">
+                  Sample preview (showing up to 3 products)
+                </p>
                 {previewSamples.map((sample) => (
                   <div
                     key={sample.productId}
@@ -888,20 +892,118 @@ export default function AutomationPlaybooksPage() {
               </div>
             )}
             {applyResult && (
-              <div className="mb-3 rounded border border-green-200 bg-green-50 p-3 text-xs text-green-800">
-                <p>
-                  Updated products:{' '}
-                  <span className="font-semibold">{applyResult.updated}</span>
-                </p>
-                <p>
-                  Skipped products:{' '}
-                  <span className="font-semibold">{applyResult.skipped}</span>
-                </p>
-                {applyResult.limitReached && (
-                  <p className="mt-1">
-                    Daily AI limit was reached during execution. Remaining products
-                    were not updated.
+              <div className="mb-3 space-y-3">
+                {/* Summary */}
+                <div className="rounded border border-green-200 bg-green-50 p-3 text-xs text-green-800">
+                  <p>
+                    Updated products:{' '}
+                    <span className="font-semibold">{applyResult.updatedCount}</span>
                   </p>
+                  <p>
+                    Skipped products:{' '}
+                    <span className="font-semibold">{applyResult.skippedCount}</span>
+                  </p>
+                  <p>
+                    Attempted:{' '}
+                    <span className="font-semibold">{applyResult.attemptedCount}</span>{' '}
+                    / {applyResult.totalAffectedProducts}
+                  </p>
+                </div>
+                {/* Stopped safely banner */}
+                {applyResult.stopped && (
+                  <div className="rounded border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                    <div className="flex items-start gap-2">
+                      <svg
+                        className="h-4 w-4 flex-shrink-0 text-amber-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                        />
+                      </svg>
+                      <div>
+                        <p className="font-semibold">Stopped safely</p>
+                        <p className="mt-0.5">
+                          {applyResult.limitReached
+                            ? 'Daily AI limit was reached during execution. Remaining products were not updated.'
+                            : `Playbook stopped due to: ${applyResult.failureReason || 'Unknown error'}`}
+                        </p>
+                        {applyResult.stoppedAtProductId && (
+                          <p className="mt-1">
+                            Stopped at product:{' '}
+                            <Link
+                              href={`/projects/${projectId}/products/${applyResult.stoppedAtProductId}`}
+                              className="font-medium text-amber-700 underline hover:text-amber-900"
+                            >
+                              {products.find((p) => p.id === applyResult.stoppedAtProductId)?.title ||
+                                applyResult.stoppedAtProductId}
+                            </Link>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {/* Per-item results panel */}
+                {applyResult.results && applyResult.results.length > 0 && (
+                  <details className="rounded border border-gray-200 bg-gray-50">
+                    <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100">
+                      View per-product results ({applyResult.results.length} items)
+                    </summary>
+                    <div className="max-h-64 overflow-y-auto border-t border-gray-200">
+                      <table className="w-full text-xs">
+                        <thead className="sticky top-0 bg-gray-100">
+                          <tr>
+                            <th className="px-3 py-1.5 text-left font-medium text-gray-600">Product</th>
+                            <th className="px-3 py-1.5 text-left font-medium text-gray-600">Status</th>
+                            <th className="px-3 py-1.5 text-left font-medium text-gray-600">Message</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {applyResult.results.map((item) => {
+                            const product = products.find((p) => p.id === item.productId);
+                            return (
+                              <tr key={item.productId} className="border-t border-gray-100">
+                                <td className="px-3 py-1.5">
+                                  {item.productId === 'LIMIT_REACHED' ? (
+                                    <span className="text-gray-500">—</span>
+                                  ) : (
+                                    <Link
+                                      href={`/projects/${projectId}/products/${item.productId}`}
+                                      className="text-blue-600 hover:text-blue-800"
+                                    >
+                                      {product?.title || item.productId}
+                                    </Link>
+                                  )}
+                                </td>
+                                <td className="px-3 py-1.5">
+                                  <span
+                                    className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium ${
+                                      item.status === 'UPDATED'
+                                        ? 'bg-green-100 text-green-800'
+                                        : item.status === 'SKIPPED'
+                                          ? 'bg-gray-100 text-gray-700'
+                                          : item.status === 'LIMIT_REACHED'
+                                            ? 'bg-amber-100 text-amber-800'
+                                            : 'bg-red-100 text-red-800'
+                                    }`}
+                                  >
+                                    {item.status}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-1.5 text-gray-600">{item.message}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </details>
                 )}
               </div>
             )}

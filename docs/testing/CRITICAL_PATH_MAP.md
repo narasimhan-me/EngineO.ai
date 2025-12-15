@@ -282,9 +282,9 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 
 | Field | Value |
 |-------|-------|
-| **Manual Testing Doc(s)** | `docs/testing/automation-engine.md`, `docs/testing/automation-engine-product-automations.md`, `docs/manual-testing/phase-ae-1-automation-engine-foundations.md`, `docs/manual-testing/phase-ae-2-product-automations.md`, `docs/manual-testing/phase-aue-1-automation-new-product-seo-title.md`, `docs/manual-testing/phase-ux-2-product-workspace-aeo-and-automation-ui.md`, `docs/manual-testing/phase-aeo-2-shopify-metafields-sync.md` |
-| **Automated Tests** | `apps/api/test/e2e/automation-new-product-seo-title.e2e-spec.ts` |
-| **Last Verified (Manual)** | 2025-12-09 |
+| **Manual Testing Doc(s)** | `docs/testing/automation-engine.md`, `docs/testing/automation-engine-product-automations.md`, `docs/manual-testing/phase-ae-1-automation-engine-foundations.md`, `docs/manual-testing/phase-ae-2-product-automations.md`, `docs/manual-testing/phase-aue-1-automation-new-product-seo-title.md`, `docs/manual-testing/phase-ux-2-product-workspace-aeo-and-automation-ui.md`, `docs/manual-testing/phase-aeo-2-shopify-metafields-sync.md`, `docs/manual-testing/phase-automation-1-playbooks.md`, `docs/manual-testing/auto-pb-1-1-playbooks-hardening.md` |
+| **Automated Tests** | `apps/api/test/e2e/automation-new-product-seo-title.e2e-spec.ts`, `apps/api/test/e2e/automation-playbooks.e2e-spec.ts` |
+| **Last Verified (Manual)** | 2025-12-14 |
 | **Last Verified (Automated)** | N/A |
 | **Owner** | DEO Team |
 
@@ -314,6 +314,16 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 - [ ] AUE-1: Automation failure doesn't block Shopify sync
 - [ ] AUE-2 / UX-2: Product Workspace Automation History panel surfaces per-product Answer Block automation runs (triggerType, action, status, errors)
 - [ ] AEO-2: After Answer Block automations succeed, answer_blocks_synced_to_shopify log entries reflect metafield sync success/failure when the project flag is enabled
+- [ ] AUTO-PB-1: Automation Playbooks v1 preview → estimate → apply flow
+- [ ] AUTO-PB-1: Playbook estimate shows affected count and token estimates
+- [ ] AUTO-PB-1: Playbook apply respects daily AI limits
+- [ ] AUTO-PB-1: Free plan users blocked from bulk playbook apply
+- [ ] AUTO-PB-1.1: Per-item results displayed after playbook apply (UPDATED/SKIPPED/FAILED/LIMIT_REACHED)
+- [ ] AUTO-PB-1.1: "Stopped safely" banner shown when playbook stops early (limit or error)
+- [ ] AUTO-PB-1.1: stoppedAtProductId displayed with link to product workspace
+- [ ] AUTO-PB-1.1: Preview label shows "Sample preview (showing up to 3 products)"
+- [ ] AUTO-PB-1.1: Rate limit retry with bounded retries (up to 2)
+- [ ] AUTO-PB-1.1: Daily AI limit reached stops playbook with LIMIT_REACHED status
 
 ---
 
@@ -379,3 +389,4 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 | 1.9 | 2025-12-09 | Added AUE-1 Automation Engine Vertical Slice scenarios to CP-012 (AUTO_GENERATE_METADATA_ON_NEW_PRODUCT) |
 | 2.0 | 2025-12-11 | Added SHOP-API-1 GraphQL migration scenario and manual testing doc to CP-006 (Shopify Sync) |
 | 2.1 | 2025-12-13 | Added SHOP-UX-CTA-1 and SHOP-UX-CTA-1.1 Connect Shopify CTA improvements to CP-006 (Shopify Sync) |
+| 2.2 | 2025-12-14 | Added AUTO-PB-1 and AUTO-PB-1.1 Automation Playbooks scenarios to CP-012, added E2E tests and manual testing docs |
