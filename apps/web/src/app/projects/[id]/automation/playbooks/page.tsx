@@ -41,6 +41,8 @@ interface PlaybookEstimate {
     used: number;
     remaining: number;
   };
+  /** Server-issued scope identifier for binding preview → estimate → apply */
+  scopeId: string;
 }
 
 interface PreviewSample {
@@ -307,7 +309,7 @@ export default function AutomationPlaybooksPage() {
 
   const handleApplyPlaybook = useCallback(async () => {
     if (!selectedPlaybookId) return;
-    if (!estimate || !estimate.canProceed) return;
+    if (!estimate || !estimate.canProceed || !estimate.scopeId) return;
     if (flowState !== 'APPLY_READY') return;
     try {
       setApplying(true);
@@ -317,6 +319,7 @@ export default function AutomationPlaybooksPage() {
       const data = await projectsApi.applyAutomationPlaybook(
         projectId,
         selectedPlaybookId,
+        estimate.scopeId,
       );
       setApplyResult(data);
       if (data.updatedCount > 0) {

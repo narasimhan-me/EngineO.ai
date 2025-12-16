@@ -197,6 +197,10 @@ describe('Automation Playbooks (e2e)', () => {
       expect(res.body).toHaveProperty('canProceed');
       expect(res.body).toHaveProperty('reasons');
       expect(res.body).toHaveProperty('aiDailyLimit');
+      // AUTO-PB-1.3: scopeId must be returned for binding preview → apply
+      expect(res.body).toHaveProperty('scopeId');
+      expect(typeof res.body.scopeId).toBe('string');
+      expect(res.body.scopeId.length).toBeGreaterThan(0);
     });
 
     it('returns estimate for missing_seo_description playbook', async () => {
@@ -399,7 +403,28 @@ describe('Automation Playbooks (e2e)', () => {
       const res = await request(server)
         .post(`/projects/${projectId}/automation-playbooks/apply`)
         .set('Authorization', `Bearer ${token}`)
-        .send({});
+        .send({ scopeId: 'some-scope-id' });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 400 when scopeId is missing', async () => {
+      const { token } = await signupAndLogin(
+        server,
+        'playbook-apply-missing-scope@example.com',
+        'testpassword123',
+      );
+      const projectId = await createProject(
+        server,
+        token,
+        'Apply Missing Scope Project',
+        'apply-missing-scope.com',
+      );
+
+      const res = await request(server)
+        .post(`/projects/${projectId}/automation-playbooks/apply`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ playbookId: 'missing_seo_title' });
 
       expect(res.status).toBe(400);
     });
@@ -465,10 +490,17 @@ describe('Automation Playbooks (e2e)', () => {
         seoDescription: 'Has description',
       });
 
+      // First get estimate to obtain scopeId
+      const estimateRes = await request(server)
+        .get(`/projects/${projectId}/automation-playbooks/estimate`)
+        .query({ playbookId: 'missing_seo_title' })
+        .set('Authorization', `Bearer ${token}`);
+      const { scopeId } = estimateRes.body;
+
       const res = await request(server)
         .post(`/projects/${projectId}/automation-playbooks/apply`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ playbookId: 'missing_seo_title' });
+        .send({ playbookId: 'missing_seo_title', scopeId });
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('totalAffectedProducts', 0);
@@ -520,10 +552,17 @@ describe('Automation Playbooks (e2e)', () => {
 
       productIssueFixServiceStub.mode = 'success';
 
+      // First get estimate to obtain scopeId
+      const estimateRes = await request(server)
+        .get(`/projects/${projectId}/automation-playbooks/estimate`)
+        .query({ playbookId: 'missing_seo_title' })
+        .set('Authorization', `Bearer ${token}`);
+      const { scopeId } = estimateRes.body;
+
       const res = await request(server)
         .post(`/projects/${projectId}/automation-playbooks/apply`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ playbookId: 'missing_seo_title' });
+        .send({ playbookId: 'missing_seo_title', scopeId });
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('totalAffectedProducts', 2);
@@ -589,10 +628,17 @@ describe('Automation Playbooks (e2e)', () => {
 
       productIssueFixServiceStub.mode = 'failOnSecond';
 
+      // First get estimate to obtain scopeId
+      const estimateRes = await request(server)
+        .get(`/projects/${projectId}/automation-playbooks/estimate`)
+        .query({ playbookId: 'missing_seo_title' })
+        .set('Authorization', `Bearer ${token}`);
+      const { scopeId } = estimateRes.body;
+
       const res = await request(server)
         .post(`/projects/${projectId}/automation-playbooks/apply`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ playbookId: 'missing_seo_title' });
+        .send({ playbookId: 'missing_seo_title', scopeId });
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('attemptedCount', 2);
@@ -648,10 +694,17 @@ describe('Automation Playbooks (e2e)', () => {
 
       productIssueFixServiceStub.mode = 'rateLimitOnSecond';
 
+      // First get estimate to obtain scopeId
+      const estimateRes = await request(server)
+        .get(`/projects/${projectId}/automation-playbooks/estimate`)
+        .query({ playbookId: 'missing_seo_title' })
+        .set('Authorization', `Bearer ${token}`);
+      const { scopeId } = estimateRes.body;
+
       const res = await request(server)
         .post(`/projects/${projectId}/automation-playbooks/apply`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ playbookId: 'missing_seo_title' });
+        .send({ playbookId: 'missing_seo_title', scopeId });
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('stopped', true);
@@ -702,10 +755,17 @@ describe('Automation Playbooks (e2e)', () => {
 
       productIssueFixServiceStub.mode = 'dailyLimitOnSecond';
 
+      // First get estimate to obtain scopeId
+      const estimateRes = await request(server)
+        .get(`/projects/${projectId}/automation-playbooks/estimate`)
+        .query({ playbookId: 'missing_seo_title' })
+        .set('Authorization', `Bearer ${token}`);
+      const { scopeId } = estimateRes.body;
+
       const res = await request(server)
         .post(`/projects/${projectId}/automation-playbooks/apply`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ playbookId: 'missing_seo_title' });
+        .send({ playbookId: 'missing_seo_title', scopeId });
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('stopped', true);
@@ -714,6 +774,67 @@ describe('Automation Playbooks (e2e)', () => {
 
       const lastResult = res.body.results[res.body.results.length - 1];
       expect(lastResult.status).toBe('LIMIT_REACHED');
+    });
+
+    it('returns 409 when scopeId does not match current scope (scope changed)', async () => {
+      const { token, userId } = await signupAndLogin(
+        server,
+        'playbook-apply-scope-mismatch@example.com',
+        'testpassword123',
+      );
+      const projectId = await createProject(
+        server,
+        token,
+        'Apply Scope Mismatch Project',
+        'apply-scope-mismatch.com',
+      );
+
+      await testPrisma.subscription.create({
+        data: {
+          userId,
+          stripeCustomerId: 'cus_test_apply_scope_mismatch',
+          stripeSubscriptionId: 'sub_test_apply_scope_mismatch',
+          status: 'active',
+          plan: 'pro',
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+      });
+
+      // Create initial product
+      await createProduct(projectId, {
+        title: 'Product 1',
+        externalId: 'ext-1',
+        seoTitle: null,
+        seoDescription: 'Has description',
+      });
+
+      // Get estimate to obtain scopeId
+      const estimateRes = await request(server)
+        .get(`/projects/${projectId}/automation-playbooks/estimate`)
+        .query({ playbookId: 'missing_seo_title' })
+        .set('Authorization', `Bearer ${token}`);
+      const { scopeId } = estimateRes.body;
+
+      // Add another product (this changes the scope)
+      await createProduct(projectId, {
+        title: 'Product 2',
+        externalId: 'ext-2',
+        seoTitle: null,
+        seoDescription: 'Has description',
+      });
+
+      // Try to apply with the old scopeId - should fail with 409
+      const res = await request(server)
+        .post(`/projects/${projectId}/automation-playbooks/apply`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ playbookId: 'missing_seo_title', scopeId });
+
+      expect(res.status).toBe(409);
+      expect(res.body).toHaveProperty('code', 'PLAYBOOK_SCOPE_INVALID');
+      expect(res.body).toHaveProperty('expectedScopeId');
+      expect(res.body).toHaveProperty('providedScopeId', scopeId);
+      expect(res.body.expectedScopeId).not.toBe(scopeId);
     });
   });
 

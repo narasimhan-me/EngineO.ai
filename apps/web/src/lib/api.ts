@@ -177,6 +177,27 @@ export interface AutomationPlaybookApplyResult {
   results: AutomationPlaybookApplyItemResult[];
 }
 
+export interface AutomationPlaybookEstimate {
+  projectId: string;
+  playbookId: AutomationPlaybookId;
+  totalAffectedProducts: number;
+  estimatedTokens: number;
+  planId: string;
+  eligible: boolean;
+  canProceed: boolean;
+  reasons: string[];
+  aiDailyLimit: {
+    limit: number;
+    used: number;
+    remaining: number;
+  };
+  /**
+   * Server-issued scope identifier. Must be returned when calling apply
+   * to ensure the apply targets the exact same set of products.
+   */
+  scopeId: string;
+}
+
 export const authApi = {
   signup: (data: { email: string; password: string; name?: string; captchaToken: string }) =>
     fetchWithoutAuth('/auth/signup', {
@@ -251,12 +272,13 @@ export const projectsApi = {
   applyAutomationPlaybook: (
     id: string,
     playbookId: AutomationPlaybookId,
+    scopeId: string,
   ): Promise<AutomationPlaybookApplyResult> =>
     fetchWithAuth(
       `/projects/${id}/automation-playbooks/apply`,
       {
         method: 'POST',
-        body: JSON.stringify({ playbookId }),
+        body: JSON.stringify({ playbookId, scopeId }),
       },
     ),
 

@@ -309,6 +309,8 @@ export class ProjectsController {
   /**
    * POST /projects/:id/automation-playbooks/apply
    * Apply an automation playbook to affected products.
+   * Requires scopeId from the estimate response to ensure the apply targets
+   * the exact same set of products that was previewed/estimated.
    */
   @Post(':id/automation-playbooks/apply')
   async applyAutomationPlaybook(
@@ -317,15 +319,20 @@ export class ProjectsController {
     @Body()
     body: {
       playbookId: AutomationPlaybookId;
+      scopeId: string;
     },
   ) {
     if (!body?.playbookId) {
       throw new BadRequestException('playbookId is required');
     }
+    if (!body?.scopeId) {
+      throw new BadRequestException('scopeId is required');
+    }
     return this.automationPlaybooksService.applyPlaybook(
       req.user.id,
       projectId,
       body.playbookId,
+      body.scopeId,
     );
   }
 }

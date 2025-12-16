@@ -8323,6 +8323,75 @@ This phase introduces:
 
 ---
 
+## AUTO-PB-1.3 Addendum – Scope Binding (Prerequisite)
+
+Status: Complete (2025-12-16)
+
+Goal: Add server-issued scopeId to bind Preview → Estimate → Apply to a single consistent scope, preventing apply from running on out-of-date or expanded datasets.
+
+### Scope Binding Implementation
+
+The scopeId is a SHA-256 hash (truncated to 16 chars) computed from:
+- projectId
+- playbookId
+- Sorted list of affected product IDs
+
+This ensures:
+1. The same set of products always produces the same scopeId (deterministic)
+2. Any change to the affected products (add/remove) produces a different scopeId
+3. Apply cannot run on a stale scope without explicit user re-confirmation
+
+### API Changes
+
+**Estimate Response** – Added `scopeId: string` field:
+```json
+{
+  "projectId": "...",
+  "playbookId": "missing_seo_title",
+  "totalAffectedProducts": 5,
+  "scopeId": "abc123def456789a",
+  ...
+}
+```
+
+**Apply Request** – Requires `scopeId` parameter:
+```json
+{
+  "playbookId": "missing_seo_title",
+  "scopeId": "abc123def456789a"
+}
+```
+
+**Scope Invalid Error** – HTTP 409 when scopeId doesn't match:
+```json
+{
+  "statusCode": 409,
+  "code": "PLAYBOOK_SCOPE_INVALID",
+  "message": "The product scope has changed since the preview was generated...",
+  "expectedScopeId": "new123hash456789",
+  "providedScopeId": "abc123def456789a"
+}
+```
+
+### Files Changed
+
+- `apps/api/src/projects/automation-playbooks.service.ts` – computeScopeId(), getAffectedProductIds(), validation in applyPlaybook()
+- `apps/api/src/projects/projects.controller.ts` – scopeId required in apply body
+- `apps/web/src/lib/api.ts` – AutomationPlaybookEstimate interface with scopeId
+- `apps/web/src/app/projects/[id]/automation/playbooks/page.tsx` – scopeId state management
+- `apps/api/test/e2e/automation-playbooks.e2e-spec.ts` – E2E tests for scopeId validation
+
+### Acceptance Criteria
+
+- [x] Estimate response includes scopeId field (16-char hex string)
+- [x] Apply endpoint requires scopeId parameter (400 if missing)
+- [x] Apply endpoint validates scopeId matches current scope (409 if mismatch)
+- [x] Frontend automatically passes scopeId from estimate to apply
+- [x] Session storage preserves scopeId across navigation
+- [x] E2E tests cover scopeId validation scenarios
+
+---
+
 ## AUTO-PB-1.3 – Preview Persistence & Cross-Surface Drafts
 
 Status: Planned
@@ -8372,6 +8441,10 @@ AutomationPlaybooksService (apps/api/src/projects/automation-playbooks.service.t
   - Read from persisted drafts for the requested products/fields.
   - Mark drafts as APPLIED when successfully written to Shopify/EngineO.
   - Avoid any implicit re-generation during apply.
+- Introduce a deterministic "scope binding" mechanism to tie estimates and apply operations to a specific set of products:
+  - Add helpers (e.g., getAffectedProductIds and computeScopeId) to derive the set of affected product IDs and compute a stable scopeId based on projectId, playbookId, and the sorted list of affected product IDs.
+  - Include scopeId on the Playbook estimate response so the frontend can bind preview/estimate/apply to the same product set.
+  - Require scopeId when applying a playbook; recompute the current scope server-side and return a 409 Conflict with error code PLAYBOOK_SCOPE_INVALID (including expectedScopeId and providedScopeId) when the scope no longer matches.
 
 Testkit & integration helpers:
 
@@ -8394,9 +8467,12 @@ Testkit & integration helpers:
   - When preview drafts exist and the user attempts to leave the Playbooks flow, show:
     - "You have saved preview drafts. No changes have been applied yet."
   - Remove any copy that suggests drafts will be discarded simply by navigating away.
-- Ensure "Apply playbook" uses the current Preview Drafts as its source of truth:
-  - No extra AI regeneration during apply.
-  - After apply completes, update client-side draft status and remove "AI draft" indicators where appropriate.
+  - Ensure "Apply playbook" uses the current Preview Drafts as its source of truth:
+    - No extra AI regeneration during apply.
+    - After apply completes, update client-side draft status and remove "AI draft" indicators where appropriate.
+- Bind estimate and apply to a consistent product scope using scopeId:
+  - Persist scopeId from the estimate response alongside preview/estimate state in the wizard (and shared API types in apps/web/src/lib/api.ts).
+  - Require scopeId in the "Apply playbook" mutation payload and surface PLAYBOOK_SCOPE_INVALID conflicts as a "scope changed, please refresh estimate" UX, guiding users to re-run the estimate before applying.
 
 ### Cross-Surface Draft Reuse – Product Detail Integration
 
@@ -8437,12 +8513,15 @@ Backend / Integration Tests (apps/api):
 
 - Draft created on preview:
   - First preview call for a product with missing SEO fields creates DRAFT Preview Draft records with correct productId, field, source, and status.
-- Draft reused on revisit:
-  - Subsequent preview calls reuse existing DRAFT Preview Drafts and do not increase AI invocation count.
-- Apply uses existing draft:
-  - "Apply playbook" reads from existing drafts and marks them APPLIED without re-generating AI content.
-- Regenerate overwrites draft:
-  - "Regenerate preview" replaces existing draft content, preserves invariants, and updates timestamps.
+  - Draft reused on revisit:
+    - Subsequent preview calls reuse existing DRAFT Preview Drafts and do not increase AI invocation count.
+  - Apply uses existing draft:
+    - "Apply playbook" reads from existing drafts and marks them APPLIED without re-generating AI content.
+  - Regenerate overwrites draft:
+    - "Regenerate preview" replaces existing draft content, preserves invariants, and updates timestamps.
+  - Scope binding & scopeId validation:
+    - Estimate responses include a non-empty scopeId derived from the affected product set.
+    - Apply endpoint returns 400 when scopeId is missing and 409 PLAYBOOK_SCOPE_INVALID when the provided scopeId does not match the current affected product set, including expectedScopeId and providedScopeId in the response body.
 
 E2E (TEST-2 Extension – apps/web/tests/first-deo-win.spec.ts):
 
@@ -8451,10 +8530,11 @@ E2E (TEST-2 Extension – apps/web/tests/first-deo-win.spec.ts):
   - From Product detail, apply or discard the draft and verify Playbooks preview reflects the updated draft status when navigating back.
   - Preview → leave Playbooks (e.g., navigate to Overview) → return to Playbooks → verify preview drafts are still visible without regeneration.
   - Verify "Regenerate preview" overwrites content and updates the UI accordingly.
+  - Apply with a stale scopeId (e.g., products added/updated between estimate and apply) results in a PLAYBOOK_SCOPE_INVALID conflict and the UI prompts the user to refresh the estimate before retrying apply.
 
 ### Manual Testing
 
-- Manual Testing: docs/manual-testing/auto-pb-1-3-preview-persistence.md (to be created using docs/MANUAL_TESTING_TEMPLATE.md as the base).
+- Manual Testing: docs/manual-testing/auto-pb-1-3-preview-persistence.md (to be created using docs/MANUAL_TESTING_TEMPLATE.md as the base and expanded to cover scopeId binding and invalid-scope flows for estimate/apply).
 
 ### Acceptance Criteria (Planned)
 

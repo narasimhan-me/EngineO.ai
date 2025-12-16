@@ -4,7 +4,9 @@ import {
   NotFoundException,
   HttpException,
   HttpStatus,
+  ConflictException,
 } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { PrismaService } from '../prisma.service';
 import { EntitlementsService } from '../billing/entitlements.service';
 import { ProductIssueFixService } from '../ai/product-issue-fix.service';
@@ -27,6 +29,12 @@ export interface PlaybookEstimate {
     used: number;
     remaining: number;
   };
+  /**
+   * Server-issued scope identifier. Must be returned by the client when calling
+   * the Apply endpoint to ensure the apply targets the exact same set of
+   * products that was previewed/estimated.
+   */
+  scopeId: string;
 }
 
 export type PlaybookApplyItemStatus =
@@ -97,6 +105,37 @@ export class AutomationPlaybooksService {
     };
   }
 
+  /**
+   * Compute a deterministic scopeId from the set of affected product IDs.
+   * The scopeId is a SHA-256 hash of the sorted product IDs joined by commas.
+   * This ensures that the same set of products always produces the same scopeId.
+   */
+  private computeScopeId(
+    projectId: string,
+    playbookId: AutomationPlaybookId,
+    productIds: string[],
+  ): string {
+    const sorted = [...productIds].sort();
+    const payload = `${projectId}:${playbookId}:${sorted.join(',')}`;
+    return createHash('sha256').update(payload).digest('hex').slice(0, 16);
+  }
+
+  /**
+   * Get the list of product IDs affected by a playbook.
+   */
+  private async getAffectedProductIds(
+    projectId: string,
+    playbookId: AutomationPlaybookId,
+  ): Promise<string[]> {
+    const where = this.getPlaybookWhere(projectId, playbookId);
+    const products = await this.prisma.product.findMany({
+      where,
+      select: { id: true },
+      orderBy: { lastSyncedAt: 'desc' },
+    });
+    return products.map((p) => p.id);
+  }
+
   async estimatePlaybook(
     userId: string,
     projectId: string,
@@ -104,8 +143,12 @@ export class AutomationPlaybooksService {
   ): Promise<PlaybookEstimate> {
     await this.ensureProjectOwnership(projectId, userId);
 
-    const where = this.getPlaybookWhere(projectId, playbookId);
-    const totalAffectedProducts = await this.prisma.product.count({ where });
+    const affectedProductIds = await this.getAffectedProductIds(
+      projectId,
+      playbookId,
+    );
+    const totalAffectedProducts = affectedProductIds.length;
+    const scopeId = this.computeScopeId(projectId, playbookId, affectedProductIds);
 
     const { planId, limit } =
       await this.entitlementsService.getAiSuggestionLimit(userId);
@@ -168,6 +211,7 @@ export class AutomationPlaybooksService {
         used: dailyUsed,
         remaining: remainingSuggestions,
       },
+      scopeId,
     };
   }
 
@@ -175,6 +219,7 @@ export class AutomationPlaybooksService {
     userId: string,
     projectId: string,
     playbookId: AutomationPlaybookId,
+    scopeId: string,
   ): Promise<PlaybookApplyResult> {
     const project = await this.ensureProjectOwnership(projectId, userId);
 
@@ -190,16 +235,29 @@ export class AutomationPlaybooksService {
       });
     }
 
-    const where = this.getPlaybookWhere(projectId, playbookId);
-    const candidates = await this.prisma.product.findMany({
-      where,
-      select: {
-        id: true,
-      },
-      orderBy: {
-        lastSyncedAt: 'desc',
-      },
-    });
+    // Fetch affected products and validate scopeId
+    const affectedProductIds = await this.getAffectedProductIds(
+      projectId,
+      playbookId,
+    );
+    const currentScopeId = this.computeScopeId(
+      projectId,
+      playbookId,
+      affectedProductIds,
+    );
+
+    if (scopeId !== currentScopeId) {
+      throw new ConflictException({
+        message:
+          'The product scope has changed since the preview was generated. Please re-run the estimate to get an updated scopeId.',
+        error: 'PLAYBOOK_SCOPE_INVALID',
+        code: 'PLAYBOOK_SCOPE_INVALID',
+        expectedScopeId: currentScopeId,
+        providedScopeId: scopeId,
+      });
+    }
+
+    const candidates = affectedProductIds.map((id) => ({ id }));
 
     const totalAffectedProducts = candidates.length;
     const startedAt = new Date();
