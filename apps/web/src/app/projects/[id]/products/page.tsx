@@ -236,6 +236,46 @@ export default function ProductsPage() {
         </div>
       )}
 
+      {/* CNAB-1: Products optimization banner */}
+      {productIssues.length > 0 && overview && overview.crawlCount > 0 && (
+        <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-5 w-5 text-blue-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-blue-900">
+                Some products need optimization
+              </h3>
+              <p className="mt-1 text-xs text-blue-800">
+                {productIssues.length} issue{productIssues.length !== 1 ? 's' : ''} found
+                across your products. Use{' '}
+                <Link
+                  href={`/projects/${projectId}/automation/playbooks`}
+                  className="font-medium underline hover:text-blue-900"
+                >
+                  Automation Playbooks
+                </Link>{' '}
+                to fix missing SEO metadata in bulk, or click on individual products below
+                to optimize them one by one.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header - responsive stacking */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">

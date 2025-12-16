@@ -8381,6 +8381,10 @@ This ensures:
 - `apps/web/src/app/projects/[id]/automation/playbooks/page.tsx` – scopeId state management
 - `apps/api/test/e2e/automation-playbooks.e2e-spec.ts` – E2E tests for scopeId validation
 
+### Manual Testing
+
+- Manual Testing: `docs/manual-testing/auto-pb-1-3-scope-binding.md`
+
 ### Acceptance Criteria
 
 - [x] Estimate response includes scopeId field (16-char hex string)
@@ -8463,7 +8467,7 @@ Testkit & integration helpers:
   - When drafts already exist:
     - Replace the single "Generate preview" primary CTA with an explicit "Regenerate preview" action that clearly communicates token usage.
     - Ensure regeneration triggers a backend call that overwrites drafts rather than silently reusing stale state.
-- Align navigation warnings with persisted draft semantics:
+  - Align navigation warnings with persisted draft semantics:
   - When preview drafts exist and the user attempts to leave the Playbooks flow, show:
     - "You have saved preview drafts. No changes have been applied yet."
   - Remove any copy that suggests drafts will be discarded simply by navigating away.
@@ -8472,7 +8476,9 @@ Testkit & integration helpers:
     - After apply completes, update client-side draft status and remove "AI draft" indicators where appropriate.
 - Bind estimate and apply to a consistent product scope using scopeId:
   - Persist scopeId from the estimate response alongside preview/estimate state in the wizard (and shared API types in apps/web/src/lib/api.ts).
-  - Require scopeId in the "Apply playbook" mutation payload and surface PLAYBOOK_SCOPE_INVALID conflicts as a "scope changed, please refresh estimate" UX, guiding users to re-run the estimate before applying.
+  - Require scopeId in the "Apply playbook" mutation payload and surface PLAYBOOK_SCOPE_INVALID conflicts with standardized safety-focused copy, e.g.:
+    - "The set of products has changed since your preview. Please recalculate the estimate to continue safely."
+    guiding users to re-run the estimate before applying.
 
 ### Cross-Surface Draft Reuse – Product Detail Integration
 
@@ -8544,6 +8550,33 @@ E2E (TEST-2 Extension – apps/web/tests/first-deo-win.spec.ts):
 - [ ] Product detail pages pre-populate SEO fields with Playbook drafts when opened from Playbooks, with clear "AI draft (not applied yet)" labeling and explicit Apply/Discard/Regenerate actions.
 - [ ] Answer Block "View" actions deep-link to the canonical Answer Blocks surface or a clear explanatory state, never a generic Products list.
 - [ ] UX copy clearly communicates that previews are saved as drafts and do not affect the store until applied.
+
+---
+
+## CNAB-1 – Contextual Next-Action Banners
+
+Status: Planned (Next)
+
+Goal: Introduce contextual "What should I do next?" banners across key DEO surfaces so users always see a clear, safe next action after completing a task, with copy that reflects the new Preview → Apply trust contract and other safety guarantees.
+
+This phase is UX-only and focuses on reinforcing predictability and intent-respecting behavior already enforced at the API layer. Banners should celebrate completion while steering users toward the most relevant, low-risk next step (e.g., review results, run a follow-up automation, or return to overview) instead of leaving them at a dead end.
+
+### Scope
+
+- UX changes only (layout, copy, visual states); no backend or API changes.
+- Reuses existing data already available on each surface (no new queries).
+- Designed to work alongside existing toasts and inline status indicators without duplicating them.
+- Establishes a system-wide UX contract: whenever a primary flow finishes, the user sees a contextual banner that:
+  - Confirms what just happened in plain language.
+  - Suggests exactly one primary next action (with optional secondary actions).
+  - Respects safety guarantees (e.g., no surprise bulk updates, scope-bound applies).
+
+### Target Surfaces
+
+- Project Overview (First DEO Win checklist and AEO/Automation cards)
+- Playbooks page (apps/web/src/app/projects/[id]/automation/playbooks/page.tsx)
+- Products listing (apps/web/src/app/projects/[id]/products/page.tsx)
+- Product detail / optimization view (apps/web/src/app/projects/[id]/products/[productId]/page.tsx)
 
 ---
 

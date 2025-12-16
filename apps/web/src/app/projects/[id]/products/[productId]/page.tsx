@@ -464,6 +464,41 @@ export default function ProductOptimizationPage() {
             </div>
           </div>
 
+          {/* CNAB-1: Product optimization banner */}
+          {(productIssues.length > 0 || status === 'missing-metadata' || status === 'needs-optimization') && (
+            <div className="mb-6 mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0">
+                  <svg
+                    className="h-5 w-5 text-blue-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                    />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-semibold text-blue-900">
+                    Optimization suggestions available
+                  </h3>
+                  <p className="mt-1 text-xs text-blue-800">
+                    {productIssues.length > 0
+                      ? `${productIssues.length} issue${productIssues.length !== 1 ? 's' : ''} detected for this product. `
+                      : 'This product has missing or incomplete SEO metadata. '}
+                    Use the AI suggestions below to generate optimized titles and descriptions,
+                    then apply them to Shopify with one click.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Success message */}
           {successMessage && (
             <div className="mb-6 mt-4 rounded border border-green-400 bg-green-100 p-4 text-green-700">

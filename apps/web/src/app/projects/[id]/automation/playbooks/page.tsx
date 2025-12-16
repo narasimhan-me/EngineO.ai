@@ -64,6 +64,17 @@ type PlaybookFlowState =
   | 'APPLY_COMPLETED'
   | 'APPLY_STOPPED';
 
+/**
+ * CNAB-1: Contextual Next-Action Banner state for playbooks page.
+ * Guides users through the playbook flow based on current state.
+ */
+type PlaybooksCnabState =
+  | 'NO_RUN_WITH_ISSUES'          // Has issues but hasn't run any playbook yet
+  | 'DESCRIPTIONS_DONE_TITLES_REMAIN' // Ran descriptions playbook, titles still need work
+  | 'TITLES_DONE_DESCRIPTIONS_REMAIN' // Ran titles playbook, descriptions still need work
+  | 'ALL_DONE'                    // Both playbooks have 0 affected products
+  | null;                         // No banner to show
+
 const PLAYBOOKS: PlaybookDefinition[] = [
   {
     id: 'missing_seo_title',
@@ -166,6 +177,52 @@ export default function AutomationPlaybooksPage() {
       };
     });
   }, [issuesByType]);
+
+  /**
+   * CNAB-1: Calculate contextual banner state based on playbook summaries.
+   */
+  const cnabState = useMemo((): PlaybooksCnabState => {
+    const titlesSummary = playbookSummaries.find((s) => s.id === 'missing_seo_title');
+    const descriptionsSummary = playbookSummaries.find((s) => s.id === 'missing_seo_description');
+
+    const titlesAffected = titlesSummary?.totalAffected ?? 0;
+    const descriptionsAffected = descriptionsSummary?.totalAffected ?? 0;
+
+    // All done - no issues for either playbook
+    if (titlesAffected === 0 && descriptionsAffected === 0) {
+      return 'ALL_DONE';
+    }
+
+    // Check if user has completed any playbook run (applyResult exists and has updates)
+    const hasCompletedTitlesRun =
+      selectedPlaybookId === 'missing_seo_title' &&
+      applyResult &&
+      applyResult.updatedCount > 0;
+    const hasCompletedDescriptionsRun =
+      selectedPlaybookId === 'missing_seo_description' &&
+      applyResult &&
+      applyResult.updatedCount > 0;
+
+    // Just finished descriptions, titles still need work
+    if (hasCompletedDescriptionsRun && titlesAffected > 0) {
+      return 'TITLES_DONE_DESCRIPTIONS_REMAIN';
+    }
+
+    // Just finished titles, descriptions still need work
+    if (hasCompletedTitlesRun && descriptionsAffected > 0) {
+      return 'DESCRIPTIONS_DONE_TITLES_REMAIN';
+    }
+
+    // Has issues but hasn't run any playbook successfully yet
+    if (titlesAffected > 0 || descriptionsAffected > 0) {
+      // Only show this if we're not in a completed state
+      if (flowState !== 'APPLY_COMPLETED' && flowState !== 'APPLY_STOPPED') {
+        return 'NO_RUN_WITH_ISSUES';
+      }
+    }
+
+    return null;
+  }, [playbookSummaries, selectedPlaybookId, applyResult, flowState]);
 
   const loadEstimate = useCallback(
     async (playbookId: PlaybookId) => {
@@ -661,6 +718,107 @@ export default function AutomationPlaybooksPage() {
                 />
               </svg>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* CNAB-1: Contextual Next-Action Banner */}
+      {cnabState === 'DESCRIPTIONS_DONE_TITLES_REMAIN' && (
+        <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-5 w-5 text-blue-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 7l5 5m0 0l-5 5m5-5H6"
+                />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-blue-900">
+                Great progress! Now fix missing SEO descriptions
+              </h3>
+              <p className="mt-1 text-xs text-blue-800">
+                You&apos;ve improved SEO titles. Select the &quot;Fix missing SEO
+                descriptions&quot; playbook to continue optimizing your catalog.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cnabState === 'TITLES_DONE_DESCRIPTIONS_REMAIN' && (
+        <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-5 w-5 text-blue-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 7l5 5m0 0l-5 5m5-5H6"
+                />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-blue-900">
+                Great progress! Now fix missing SEO titles
+              </h3>
+              <p className="mt-1 text-xs text-blue-800">
+                You&apos;ve improved SEO descriptions. Select the &quot;Fix missing
+                SEO titles&quot; playbook to continue optimizing your catalog.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cnabState === 'ALL_DONE' && (
+        <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-5 w-5 text-green-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-green-900">
+                All products have SEO metadata
+              </h3>
+              <p className="mt-1 text-xs text-green-800">
+                No products are missing SEO titles or descriptions. Check back after
+                syncing new products, or visit the{' '}
+                <Link
+                  href={`/projects/${projectId}/overview`}
+                  className="font-medium underline hover:text-green-900"
+                >
+                  Overview
+                </Link>{' '}
+                to see your DEO Score.
+              </p>
+            </div>
           </div>
         </div>
       )}
