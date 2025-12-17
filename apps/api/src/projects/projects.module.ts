@@ -15,6 +15,8 @@ import { AnswerBlockAutomationProcessor } from './answer-block-automation.proces
 import { ProductAutomationController } from './product-automation.controller';
 import { ShopifyModule } from '../shopify/shopify.module';
 import { AutomationPlaybooksService } from './automation-playbooks.service';
+import { AutomationPlaybookRunProcessor } from './automation-playbook-run.processor';
+import { AutomationPlaybookRunsService } from './automation-playbook-runs.service';
 
 @Module({
   imports: [
@@ -36,7 +38,9 @@ import { AutomationPlaybooksService } from './automation-playbooks.service';
     SeoScanService,
     AnswerBlockAutomationProcessor,
     AutomationPlaybooksService,
+    AutomationPlaybookRunProcessor,
+    AutomationPlaybookRunsService,
   ],
-  exports: [ProjectsService, DeoScoreService, AutomationService, AnswerEngineService],
+  exports: [ProjectsService, DeoScoreService, AutomationService, AnswerEngineService, AutomationPlaybookRunsService],
 })
 export class ProjectsModule {}

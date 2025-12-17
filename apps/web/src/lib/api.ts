@@ -198,6 +198,34 @@ export interface AutomationPlaybookEstimate {
   scopeId: string;
 }
 
+export type AutomationPlaybookRunType = 'PREVIEW_GENERATE' | 'DRAFT_GENERATE' | 'APPLY';
+
+export type AutomationPlaybookRunStatus =
+  | 'QUEUED'
+  | 'RUNNING'
+  | 'SUCCEEDED'
+  | 'FAILED'
+  | 'CANCELLED'
+  | 'STALE';
+
+export interface AutomationPlaybookRun {
+  id: string;
+  projectId: string;
+  playbookId: AutomationPlaybookId;
+  runType: AutomationPlaybookRunType;
+  status: AutomationPlaybookRunStatus;
+  scopeId: string;
+  rulesHash: string;
+  idempotencyKey: string;
+  draftId?: string;
+  aiUsed: boolean;
+  errorCode?: string;
+  errorMessage?: string;
+  resultRef?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export const authApi = {
   signup: (data: { email: string; password: string; name?: string; captchaToken: string }) =>
     fetchWithoutAuth('/auth/signup', {
@@ -306,6 +334,62 @@ export const projectsApi = {
         body: JSON.stringify({ playbookId, scopeId, rulesHash }),
       },
     ),
+
+  /**
+   * Create a new Automation Playbook run.
+   * Runs are processed asynchronously via queue (production) or inline (dev).
+   */
+  createPlaybookRun: (
+    projectId: string,
+    playbookId: AutomationPlaybookId,
+    runType: AutomationPlaybookRunType,
+    scopeId: string,
+    rulesHash: string,
+    idempotencyKey?: string,
+    meta?: Record<string, unknown>,
+  ): Promise<AutomationPlaybookRun> =>
+    fetchWithAuth(
+      `/projects/${projectId}/automation-playbooks/${playbookId}/runs`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          runType,
+          scopeId,
+          rulesHash,
+          idempotencyKey,
+          meta,
+        }),
+      },
+    ),
+
+  /**
+   * Get a specific Automation Playbook run by ID.
+   */
+  getPlaybookRun: (projectId: string, runId: string): Promise<AutomationPlaybookRun> =>
+    fetchWithAuth(`/projects/${projectId}/automation-playbooks/runs/${runId}`),
+
+  /**
+   * List Automation Playbook runs for a project with optional filters.
+   */
+  listPlaybookRuns: (
+    projectId: string,
+    opts?: {
+      playbookId?: AutomationPlaybookId;
+      scopeId?: string;
+      runType?: AutomationPlaybookRunType;
+      limit?: number;
+    },
+  ): Promise<AutomationPlaybookRun[]> => {
+    const params = new URLSearchParams();
+    if (opts?.playbookId) params.set('playbookId', opts.playbookId);
+    if (opts?.scopeId) params.set('scopeId', opts.scopeId);
+    if (opts?.runType) params.set('runType', opts.runType);
+    if (opts?.limit) params.set('limit', String(opts.limit));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return fetchWithAuth(
+      `/projects/${projectId}/automation-playbooks/runs${qs}`,
+    );
+  },
 
   delete: (id: string) =>
     fetchWithAuth(`/projects/${id}`, {

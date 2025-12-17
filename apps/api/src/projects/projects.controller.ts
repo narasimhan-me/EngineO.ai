@@ -34,6 +34,10 @@ import {
   AutomationPlaybookId,
   PlaybookRulesV1,
 } from './automation-playbooks.service';
+import {
+  AutomationPlaybookRunsService,
+  AutomationPlaybookRunType,
+} from './automation-playbook-runs.service';
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard)
@@ -48,6 +52,7 @@ export class ProjectsController {
     private readonly entitlementsService: EntitlementsService,
     private readonly seoScanService: SeoScanService,
     private readonly automationPlaybooksService: AutomationPlaybooksService,
+    private readonly automationPlaybookRunsService: AutomationPlaybookRunsService,
   ) {}
 
   /**
@@ -426,5 +431,98 @@ export class ProjectsController {
       body.scopeId,
       body.rulesHash,
     );
+  }
+
+  /**
+   * POST /projects/:id/automation-playbooks/:playbookId/runs
+   * Create a new Automation Playbook run (PREVIEW_GENERATE, DRAFT_GENERATE, APPLY).
+   * In production, runs are enqueued and processed by a worker; in dev, they may execute inline.
+   */
+  @Post(':id/automation-playbooks/:playbookId/runs')
+  async createAutomationPlaybookRun(
+    @Request() req: any,
+    @Param('id') projectId: string,
+    @Param('playbookId') playbookId: AutomationPlaybookId,
+    @Body()
+    body: {
+      runType: AutomationPlaybookRunType;
+      scopeId: string;
+      rulesHash: string;
+      idempotencyKey?: string;
+      meta?: Record<string, unknown>;
+    },
+  ) {
+    const userId = req.user.id as string;
+    if (!body?.runType) {
+      throw new BadRequestException('runType is required');
+    }
+    if (!body?.scopeId) {
+      throw new BadRequestException('scopeId is required');
+    }
+    if (!body?.rulesHash) {
+      throw new BadRequestException('rulesHash is required');
+    }
+
+    const run = await this.automationPlaybookRunsService.createRun({
+      userId,
+      projectId,
+      playbookId,
+      runType: body.runType,
+      scopeId: body.scopeId,
+      rulesHash: body.rulesHash,
+      idempotencyKey: body.idempotencyKey,
+      meta: body.meta ?? {},
+    });
+
+    await this.automationPlaybookRunsService.enqueueOrExecute(run);
+
+    return {
+      id: run.id,
+      projectId: run.projectId,
+      playbookId: run.playbookId,
+      runType: run.runType,
+      status: run.status,
+      scopeId: run.scopeId,
+      rulesHash: run.rulesHash,
+      idempotencyKey: run.idempotencyKey,
+      createdAt: run.createdAt,
+    };
+  }
+
+  /**
+   * GET /projects/:id/automation-playbooks/runs/:runId
+   * Get a specific Automation Playbook run by ID.
+   */
+  @Get(':id/automation-playbooks/runs/:runId')
+  async getAutomationPlaybookRun(
+    @Request() req: any,
+    @Param('id') projectId: string,
+    @Param('runId') runId: string,
+  ) {
+    const userId = req.user.id as string;
+    return this.automationPlaybookRunsService.getRunById(userId, projectId, runId);
+  }
+
+  /**
+   * GET /projects/:id/automation-playbooks/runs
+   * List Automation Playbook runs for a project with optional filters.
+   */
+  @Get(':id/automation-playbooks/runs')
+  async listAutomationPlaybookRuns(
+    @Request() req: any,
+    @Param('id') projectId: string,
+    @Query('playbookId') playbookId?: AutomationPlaybookId,
+    @Query('scopeId') scopeId?: string,
+    @Query('runType') runType?: AutomationPlaybookRunType,
+    @Query('limit') limit?: string,
+  ) {
+    const userId = req.user.id as string;
+    const parsedLimit = Math.min(Number(limit) || 20, 100);
+    return this.automationPlaybookRunsService.listRuns(userId, projectId, {
+      playbookId,
+      scopeId,
+      runType,
+      limit: parsedLimit,
+    });
   }
 }

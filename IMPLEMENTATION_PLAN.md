@@ -8817,14 +8817,16 @@ Dependencies:
 
 ---
 
-### RUNS-1 – Automation Playbook Runs & History (Planned)
+### RUNS-1 – Automation Playbook Runs & History (Complete)
 
-Status: Planned
+Status: Complete (2025-12-17)
 
 Scope:
 
 - Introduce explicit run records (runId, status, timestamps, counts) for Automation Playbook executions.
-- Support async execution and run history.
+- Support async execution via BullMQ queue and run history.
+- Provide idempotency guarantees to prevent duplicate runs.
+- Support inline execution fallback when Redis is unavailable (dev mode).
 
 Dependencies:
 
@@ -8834,6 +8836,78 @@ Dependencies:
 Prerequisite:
 
 - TEST-PB-RULES-1 – Rules semantics and stale-preview UX must remain green in CI.
+
+#### Implementation Details
+
+**Data Model (`apps/api/prisma/schema.prisma`):**
+
+- Added `AutomationPlaybookRunType` enum: `PREVIEW_GENERATE`, `DRAFT_GENERATE`, `APPLY`
+- Added `AutomationPlaybookRunStatus` enum: `QUEUED`, `RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELLED`, `STALE`
+- Added `AutomationPlaybookRun` model with fields:
+  - `id`, `projectId`, `createdByUserId`, `playbookId`, `runType`, `status`
+  - `scopeId`, `rulesHash` for scope binding contract enforcement
+  - `draftId`, `resultRef` for linking runs to drafts and results
+  - `idempotencyKey` for duplicate request prevention
+  - `aiUsed` boolean to track AI usage per run
+  - `errorCode`, `errorMessage` for failure tracking
+  - `meta` JSON for run-type-specific parameters
+- Indexes for efficient queries: `[projectId, createdAt]`, `[projectId, playbookId, runType, createdAt]`, `[projectId, scopeId, runType, createdAt]`
+- Unique constraint on `[projectId, playbookId, runType, scopeId, rulesHash, idempotencyKey]`
+
+**Queue & Worker (`apps/api/src/projects/automation-playbook-run.processor.ts`):**
+
+- Registered `playbookRunQueue` in `apps/api/src/queues/queues.ts`
+- Created `AutomationPlaybookRunProcessor` with BullMQ worker
+- Worker handles three run types:
+  - `PREVIEW_GENERATE`: Calls `automationPlaybooksService.previewPlaybook()`, sets `aiUsed: true`
+  - `DRAFT_GENERATE`: Calls `automationPlaybooksService.generateDraft()`, sets `aiUsed: true`
+  - `APPLY`: Calls `automationPlaybooksService.applyPlaybook()`, sets `aiUsed: false`
+- Status transitions: `QUEUED` → `RUNNING` → `SUCCEEDED` | `FAILED` | `STALE`
+- STALE status for known contract errors: `PLAYBOOK_SCOPE_INVALID`, `PLAYBOOK_RULES_CHANGED`, `PLAYBOOK_DRAFT_NOT_FOUND`
+- Idempotency: only processes QUEUED runs
+
+**Runs Service (`apps/api/src/projects/automation-playbook-runs.service.ts`):**
+
+- `createRun()`: Creates run with idempotency check, enqueues or executes inline
+- `enqueueOrExecute()`: Adds to queue if available, otherwise executes inline (dev mode)
+- `getRunById()`: Retrieves single run by ID
+- `listRuns()`: Lists runs with optional filters (playbookId, runType, scopeId, limit, offset)
+- Idempotency: Returns existing run if `idempotencyKey` matches recent QUEUED/RUNNING run
+
+**API Endpoints (`apps/api/src/projects/projects.controller.ts`):**
+
+- `POST /projects/:id/automation-playbooks/:playbookId/runs` – Create run
+- `GET /projects/:id/automation-playbooks/runs/:runId` – Get run by ID
+- `GET /projects/:id/automation-playbooks/runs` – List runs with filters
+
+**UI Types & API (`apps/web/src/lib/api.ts`):**
+
+- Added `AutomationPlaybookRunType` and `AutomationPlaybookRunStatus` types
+- Added `AutomationPlaybookRun` interface
+- Added `createPlaybookRun()`, `getPlaybookRun()`, `listPlaybookRuns()` API functions
+
+#### Tests
+
+**Unit Tests (`tests/unit/automation/playbook-runs.service.test.ts`):**
+
+- 21 tests covering:
+  - Run creation for all run types
+  - Idempotency key handling
+  - Run status transitions
+  - AI usage tracking
+  - Error handling and STALE status
+  - Processor job processing
+
+**Integration Tests (`apps/api/test/integration/automation-playbook-runs.test.ts`):**
+
+- 3 tests covering:
+  - PREVIEW_GENERATE run creation and processing with AI usage
+  - APPLY run using existing draft without AI calls
+  - Idempotency (duplicate create returns existing run)
+
+#### Manual Testing
+
+- See `docs/manual-testing/RUNS-1.md` for comprehensive manual testing scenarios.
 
 ---
 

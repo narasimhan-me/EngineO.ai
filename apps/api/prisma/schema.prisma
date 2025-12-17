@@ -47,6 +47,21 @@ enum AutomationPlaybookDraftStatus {
   EXPIRED
 }
 
+enum AutomationPlaybookRunType {
+  PREVIEW_GENERATE
+  DRAFT_GENERATE
+  APPLY
+}
+
+enum AutomationPlaybookRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  STALE
+}
+
 model User {
   id               String   @id @default(cuid())
   email            String   @unique
@@ -61,6 +76,7 @@ model User {
   projects     Project[]
   subscription Subscription?
   aiUsageEvents AiUsageEvent[]
+  automationPlaybookRuns AutomationPlaybookRun[]
 }
 
 model Project {
@@ -89,6 +105,7 @@ model Project {
   automationSuggestions      AutomationSuggestion[]
   automationPlaybookDrafts   AutomationPlaybookDraft[]
   aiUsageEvents              AiUsageEvent[]
+  automationPlaybookRuns     AutomationPlaybookRun[]
 }
 
 model Integration {
@@ -262,4 +279,31 @@ model AutomationPlaybookDraft {
 
   @@unique([projectId, playbookId, scopeId, rulesHash])
   @@index([projectId, playbookId, updatedAt(sort: Desc)])
+}
+
+model AutomationPlaybookRun {
+  id               String                        @id @default(cuid())
+  project          Project                       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId        String
+  createdBy        User                          @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+  createdByUserId  String
+  playbookId       String
+  runType          AutomationPlaybookRunType
+  status           AutomationPlaybookRunStatus   @default(QUEUED)
+  scopeId          String
+  rulesHash        String
+  draftId          String?                       // references AutomationPlaybookDraft.id (no FK for v1)
+  idempotencyKey   String
+  aiUsed           Boolean                       @default(false)
+  errorCode        String?
+  errorMessage     String?
+  resultRef        String?                       // e.g., changeset id or summary key
+  meta             Json?
+  createdAt        DateTime                      @default(now())
+  updatedAt        DateTime                      @updatedAt
+
+  @@index([projectId, createdAt(sort: Desc)])
+  @@index([projectId, playbookId, runType, createdAt(sort: Desc)])
+  @@index([projectId, scopeId, runType, createdAt(sort: Desc)])
+  @@unique([projectId, playbookId, runType, scopeId, rulesHash, idempotencyKey])
 }

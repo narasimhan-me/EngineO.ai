@@ -27,6 +27,14 @@ export const answerBlockAutomationQueue: Queue | null =
       })
     : null;
 
+export const playbookRunQueue: Queue | null =
+  redisConfig.isEnabled && redisConfig.connection
+    ? new Queue('automation_playbook_run_queue', {
+        connection: redisConfig.connection,
+        prefix: redisConfig.prefix,
+      })
+    : null;
+
 if (!redisConfig.isEnabled) {
   console.warn('[Queues] Redis not configured - queue functionality disabled');
 } else {
