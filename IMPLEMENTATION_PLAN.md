@@ -8911,23 +8911,100 @@ Prerequisite:
 
 ---
 
-### AI-USAGE-1 – AI Usage Ledger & Reuse (Planned)
+### AI-USAGE-1 – AI Usage Ledger & Reuse (Complete)
 
-Status: Planned
+Status: Complete (2025-12-17)
 
 Scope:
 
 - Track AI usage events at a finer granularity (preview, draft_generate, apply).
 - Expose usage metrics and reuse opportunities in UX.
+- Label all AI-triggering CTAs with "(uses AI)" suffix.
+- Enforce and document the contract: Apply must never use AI when valid drafts exist.
 
 Dependencies:
 
 - DOC-AUTO-PB-1.3 – Defines when AI may run (Preview/Generate Draft) vs must not run (Apply with valid draft).
 - `docs/TOKEN_USAGE_MODEL.md` – token accounting model.
+- RUNS-1 – AutomationPlaybookRun model with aiUsed tracking.
 
 Prerequisite:
 
 - TEST-PB-RULES-1 – Rules semantics and stale-preview UX must remain green in CI.
+
+#### Implementation Details
+
+**Backend – AI Usage Ledger Service (`apps/api/src/ai/ai-usage-ledger.service.ts`):**
+
+- Created `AiUsageLedgerService` with types:
+  - `AiUsageRunType`: 'PREVIEW_GENERATE' | 'DRAFT_GENERATE' | 'APPLY'
+  - `AiUsageProjectSummary`: Aggregate counts for a project in a billing period
+  - `AiUsageRunSummary`: Shallow projection of individual runs
+- Implemented methods:
+  - `getProjectSummary()`: Aggregates counts from AutomationPlaybookRun by runType and aiUsed
+  - `getProjectRunSummaries()`: Returns ordered list of runs with filters
+- Invariant check: Logs error if APPLY run has `aiUsed=true` (should never happen)
+- TODO comments for AI-USAGE-2: Token-based views and non-playbook AI integration
+
+**Backend – API Endpoints (`apps/api/src/ai/ai.controller.ts`):**
+
+- `GET /ai/projects/:projectId/usage/summary` – Get AI usage summary for current billing month
+- `GET /ai/projects/:projectId/usage/runs` – List recent AI usage runs with optional filters
+
+**Frontend – API Client (`apps/web/src/lib/api.ts`):**
+
+- Added types: `ProjectAiUsageSummary`, `ProjectAiUsageRunSummary`, `AutomationPlaybookAiUsageRunType`
+- Added functions: `getProjectAiUsageSummary()`, `getProjectAiUsageRuns()`
+
+**Frontend – Playbooks Page (`apps/web/src/app/projects/[id]/automation/playbooks/page.tsx`):**
+
+- Added AI usage summary chip above Step 1:
+  - Shows "AI usage this month" with count of previews + drafts generated
+  - Secondary text: "Apply uses saved drafts only — no new AI runs."
+  - Silent fail on API error (doesn't block page)
+- Labeled all AI CTAs with "(uses AI)" suffix:
+  - "Generate preview (uses AI)"
+  - "Regenerate preview (uses AI)"
+- Confirmed Apply button does NOT have "(uses AI)" label
+
+**Backend – Processor Contract (`apps/api/src/projects/automation-playbook-run.processor.ts`):**
+
+- Added explicit comment: "AI-USAGE-1: Apply must never count as AI usage when valid drafts exist."
+- Verified existing logic: APPLY runs always set `aiUsed = false`
+
+#### Tests
+
+**Unit Tests (`tests/unit/ai/ai-usage-ledger.service.test.ts`):**
+
+- 11 tests covering:
+  - Aggregate counts for mixed run types
+  - Apply never contributes to AI usage (applyAiRuns = 0)
+  - Invariant violation logging
+  - Time window filtering
+  - Run summaries projection
+
+**Integration Tests (`apps/api/test/integration/ai-usage-ledger.test.ts`):**
+
+- 4 tests covering:
+  - Preview runs increment AI usage
+  - Apply runs do NOT increment AI usage
+  - Run summaries return correct fields
+  - RunType filtering works
+
+**E2E Tests (`apps/api/test/e2e/automation-playbooks.e2e-spec.ts`):**
+
+- 2 new tests in "AI-USAGE-1: AI Usage Ledger" describe block:
+  - Usage summary records AI for preview/draft but not apply
+  - Run summaries endpoint returns data with correct aiUsed flags
+
+#### Key Contracts
+
+1. **Apply Must Never Use AI**: When a valid draft exists, Apply MUST NOT call AI. Ledger reflects `applyAiRuns = 0`.
+2. **AI CTA Labeling**: Every AI-triggering button is labeled with "(uses AI)". Apply buttons are NOT labeled.
+
+#### Manual Testing
+
+- See `docs/manual-testing/AI-USAGE-1.md` for comprehensive manual testing scenarios.
 
 ---
 

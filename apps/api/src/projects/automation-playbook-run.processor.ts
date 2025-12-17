@@ -144,7 +144,9 @@ export class AutomationPlaybookRunProcessor implements OnModuleInit, OnModuleDes
             run.rulesHash,
           );
 
-          // Apply does NOT use AI when a valid draft exists (per DOC-AUTO-PB-1.3)
+          // AI-USAGE-1: Apply must never count as AI usage when valid drafts exist.
+          // Apply always uses pre-generated drafts; any AI work happened in PREVIEW_GENERATE
+          // or DRAFT_GENERATE runs. This is enforced regardless of success/failure path.
           aiUsed = false;
           resultRef = `${applyResult.projectId}:${applyResult.playbookId}:${run.scopeId}`;
           break;

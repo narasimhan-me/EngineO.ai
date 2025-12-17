@@ -226,6 +226,31 @@ export interface AutomationPlaybookRun {
   updatedAt?: string;
 }
 
+// AI-USAGE-1: AI Usage Ledger Types
+export type AutomationPlaybookAiUsageRunType = 'PREVIEW_GENERATE' | 'DRAFT_GENERATE' | 'APPLY';
+
+export interface ProjectAiUsageSummary {
+  projectId: string;
+  periodStart: string; // ISO
+  periodEnd: string; // ISO
+  totalRuns: number;
+  totalAiRuns: number;
+  previewRuns: number;
+  draftGenerateRuns: number;
+  applyRuns: number;
+  applyAiRuns: number; // must be 0
+}
+
+export interface ProjectAiUsageRunSummary {
+  runId: string;
+  runType: AutomationPlaybookAiUsageRunType;
+  status: AutomationPlaybookRunStatus;
+  aiUsed: boolean;
+  scopeId: string | null;
+  rulesHash: string | null;
+  createdAt: string;
+}
+
 export const authApi = {
   signup: (data: { email: string; password: string; name?: string; captchaToken: string }) =>
     fetchWithoutAuth('/auth/signup', {
@@ -456,6 +481,28 @@ export const aiApi = {
       method: 'POST',
       body: JSON.stringify({ productId }),
     }),
+
+  // AI-USAGE-1: AI Usage Ledger APIs
+
+  /**
+   * Get AI usage summary for a project (current billing month).
+   */
+  getProjectAiUsageSummary: (projectId: string): Promise<ProjectAiUsageSummary> =>
+    fetchWithAuth(`/ai/projects/${projectId}/usage/summary`),
+
+  /**
+   * List recent AI usage runs for a project.
+   */
+  getProjectAiUsageRuns: (
+    projectId: string,
+    opts?: { runType?: AutomationPlaybookAiUsageRunType; limit?: number },
+  ): Promise<ProjectAiUsageRunSummary[]> => {
+    const params = new URLSearchParams();
+    if (opts?.runType) params.set('runType', opts.runType);
+    if (opts?.limit) params.set('limit', String(opts.limit));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return fetchWithAuth(`/ai/projects/${projectId}/usage/runs${qs}`);
+  },
 };
 
 export const productsApi = {

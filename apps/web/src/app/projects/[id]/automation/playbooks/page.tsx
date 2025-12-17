@@ -14,7 +14,7 @@ import {
   projectsApi,
   shopifyApi,
 } from '@/lib/api';
-import type { AutomationPlaybookApplyResult } from '@/lib/api';
+import type { AutomationPlaybookApplyResult, ProjectAiUsageSummary } from '@/lib/api';
 import type { Product } from '@/lib/products';
 import { useFeedback } from '@/components/feedback/FeedbackProvider';
 
@@ -174,6 +174,10 @@ export default function AutomationPlaybooksPage() {
 
   const [resumedFromSession, setResumedFromSession] = useState(false);
 
+  // AI-USAGE-1: AI Usage Summary state
+  const [aiUsageSummary, setAiUsageSummary] = useState<ProjectAiUsageSummary | null>(null);
+  const [aiUsageLoading, setAiUsageLoading] = useState(false);
+
   const fetchInitialData = useCallback(async () => {
     try {
       setLoading(true);
@@ -192,6 +196,18 @@ export default function AutomationPlaybooksPage() {
         setPlanId((entitlements as any).plan as string);
       } else {
         setPlanId(null);
+      }
+
+      // AI-USAGE-1: Fetch AI usage summary (silent fail on error)
+      setAiUsageLoading(true);
+      try {
+        const usageSummary = await aiApi.getProjectAiUsageSummary(projectId);
+        setAiUsageSummary(usageSummary);
+      } catch {
+        // Silent fail - don't block page load for usage stats
+        setAiUsageSummary(null);
+      } finally {
+        setAiUsageLoading(false);
       }
     } catch (err: unknown) {
       console.error('Error loading automation playbooks data:', err);
@@ -1514,6 +1530,23 @@ export default function AutomationPlaybooksPage() {
             </div>
           </div>
 
+          {/* AI-USAGE-1: AI Usage Summary Chip */}
+          {!aiUsageLoading && aiUsageSummary && (aiUsageSummary.previewRuns > 0 || aiUsageSummary.draftGenerateRuns > 0) && (
+            <div className="rounded-lg border border-purple-100 bg-purple-50 p-3 text-sm">
+              <p className="text-xs font-semibold text-purple-900">
+                AI usage this month
+              </p>
+              <p className="mt-1 text-xs text-purple-700">
+                Previews and drafts generated: {aiUsageSummary.previewRuns + aiUsageSummary.draftGenerateRuns}
+              </p>
+              {aiUsageSummary.totalAiRuns > 0 && (
+                <p className="mt-0.5 text-xs text-purple-600">
+                  Apply uses saved drafts only — no new AI runs.
+                </p>
+              )}
+            </div>
+          )}
+
           {(flowState === 'APPLY_COMPLETED' || flowState === 'APPLY_STOPPED') && (
             <div className="rounded-lg border border-green-100 bg-green-50 p-3 text-sm text-green-800">
               <p className="text-sm font-semibold text-green-900">
@@ -1577,7 +1610,7 @@ export default function AutomationPlaybooksPage() {
                         : 'border border-transparent bg-blue-600 text-white hover:bg-blue-700'
                     }`}
                   >
-                    {loadingPreview ? 'Generating preview…' : 'Generate preview'}
+                    {loadingPreview ? 'Generating preview…' : 'Generate preview (uses AI)'}
                   </button>
                 </div>
                 {resumedFromSession && hasPreview && (
@@ -2171,7 +2204,7 @@ export default function AutomationPlaybooksPage() {
                       disabled={loadingPreview}
                       className="mt-2 inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Regenerate preview
+                      Regenerate preview (uses AI)
                     </button>
                   </div>
                 </div>
@@ -2213,7 +2246,7 @@ export default function AutomationPlaybooksPage() {
                       disabled={loadingPreview}
                       className="mt-2 inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Regenerate preview
+                      Regenerate preview (uses AI)
                     </button>
                   </div>
                 </div>
@@ -2254,7 +2287,7 @@ export default function AutomationPlaybooksPage() {
                       disabled={loadingPreview}
                       className="mt-2 inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Generate preview
+                      Generate preview (uses AI)
                     </button>
                   </div>
                 </div>
@@ -2295,7 +2328,7 @@ export default function AutomationPlaybooksPage() {
                       disabled={loadingPreview}
                       className="mt-2 inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Regenerate preview
+                      Regenerate preview (uses AI)
                     </button>
                   </div>
                 </div>

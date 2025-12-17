@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Request, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, BadRequestException, Get, Param, Query } from '@nestjs/common';
 import { AiService } from './ai.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PrismaService } from '../prisma.service';
@@ -7,6 +7,7 @@ import { AnswerEngineService } from '../projects/answer-engine.service';
 import { ProductAnswersResponse } from '@engineo/shared';
 import { ProductIssueFixService } from './product-issue-fix.service';
 import { TokenUsageService, ESTIMATED_METADATA_TOKENS_PER_CALL } from './token-usage.service';
+import { AiUsageLedgerService, AiUsageProjectSummary, AiUsageRunSummary, AiUsageRunType } from './ai-usage-ledger.service';
 
 class MetadataDto {
   crawlResultId: string;
@@ -32,6 +33,7 @@ export class AiController {
     private readonly answerEngineService: AnswerEngineService,
     private readonly productIssueFixService: ProductIssueFixService,
     private readonly tokenUsageService: TokenUsageService,
+    private readonly aiUsageLedgerService: AiUsageLedgerService,
   ) {}
 
   @Post('metadata')
@@ -357,5 +359,76 @@ export class AiController {
       });
       throw error;
     }
+  }
+
+  // ============================================================
+  // AI Usage Ledger Endpoints (AI-USAGE-1)
+  // ============================================================
+
+  /**
+   * GET /ai/projects/:projectId/usage/summary
+   * Get AI usage summary for the current billing month.
+   */
+  @Get('projects/:projectId/usage/summary')
+  async getProjectAiUsageSummary(
+    @Request() req: any,
+    @Param('projectId') projectId: string,
+  ): Promise<AiUsageProjectSummary> {
+    const userId = req.user.id;
+
+    // Verify project ownership
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project) {
+      throw new BadRequestException('Project not found');
+    }
+
+    if (project.userId !== userId) {
+      throw new BadRequestException('Access denied');
+    }
+
+    // Get current month range
+    const now = new Date();
+    const periodStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    return this.aiUsageLedgerService.getProjectSummary(projectId, {
+      from: periodStart,
+      to: periodEnd,
+    });
+  }
+
+  /**
+   * GET /ai/projects/:projectId/usage/runs
+   * List recent AI usage runs for a project.
+   */
+  @Get('projects/:projectId/usage/runs')
+  async listProjectAiUsageRuns(
+    @Request() req: any,
+    @Param('projectId') projectId: string,
+    @Query('runType') runType?: string,
+    @Query('limit') limit?: string,
+  ): Promise<AiUsageRunSummary[]> {
+    const userId = req.user.id;
+
+    // Verify project ownership
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project) {
+      throw new BadRequestException('Project not found');
+    }
+
+    if (project.userId !== userId) {
+      throw new BadRequestException('Access denied');
+    }
+
+    return this.aiUsageLedgerService.getProjectRunSummaries(projectId, {
+      runType: runType as AiUsageRunType | undefined,
+      limit: limit ? Number(limit) : 20,
+    });
   }
 }
