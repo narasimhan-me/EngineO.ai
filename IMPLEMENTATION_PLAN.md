@@ -8513,6 +8513,71 @@ Project Overview – AEO Status Card (apps/web/src/app/projects/[id]/overview/pa
   - Add helper text:
     - "This is an AI draft from Automation Playbooks. Review before applying."
 
+### Error & Draft State UI Copy (AUTO-PB-1.3 Backend + PB-RULES-1)
+
+These messages are surfaced as inline wizard panels (preferred) on the Playbooks page; top-of-page CNAB banners remain reserved for completion/next-action states.
+
+1. Rules changed since preview
+   - Error code: PLAYBOOK_RULES_CHANGED (409)
+   - When: rulesHash mismatch between apply (or draft generation) and the stored draft.
+   - Title: Rules changed since your preview
+   - Body: Your rules changed after the preview was generated. Regenerate the preview to continue safely.
+   - Primary CTA: Regenerate preview (uses AI)
+   - Secondary CTA (optional): Review rules
+
+2. Scope changed since preview
+   - Error code: PLAYBOOK_SCOPE_INVALID (409) – copy standardized here for all playbook flows.
+   - When: scopeId mismatch between client and server (affected product set changed between preview/estimate and apply or draft generation).
+   - Title: Product set changed since your preview
+   - Body: The set of products has changed since your preview. Please recalculate the estimate to continue safely.
+   - Primary CTA: Recalculate estimate
+   - Secondary CTA (optional): View affected products
+
+3. Draft not found
+   - Error code: PLAYBOOK_DRAFT_NOT_FOUND (409)
+   - When: user attempts to continue/apply without a saved draft for (projectId, playbookId, scopeId, rulesHash) (e.g., draft never generated, deleted, or expired past retention).
+   - Title: Preview draft not available
+   - Body: We can't find the draft for this preview. Generate a new preview to continue safely.
+   - Primary CTA: Generate preview (uses AI)
+   - Secondary CTA (optional): Learn why drafts expire
+
+4. Draft expired (optional, if expiresAt handling is enabled)
+   - Error code: PLAYBOOK_DRAFT_EXPIRED (410)
+   - When: draft exists but is beyond its retention window.
+   - Title: Preview draft expired
+   - Body: This preview is no longer available. Generate a new preview to continue safely.
+   - Primary CTA: Generate preview (uses AI)
+   - Secondary CTA (optional): Learn more
+
+5. Full draft generation (Generate full draft)
+   - Context: explicit "Generate full draft" action that runs AI on all affected products using the GenerateDraft endpoint.
+   - Loading state:
+     - Title: Generating drafts for all affected products…
+     - Body: This uses AI credits. You can leave this page — drafts will be saved when ready.
+   - Success state:
+     - Title: Drafts ready to review
+     - Body: Review drafts, then apply when you're ready. Applying will not generate new AI drafts.
+     - Primary CTA: Continue to apply
+     - Secondary CTA: Review drafts
+
+6. Apply behavior clarification (trust contract)
+   - Placement: small note in Step 3 (Apply) and/or tooltip, not a banner.
+   - Inline note: Note: Applying uses the drafts you generated. No new AI drafts are generated during Apply.
+   - Tooltip variant (optional): Apply is write-only — it applies saved drafts to products.
+
+7. Partial results due to AI limits or draft gaps
+   - Context: draft is PARTIAL or some products are missing usable suggestions; apply will skip them.
+   - Warning notice (Step 3 or results panel):
+     - Title: Some products will be skipped
+     - Body: A few products don't have usable drafts yet. Generate drafts again to include them in this run.
+     - Primary CTA: Generate missing drafts (uses AI)
+     - Secondary CTA: View skipped products
+
+Implementation note (UI placement):
+- Use inline panel errors/notices inside the current wizard step where the user is blocked (e.g., below the main content or above CTAs).
+- Reserve top-of-page CNAB banners for contextual next actions, not error states.
+- Any CTA that triggers draft generation or regeneration must clearly label "uses AI" to reinforce token usage.
+
 ### Testing Requirements
 
 Backend / Integration Tests (apps/api):

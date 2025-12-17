@@ -103,6 +103,21 @@ const DEFAULT_RULES: PlaybookRulesV1 = {
   forbiddenPhrasesText: '',
 };
 
+/**
+ * Error codes that can trigger inline error panels in Step 3 (Apply).
+ * These are derived from 409 Conflict responses from the backend.
+ */
+type ApplyInlineErrorCode =
+  | 'PLAYBOOK_RULES_CHANGED'
+  | 'PLAYBOOK_SCOPE_INVALID'
+  | 'PLAYBOOK_DRAFT_NOT_FOUND'
+  | 'PLAYBOOK_DRAFT_EXPIRED';
+
+interface ApplyInlineError {
+  code: ApplyInlineErrorCode;
+  message: string;
+}
+
 const PLAYBOOKS: PlaybookDefinition[] = [
   {
     id: 'missing_seo_title',
@@ -155,6 +170,7 @@ export default function AutomationPlaybooksPage() {
   }));
   const [rulesVersion, setRulesVersion] = useState(0);
   const [previewRulesVersion, setPreviewRulesVersion] = useState<number | null>(null);
+  const [applyInlineError, setApplyInlineError] = useState<ApplyInlineError | null>(null);
 
   const fetchInitialData = useCallback(async () => {
     try {
@@ -479,6 +495,7 @@ export default function AutomationPlaybooksPage() {
     setEstimate(null);
     setApplyResult(null);
     setConfirmApply(false);
+    setApplyInlineError(null);
   };
 
   const handleGeneratePreview = async () => {
@@ -569,6 +586,21 @@ export default function AutomationPlaybooksPage() {
       console.error('Error applying automation playbook:', err);
       setFlowState('APPLY_READY');
       if (err instanceof ApiError) {
+        // Handle 409 Conflict errors with inline error panels
+        const inlineErrorCodes: ApplyInlineErrorCode[] = [
+          'PLAYBOOK_RULES_CHANGED',
+          'PLAYBOOK_SCOPE_INVALID',
+          'PLAYBOOK_DRAFT_NOT_FOUND',
+          'PLAYBOOK_DRAFT_EXPIRED',
+        ];
+        if (err.code && inlineErrorCodes.includes(err.code as ApplyInlineErrorCode)) {
+          setApplyInlineError({
+            code: err.code as ApplyInlineErrorCode,
+            message: err.message,
+          });
+          // Don't show toast for inline errors - they have dedicated UI
+          return;
+        }
         setError(err.message);
         if (err.code === 'ENTITLEMENTS_LIMIT_REACHED') {
           feedback.showLimit(err.message, '/settings/billing');
@@ -1892,6 +1924,172 @@ export default function AutomationPlaybooksPage() {
                   the preview before applying.
                 </div>
               )}
+            {/* Inline error panels for 409 Conflict errors */}
+            {applyInlineError?.code === 'PLAYBOOK_RULES_CHANGED' && (
+              <div className="mb-3 rounded border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                <div className="flex items-start gap-2">
+                  <svg
+                    className="h-4 w-4 flex-shrink-0 text-amber-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                  <div>
+                    <p className="font-semibold">Rules changed since preview</p>
+                    <p className="mt-0.5">
+                      Your playbook rules have changed since the preview was generated.
+                      Regenerate the preview to see updated suggestions before applying.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setApplyInlineError(null);
+                        if (!selectedPlaybookId) return;
+                        const ok = await loadPreview(selectedPlaybookId);
+                        if (ok) {
+                          setFlowState('PREVIEW_GENERATED');
+                        }
+                      }}
+                      disabled={loadingPreview}
+                      className="mt-2 inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Regenerate preview
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {applyInlineError?.code === 'PLAYBOOK_SCOPE_INVALID' && (
+              <div className="mb-3 rounded border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                <div className="flex items-start gap-2">
+                  <svg
+                    className="h-4 w-4 flex-shrink-0 text-amber-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                  <div>
+                    <p className="font-semibold">Product scope changed</p>
+                    <p className="mt-0.5">
+                      The set of affected products has changed since the preview was generated
+                      (products may have been added, removed, or updated). Regenerate the preview
+                      to work with the current product set.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setApplyInlineError(null);
+                        if (!selectedPlaybookId) return;
+                        const ok = await loadPreview(selectedPlaybookId);
+                        if (ok) {
+                          setFlowState('PREVIEW_GENERATED');
+                        }
+                      }}
+                      disabled={loadingPreview}
+                      className="mt-2 inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Regenerate preview
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {applyInlineError?.code === 'PLAYBOOK_DRAFT_NOT_FOUND' && (
+              <div className="mb-3 rounded border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                <div className="flex items-start gap-2">
+                  <svg
+                    className="h-4 w-4 flex-shrink-0 text-amber-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                  <div>
+                    <p className="font-semibold">Draft not found</p>
+                    <p className="mt-0.5">
+                      No draft was found for this playbook configuration. Generate a preview
+                      first to create a draft before applying.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setApplyInlineError(null);
+                        if (!selectedPlaybookId) return;
+                        const ok = await loadPreview(selectedPlaybookId);
+                        if (ok) {
+                          setFlowState('PREVIEW_GENERATED');
+                        }
+                      }}
+                      disabled={loadingPreview}
+                      className="mt-2 inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Generate preview
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {applyInlineError?.code === 'PLAYBOOK_DRAFT_EXPIRED' && (
+              <div className="mb-3 rounded border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                <div className="flex items-start gap-2">
+                  <svg
+                    className="h-4 w-4 flex-shrink-0 text-amber-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                  <div>
+                    <p className="font-semibold">Draft expired</p>
+                    <p className="mt-0.5">
+                      The draft for this playbook has expired. Regenerate the preview to create
+                      a fresh draft before applying.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setApplyInlineError(null);
+                        if (!selectedPlaybookId) return;
+                        const ok = await loadPreview(selectedPlaybookId);
+                        if (ok) {
+                          setFlowState('PREVIEW_GENERATED');
+                        }
+                      }}
+                      disabled={loadingPreview}
+                      className="mt-2 inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Regenerate preview
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="mb-3 rounded border border-gray-100 bg-gray-50 p-3 text-xs text-gray-700">
               <p>
                 This playbook will attempt to update up to{' '}
@@ -1908,6 +2106,12 @@ export default function AutomationPlaybooksPage() {
                 products will be skipped.
               </p>
             </div>
+            {/* Trust contract note */}
+            <p className="mb-3 text-[11px] text-gray-500">
+              EngineO.ai validates that your rules and product scope haven&apos;t changed since
+              the preview. If they have, you&apos;ll be asked to regenerate the preview before
+              applying.
+            </p>
             <label className="mb-3 flex items-start gap-2 text-xs text-gray-700">
               <input
                 type="checkbox"
@@ -1983,6 +2187,39 @@ export default function AutomationPlaybooksPage() {
                             </Link>
                           </p>
                         )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {/* Skipped products warning */}
+                {applyResult.skippedCount > 0 && !applyResult.stopped && (
+                  <div className="rounded border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                    <div className="flex items-start gap-2">
+                      <svg
+                        className="h-4 w-4 flex-shrink-0 text-amber-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <div>
+                        <p className="font-semibold">
+                          {applyResult.skippedCount} product(s) skipped
+                        </p>
+                        <p className="mt-0.5">
+                          Some products were skipped because they already had valid SEO{' '}
+                          {selectedDefinition?.field === 'seoTitle'
+                            ? 'titles'
+                            : 'descriptions'}{' '}
+                          or encountered validation issues. View per-product results below for
+                          details.
+                        </p>
                       </div>
                     </div>
                   </div>
