@@ -172,6 +172,8 @@ export default function AutomationPlaybooksPage() {
   const [previewRulesVersion, setPreviewRulesVersion] = useState<number | null>(null);
   const [applyInlineError, setApplyInlineError] = useState<ApplyInlineError | null>(null);
 
+  const [resumedFromSession, setResumedFromSession] = useState(false);
+
   const fetchInitialData = useCallback(async () => {
     try {
       setLoading(true);
@@ -490,9 +492,21 @@ export default function AutomationPlaybooksPage() {
     if (!estimate || !estimate.canProceed) {
       return;
     }
-    if (flowState === 'PREVIEW_GENERATED') {
+    // Determine active step from flowState
+    const currentStep =
+      flowState === 'APPLY_READY' ||
+      flowState === 'APPLY_RUNNING' ||
+      flowState === 'APPLY_COMPLETED' ||
+      flowState === 'APPLY_STOPPED'
+        ? 3
+        : flowState === 'ESTIMATE_READY'
+          ? 2
+          : 1;
+
+    if (currentStep === 1) {
+      // Use derived readiness instead of raw flowState
       setFlowState('ESTIMATE_READY');
-    } else if (flowState === 'ESTIMATE_READY') {
+    } else if (currentStep === 2) {
       setFlowState('APPLY_READY');
       if (typeof window !== 'undefined') {
         const el = document.getElementById('automation-playbook-apply-step');
@@ -637,9 +651,71 @@ export default function AutomationPlaybooksPage() {
     hasPreview &&
     previewRulesVersion !== null &&
     previewRulesVersion !== rulesVersion;
-  const step2Locked = isEligibilityEmptyState || !hasPreview;
-  const step3Locked =
-    isEligibilityEmptyState || !hasPreview || !estimate || !estimate.canProceed;
+
+  const planEligible = !planIsFree;
+  const previewPresent = hasPreview;
+  const estimatePresent = !!estimate;
+  const estimateEligible = !!estimate && estimate.canProceed;
+  const previewValid = previewPresent && !previewStale;
+
+  const canContinueToEstimate =
+    previewPresent &&
+    previewValid &&
+    planEligible &&
+    estimatePresent &&
+    estimateEligible;
+
+  const step2Locked =
+    isEligibilityEmptyState ||
+    !previewPresent ||
+    !planEligible ||
+    !estimatePresent ||
+    !estimateEligible;
+
+  const step3Locked = step2Locked;
+
+  const continueBlockers: Array<
+    'preview_stale' | 'plan_not_eligible' | 'estimate_not_eligible' | 'estimate_missing'
+  > = [];
+
+  if (previewPresent && previewStale) {
+    continueBlockers.push('preview_stale');
+  }
+  if (!planEligible) {
+    continueBlockers.push('plan_not_eligible');
+  }
+  if (estimatePresent && !estimateEligible) {
+    continueBlockers.push('estimate_not_eligible');
+  }
+  if (
+    previewPresent &&
+    !previewStale &&
+    planEligible &&
+    !estimatePresent
+  ) {
+    continueBlockers.push('estimate_missing');
+  }
+
+  const showContinueBlockedPanel =
+    previewPresent && !canContinueToEstimate && continueBlockers.length > 0;
+
+  let previewValidityLabel: string | null = null;
+  let previewValidityClass = '';
+  if (hasPreview) {
+    if (previewStale) {
+      previewValidityLabel = 'Rules changed — preview out of date';
+      previewValidityClass =
+        'border border-amber-200 bg-amber-50 text-amber-800';
+    } else if (!estimatePresent) {
+      previewValidityLabel = 'Estimate required to continue';
+      previewValidityClass =
+        'border border-amber-200 bg-amber-50 text-amber-800';
+    } else if (planEligible && estimateEligible) {
+      previewValidityLabel = 'Preview valid';
+      previewValidityClass =
+        'border border-green-200 bg-green-50 text-green-800';
+    }
+  }
 
   const activeStep = useMemo(() => {
     if (
@@ -716,6 +792,7 @@ export default function AutomationPlaybooksPage() {
       if (!stored) {
         return;
       }
+      setResumedFromSession(true);
       const parsed = JSON.parse(stored) as {
         flowState?: PlaybookFlowState;
         previewSamples?: PreviewSample[];
@@ -1503,6 +1580,67 @@ export default function AutomationPlaybooksPage() {
                     {loadingPreview ? 'Generating preview…' : 'Generate preview'}
                   </button>
                 </div>
+                {resumedFromSession && hasPreview && (
+                  <div className="mb-3 rounded-md border border-blue-100 bg-blue-50 p-3 text-xs text-blue-800">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-blue-900">
+                          Saved preview found
+                        </p>
+                        <p className="mt-1">
+                          {previewStale
+                            ? 'Your rules changed after this preview. Regenerate to see updated suggestions.'
+                            : !estimatePresent
+                              ? 'You can continue by recalculating the estimate.'
+                              : 'This preview is still valid for the current rules and product set.'}
+                        </p>
+                      </div>
+                      <div className="mt-1 flex flex-shrink-0 flex-wrap gap-2">
+                        {previewStale && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!selectedPlaybookId) return;
+                              const ok = await loadPreview(selectedPlaybookId);
+                              if (ok) {
+                                setFlowState('PREVIEW_GENERATED');
+                              }
+                            }}
+                            disabled={loadingPreview}
+                            className="inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Regenerate preview (uses AI)
+                          </button>
+                        )}
+                        {!previewStale && !estimatePresent && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!selectedPlaybookId) return;
+                              loadEstimate(selectedPlaybookId).catch(() => {
+                                // handled via state
+                              });
+                            }}
+                            className="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-blue-700"
+                          >
+                            Recalculate estimate
+                          </button>
+                        )}
+                        {!previewStale &&
+                          estimatePresent &&
+                          canContinueToEstimate && (
+                            <button
+                              type="button"
+                              onClick={handleNextStep}
+                              className="inline-flex items-center rounded-md border border-blue-200 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 shadow-sm hover:bg-blue-50"
+                            >
+                              Continue
+                            </button>
+                          )}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="mb-4 rounded-md border border-gray-200 bg-gray-50 p-3">
                   <div className="flex items-center justify-between gap-2">
                     <div>
@@ -1673,6 +1811,13 @@ export default function AutomationPlaybooksPage() {
                   <div className="mt-3 space-y-3">
                     <p className="text-xs font-medium text-gray-600">
                       Sample preview (up to 3 products)
+                      {previewValidityLabel && (
+                        <span
+                          className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] ${previewValidityClass}`}
+                        >
+                          {previewValidityLabel}
+                        </span>
+                      )}
                     </p>
                     {previewSamples.map((sample) => (
                       <div
@@ -1745,26 +1890,86 @@ export default function AutomationPlaybooksPage() {
                     ))}
                   </div>
                 )}
-                {hasPreview && previewStale && (
+                {hasPreview && showContinueBlockedPanel && (
                   <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                    <p className="font-medium">
-                      Rules changed — regenerate preview to see updated suggestions.
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (!selectedPlaybookId) return;
-                          const ok = await loadPreview(selectedPlaybookId);
-                          if (ok) {
-                            setFlowState('PREVIEW_GENERATED');
-                          }
-                        }}
-                        disabled={loadingPreview}
-                        className="inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Regenerate preview (uses AI)
-                      </button>
+                    <p className="font-medium">Why you can&apos;t continue yet</p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5">
+                      {continueBlockers.includes('preview_stale') && (
+                        <li>
+                          Rules changed since this preview. Regenerate preview to
+                          continue safely.
+                        </li>
+                      )}
+                      {continueBlockers.includes('plan_not_eligible') && (
+                        <li>
+                          Your current plan doesn&apos;t support Automation Playbooks
+                          for bulk fixes.
+                        </li>
+                      )}
+                      {continueBlockers.includes('estimate_not_eligible') && (
+                        <li>
+                          {estimateBlockingReasons.includes('ai_daily_limit_reached')
+                            ? 'Daily AI limit reached for product optimization. Try again tomorrow or upgrade your plan.'
+                            : estimateBlockingReasons.includes(
+                                  'token_cap_would_be_exceeded',
+                                )
+                              ? 'Estimated token usage would exceed your remaining capacity for today. Reduce scope or try again tomorrow.'
+                              : estimateBlockingReasons.includes(
+                                    'no_affected_products',
+                                  )
+                                ? "No products currently match this playbook's criteria."
+                                : estimateBlockingReasons.includes('plan_not_eligible')
+                                  ? 'This playbook requires a Pro or Business plan. Upgrade to unlock bulk automations.'
+                                  : 'This playbook cannot run with the current estimate. Adjust your setup to continue.'}
+                        </li>
+                      )}
+                      {continueBlockers.includes('estimate_missing') && (
+                        <li>
+                          Estimate needed to continue. Recalculate estimate from your
+                          current preview.
+                        </li>
+                      )}
+                    </ul>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {continueBlockers.includes('preview_stale') && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!selectedPlaybookId) return;
+                            const ok = await loadPreview(selectedPlaybookId);
+                            if (ok) {
+                              setFlowState('PREVIEW_GENERATED');
+                            }
+                          }}
+                          disabled={loadingPreview}
+                          className="inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Regenerate preview (uses AI)
+                        </button>
+                      )}
+                      {!planEligible && (
+                        <button
+                          type="button"
+                          onClick={() => handleNavigate('/settings/billing')}
+                          className="inline-flex items-center rounded-md border border-blue-200 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 shadow-sm hover:bg-blue-50"
+                        >
+                          View plans
+                        </button>
+                      )}
+                      {continueBlockers.includes('estimate_missing') && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!selectedPlaybookId) return;
+                            loadEstimate(selectedPlaybookId).catch(() => {
+                              // handled via state
+                            });
+                          }}
+                          className="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-blue-700"
+                        >
+                          Recalculate estimate
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1773,13 +1978,7 @@ export default function AutomationPlaybooksPage() {
                     <button
                       type="button"
                       onClick={handleNextStep}
-                      disabled={
-                        flowState !== 'PREVIEW_GENERATED' ||
-                        planIsFree ||
-                        !estimate ||
-                        !estimate.canProceed ||
-                        previewStale
-                      }
+                      disabled={!canContinueToEstimate}
                       className="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Continue to Estimate
