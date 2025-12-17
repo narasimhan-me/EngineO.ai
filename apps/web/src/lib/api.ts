@@ -273,12 +273,13 @@ export const projectsApi = {
     id: string,
     playbookId: AutomationPlaybookId,
     scopeId: string,
+    rulesHash: string,
   ): Promise<AutomationPlaybookApplyResult> =>
     fetchWithAuth(
       `/projects/${id}/automation-playbooks/apply`,
       {
         method: 'POST',
-        body: JSON.stringify({ playbookId, scopeId }),
+        body: JSON.stringify({ playbookId, scopeId, rulesHash }),
       },
     ),
 

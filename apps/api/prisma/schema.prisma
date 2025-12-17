@@ -40,6 +40,13 @@ enum AutomationIssueType {
   THIN_CONTENT
 }
 
+enum AutomationPlaybookDraftStatus {
+  READY
+  PARTIAL
+  FAILED
+  EXPIRED
+}
+
 model User {
   id               String   @id @default(cuid())
   email            String   @unique
@@ -80,6 +87,7 @@ model Project {
   products                   Product[]
   deoScoreSnapshots          DeoScoreSnapshot[]
   automationSuggestions      AutomationSuggestion[]
+  automationPlaybookDrafts   AutomationPlaybookDraft[]
   aiUsageEvents              AiUsageEvent[]
 }
 
@@ -233,4 +241,25 @@ model TokenUsage {
   source    String   // e.g. "metadata", "automation:playbook:missing_seo_title"
   amount    Int
   createdAt DateTime @default(now())
+}
+
+model AutomationPlaybookDraft {
+  id              String                        @id @default(cuid())
+  project         Project                       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId       String
+  playbookId      String
+  scopeId         String
+  rulesHash       String
+  status          AutomationPlaybookDraftStatus @default(PARTIAL)
+  sampleProductIds Json?
+  draftItems      Json?
+  counts          Json?
+  rules           Json?
+  createdByUserId String
+  createdAt       DateTime                      @default(now())
+  updatedAt       DateTime                      @updatedAt
+  expiresAt       DateTime?
+
+  @@unique([projectId, playbookId, scopeId, rulesHash])
+  @@index([projectId, playbookId, updatedAt(sort: Desc)])
 }

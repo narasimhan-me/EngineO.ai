@@ -43,6 +43,8 @@ interface PlaybookEstimate {
   };
   /** Server-issued scope identifier for binding preview → estimate → apply */
   scopeId: string;
+  /** Deterministic hash of rules configuration for binding preview → estimate → apply */
+  rulesHash: string;
 }
 
 interface PreviewSample {
@@ -507,10 +509,10 @@ export default function AutomationPlaybooksPage() {
   const handleApplyPlaybook = useCallback(async () => {
     if (!selectedPlaybookId) return;
     if (!estimate || !estimate.canProceed) return;
-    if (!estimate.scopeId) {
-      // scopeId is required but missing - fetch a fresh estimate
+    if (!estimate.scopeId || !estimate.rulesHash) {
+      // scopeId and rulesHash are required but missing - fetch a fresh estimate
       feedback.showError(
-        'Estimate is stale (missing scopeId). Please re-run the preview to refresh.',
+        'Estimate is stale (missing scopeId or rulesHash). Please re-run the preview to refresh.',
       );
       setFlowState('PREVIEW_READY');
       return;
@@ -525,6 +527,7 @@ export default function AutomationPlaybooksPage() {
         projectId,
         selectedPlaybookId,
         estimate.scopeId,
+        estimate.rulesHash,
       );
       setApplyResult(data);
       if (data.updatedCount > 0) {
@@ -710,9 +713,9 @@ export default function AutomationPlaybooksPage() {
       if (parsed.previewSamples) {
         setPreviewSamples(parsed.previewSamples);
       }
-      // Only restore estimate if it has a scopeId (required since AUTO-PB-1.3).
-      // Stale estimates from before scopeId was added will be re-fetched fresh.
-      if (parsed.estimate && parsed.estimate.scopeId) {
+      // Only restore estimate if it has scopeId and rulesHash (required since AUTO-PB-1.3).
+      // Stale estimates from before these fields were added will be re-fetched fresh.
+      if (parsed.estimate && parsed.estimate.scopeId && parsed.estimate.rulesHash) {
         setEstimate(parsed.estimate);
       }
       if (parsed.applyResult) {

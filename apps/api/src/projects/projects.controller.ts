@@ -29,7 +29,11 @@ import {
 } from '@engineo/shared';
 import { deoScoreQueue, crawlQueue } from '../queues/queues';
 import { AnswerEngineService } from './answer-engine.service';
-import { AutomationPlaybooksService, AutomationPlaybookId } from './automation-playbooks.service';
+import {
+  AutomationPlaybooksService,
+  AutomationPlaybookId,
+  PlaybookRulesV1,
+} from './automation-playbooks.service';
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard)
@@ -307,10 +311,93 @@ export class ProjectsController {
   }
 
   /**
+   * POST /projects/:id/automation-playbooks/:playbookId/preview
+   * Generate a preview draft for an automation playbook. Creates or updates a draft keyed by
+   * (projectId, playbookId, scopeId, rulesHash) and returns sample suggestions plus draft metadata.
+   */
+  @Post(':id/automation-playbooks/:playbookId/preview')
+  async previewAutomationPlaybook(
+    @Request() req: any,
+    @Param('id') projectId: string,
+    @Param('playbookId') playbookId: AutomationPlaybookId,
+    @Body()
+    body: {
+      rules?: PlaybookRulesV1;
+      sampleSize?: number;
+    },
+  ) {
+    return this.automationPlaybooksService.previewPlaybook(
+      req.user.id,
+      projectId,
+      playbookId,
+      body?.rules,
+      body?.sampleSize,
+    );
+  }
+
+  /**
+   * POST /projects/:id/automation-playbooks/:playbookId/draft/generate
+   * Generate a full draft for all affected products for a given scopeId + rulesHash combination.
+   * This is the only endpoint that performs full AI generation for playbooks.
+   */
+  @Post(':id/automation-playbooks/:playbookId/draft/generate')
+  async generateAutomationPlaybookDraft(
+    @Request() req: any,
+    @Param('id') projectId: string,
+    @Param('playbookId') playbookId: AutomationPlaybookId,
+    @Body()
+    body: {
+      scopeId: string;
+      rulesHash: string;
+    },
+  ) {
+    if (!body?.scopeId) {
+      throw new BadRequestException('scopeId is required');
+    }
+    if (!body?.rulesHash) {
+      throw new BadRequestException('rulesHash is required');
+    }
+    return this.automationPlaybooksService.generateDraft(
+      req.user.id,
+      projectId,
+      playbookId,
+      body.scopeId,
+      body.rulesHash,
+    );
+  }
+
+  /**
+   * GET /projects/:id/automation-playbooks/:playbookId/draft/latest
+   * Returns the most recent draft for the given project + playbook, if any.
+   * Used to hydrate previews without re-running AI.
+   */
+  @Get(':id/automation-playbooks/:playbookId/draft/latest')
+  async getLatestAutomationPlaybookDraft(
+    @Request() req: any,
+    @Param('id') projectId: string,
+    @Param('playbookId') playbookId: AutomationPlaybookId,
+  ) {
+    const draft = await this.automationPlaybooksService.getLatestDraft(
+      req.user.id,
+      projectId,
+      playbookId,
+    );
+    if (!draft) {
+      return {
+        projectId,
+        playbookId,
+        draft: null,
+      };
+    }
+    return draft;
+  }
+
+  /**
    * POST /projects/:id/automation-playbooks/apply
    * Apply an automation playbook to affected products.
    * Requires scopeId from the estimate response to ensure the apply targets
-   * the exact same set of products that was previewed/estimated.
+   * the exact same set of products that was previewed/estimated, and rulesHash
+   * to bind apply to the rules snapshot used for draft generation.
    */
   @Post(':id/automation-playbooks/apply')
   async applyAutomationPlaybook(
@@ -320,6 +407,7 @@ export class ProjectsController {
     body: {
       playbookId: AutomationPlaybookId;
       scopeId: string;
+      rulesHash: string;
     },
   ) {
     if (!body?.playbookId) {
@@ -328,11 +416,15 @@ export class ProjectsController {
     if (!body?.scopeId) {
       throw new BadRequestException('scopeId is required');
     }
+    if (!body?.rulesHash) {
+      throw new BadRequestException('rulesHash is required');
+    }
     return this.automationPlaybooksService.applyPlaybook(
       req.user.id,
       projectId,
       body.playbookId,
       body.scopeId,
+      body.rulesHash,
     );
   }
 }
