@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-import type { DeoIssue } from '@engineo/shared';
+import type { DeoIssue } from '@/lib/deo-issues';
 import type { Product, ProductStatus } from '@/lib/products';
 import { getProductStatus } from '@/lib/products';
 import { ProductRow } from './ProductRow';

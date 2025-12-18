@@ -3,13 +3,13 @@
 import { useEffect, useState, useCallback, use } from 'react';
 import { projectsApi } from '@/lib/api';
 import { OffsiteSignalsPanel } from '@/components/projects/OffsiteSignalsPanel';
-import {
+import type {
   ProjectOffsiteSignalsResponse,
   OffsiteGapType,
   OffsiteSignalType,
   OffsiteFixDraftType,
   OffsiteFixDraft,
-} from '@engineo/shared';
+} from '@/lib/offsite-signals';
 
 /**
  * Off-site Signals Workspace (OFFSITE-1)

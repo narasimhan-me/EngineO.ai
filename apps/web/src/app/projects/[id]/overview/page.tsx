@@ -9,9 +9,14 @@ import type { Product } from '@/lib/products';
 import type {
   DeoScoreLatestResponse,
   DeoScoreSignals,
-  DeoIssuesResponse,
   DeoIssue,
-} from '@engineo/shared';
+} from '@/lib/deo-issues';
+
+interface DeoIssuesResponse {
+  projectId: string;
+  generatedAt: string;
+  issues: DeoIssue[];
+}
 import { DeoScoreCard } from '@/components/projects/DeoScoreCard';
 import { DeoComponentBreakdown } from '@/components/projects/DeoComponentBreakdown';
 import { DeoSignalsSummary } from '@/components/projects/DeoSignalsSummary';

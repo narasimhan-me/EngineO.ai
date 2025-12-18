@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-import type { DeoIssue } from '@engineo/shared';
+import type { DeoIssue } from '@/lib/deo-issues';
 import { ProductTable } from '@/components/products/ProductTable';
 import { isAuthenticated, getToken } from '@/lib/auth';
 import {

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-import type { DeoIssue } from '@engineo/shared';
+import type { DeoIssue } from '@/lib/deo-issues';
 import { isAuthenticated } from '@/lib/auth';
 import { projectsApi, aiApi, ApiError } from '@/lib/api';
 import type { ContentPage } from '@/lib/content';

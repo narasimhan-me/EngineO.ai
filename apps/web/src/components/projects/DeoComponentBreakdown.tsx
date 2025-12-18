@@ -1,4 +1,4 @@
-import type { DeoScoreBreakdown } from '@engineo/shared';
+import type { DeoScoreBreakdown } from '@/lib/deo-issues';
 
 interface DeoComponentBreakdownProps {
   score: DeoScoreBreakdown | null;

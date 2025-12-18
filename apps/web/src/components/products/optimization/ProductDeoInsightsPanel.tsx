@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { DeoIssue } from '@engineo/shared';
+import type { DeoIssue } from '@/lib/deo-issues';
 import type { Product } from '@/lib/products';
 import { getProductStatus } from '@/lib/products';
 import { ISSUE_UI_CONFIG } from '@/components/issues/IssuesList';

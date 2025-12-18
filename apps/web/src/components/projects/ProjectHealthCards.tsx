@@ -1,4 +1,4 @@
-import type { DeoScoreSignals } from '@engineo/shared';
+import type { DeoScoreSignals } from '@/lib/deo-issues';
 
 interface ProjectHealthCardsProps {
   signals: DeoScoreSignals | null;

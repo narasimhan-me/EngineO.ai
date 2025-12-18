@@ -1,7 +1,44 @@
 import { getToken } from './auth';
 import { redirectToSignIn } from './authNavigation';
+import type {
+  ProjectOffsiteSignalsResponse,
+  ProjectOffsiteCoverage,
+  OffsiteFixDraft,
+  OffsiteGapType,
+  OffsiteSignalType,
+  OffsiteFixDraftType,
+} from '@/lib/offsite-signals';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+// Off-site Signals API types (OFFSITE-1)
+interface OffsiteFixPreviewRequest {
+  gapType: OffsiteGapType;
+  signalType: OffsiteSignalType;
+  focusKey: string;
+  draftType: OffsiteFixDraftType;
+}
+
+interface OffsiteFixPreviewResponse {
+  draft: OffsiteFixDraft;
+  generatedWithAi: boolean;
+  aiUsage?: {
+    tokensUsed: number;
+    latencyMs: number;
+  };
+}
+
+interface OffsiteFixApplyRequest {
+  draftId: string;
+  applyTarget: 'NOTES' | 'CONTENT_WORKSPACE' | 'OUTREACH_DRAFTS';
+}
+
+interface OffsiteFixApplyResponse {
+  success: boolean;
+  updatedCoverage: ProjectOffsiteCoverage;
+  issuesResolved: boolean;
+  issuesAffectedCount: number;
+}
 
 /**
  * Custom API error with optional error code for special handling
@@ -448,6 +485,31 @@ export const projectsApi = {
     fetchWithAuth(`/projects/${id}`, {
       method: 'DELETE',
     }),
+
+  // Off-site Signals API (OFFSITE-1)
+  offsiteSignals: (projectId: string): Promise<ProjectOffsiteSignalsResponse> =>
+    fetchWithAuth(`/projects/${projectId}/offsite-signals`),
+
+  offsiteScorecard: (projectId: string): Promise<ProjectOffsiteCoverage> =>
+    fetchWithAuth(`/projects/${projectId}/offsite-signals/scorecard`),
+
+  previewOffsiteFix: (
+    projectId: string,
+    params: OffsiteFixPreviewRequest,
+  ): Promise<OffsiteFixPreviewResponse> =>
+    fetchWithAuth(`/projects/${projectId}/offsite-signals/preview`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    }),
+
+  applyOffsiteFix: (
+    projectId: string,
+    params: OffsiteFixApplyRequest,
+  ): Promise<OffsiteFixApplyResponse> =>
+    fetchWithAuth(`/projects/${projectId}/offsite-signals/apply`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    }),
 };
 
 export const integrationsApi = {
@@ -892,61 +954,6 @@ export const competitorsApi = {
   getProjectCompetitiveScorecard: (projectId: string): Promise<CompetitiveScorecard> =>
     fetchWithAuth(`/projects/${projectId}/competitors/scorecard`),
 };
-
-// ============================================================================
-// Off-site Signals API (OFFSITE-1)
-// ============================================================================
-
-import type {
-  ProjectOffsiteSignalsResponse,
-  ProjectOffsiteCoverage,
-  OffsiteFixPreviewRequest,
-  OffsiteFixPreviewResponse,
-  OffsiteFixApplyRequest,
-  OffsiteFixApplyResponse,
-} from '@engineo/shared';
-
-// Add to projectsApi for convenience - project-level off-site methods
-Object.assign(projectsApi, {
-  /**
-   * Get project-level off-site signals, coverage, and gaps.
-   */
-  offsiteSignals: (projectId: string): Promise<ProjectOffsiteSignalsResponse> =>
-    fetchWithAuth(`/projects/${projectId}/offsite-signals`),
-
-  /**
-   * Get project-level off-site scorecard only.
-   * Used by DEO Overview to show off-site pillar status.
-   */
-  offsiteScorecard: (projectId: string): Promise<ProjectOffsiteCoverage> =>
-    fetchWithAuth(`/projects/${projectId}/offsite-signals/scorecard`),
-
-  /**
-   * Preview an off-site fix - generates or retrieves a cached draft.
-   * Draft-first pattern: AI is only called if no cached draft exists.
-   */
-  previewOffsiteFix: (
-    projectId: string,
-    params: OffsiteFixPreviewRequest,
-  ): Promise<OffsiteFixPreviewResponse> =>
-    fetchWithAuth(`/projects/${projectId}/offsite-signals/preview`, {
-      method: 'POST',
-      body: JSON.stringify(params),
-    }),
-
-  /**
-   * Apply an off-site fix draft.
-   * No AI call - persists the draft content to appropriate storage.
-   */
-  applyOffsiteFix: (
-    projectId: string,
-    params: OffsiteFixApplyRequest,
-  ): Promise<OffsiteFixApplyResponse> =>
-    fetchWithAuth(`/projects/${projectId}/offsite-signals/apply`, {
-      method: 'POST',
-      body: JSON.stringify(params),
-    }),
-});
 
 export const shopifyApi = {
   syncProducts: (projectId: string) =>

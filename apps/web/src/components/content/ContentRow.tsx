@@ -4,7 +4,7 @@ import type { KeyboardEvent, MouseEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import type { DeoIssueSeverity } from '@engineo/shared';
+import type { DeoIssueSeverity } from '@/lib/deo-issues';
 import type { ContentPage, ContentStatus } from '@/lib/content';
 import { getPageTypeLabel, getContentStatusLabel } from '@/lib/content';
 import { IssueBadge } from '@/components/issues/IssueBadge';

@@ -1,4 +1,4 @@
-import type { DeoIssue } from '@engineo/shared';
+import type { DeoIssue } from '@/lib/deo-issues';
 import type { ContentPage, ContentStatus } from '@/lib/content';
 import { getPageTypeLabel } from '@/lib/content';
 import { ISSUE_UI_CONFIG } from '@/components/issues/IssuesList';

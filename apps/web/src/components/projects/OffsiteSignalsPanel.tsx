@@ -2,18 +2,18 @@
 
 import { useState } from 'react';
 import {
-  ProjectOffsiteCoverage,
-  ProjectOffsiteSignal,
-  OffsiteGap,
-  OffsiteFixDraft,
+  type ProjectOffsiteCoverage,
+  type ProjectOffsiteSignal,
+  type OffsiteGap,
+  type OffsiteFixDraft,
   OFFSITE_SIGNAL_LABELS,
   OFFSITE_SIGNAL_DESCRIPTIONS,
   OFFSITE_GAP_LABELS,
   OFFSITE_FIX_DRAFT_LABELS,
-  OffsiteSignalType,
-  OffsiteGapType,
-  OffsiteFixDraftType,
-} from '@engineo/shared';
+  type OffsiteSignalType,
+  type OffsiteGapType,
+  type OffsiteFixDraftType,
+} from '@/lib/offsite-signals';
 
 interface OffsiteSignalsPanelProps {
   projectId: string;
@@ -42,7 +42,7 @@ interface OffsiteSignalsPanelProps {
  * - Preview fix actions
  */
 export function OffsiteSignalsPanel({
-  projectId,
+  projectId: _projectId,
   coverage,
   signals = [],
   gaps = [],

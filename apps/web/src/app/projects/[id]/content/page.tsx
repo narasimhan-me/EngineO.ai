@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-import type { DeoIssue, DeoIssueSeverity } from '@engineo/shared';
+import type { DeoIssue, DeoIssueSeverity } from '@/lib/deo-issues';
 import { DEO_PILLARS } from '@/lib/deo-pillars';
 import { isAuthenticated } from '@/lib/auth';
 import { projectsApi } from '@/lib/api';

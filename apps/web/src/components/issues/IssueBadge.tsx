@@ -1,4 +1,4 @@
-import type { DeoIssueSeverity } from '@engineo/shared';
+import type { DeoIssueSeverity } from '@/lib/deo-issues';
 
 interface IssueBadgeProps {
   count: number;

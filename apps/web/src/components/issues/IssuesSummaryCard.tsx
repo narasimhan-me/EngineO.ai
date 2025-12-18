@@ -1,4 +1,4 @@
-import type { DeoIssue } from '@engineo/shared';
+import type { DeoIssue } from '@/lib/deo-issues';
 
 interface IssuesSummaryCardProps {
   issues: DeoIssue[];

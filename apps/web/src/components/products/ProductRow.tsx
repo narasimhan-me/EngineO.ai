@@ -3,7 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import type { DeoIssueSeverity } from '@engineo/shared';
+import type { DeoIssueSeverity } from '@/lib/deo-issues';
 import type { Product, ProductStatus } from '@/lib/products';
 import { ProductDetailPanel } from './ProductDetailPanel';
 import { IssueBadge } from '@/components/issues/IssueBadge';
