@@ -16,6 +16,16 @@ export interface Product {
 
 export type ProductStatus = 'missing-metadata' | 'needs-optimization' | 'optimized';
 
+/**
+ * Get the SEO Metadata status for a product.
+ *
+ * IMPORTANT: This function defines the SEO Metadata status only (Metadata & Snippet Quality pillar).
+ * It must never be used as a proxy for overall DEO health. DEO issues are tracked separately
+ * via the DeoIssue system and should be displayed alongside metadata status, not hidden by it.
+ *
+ * @param product - The product to evaluate
+ * @returns ProductStatus - 'missing-metadata' | 'needs-optimization' | 'optimized'
+ */
 export function getProductStatus(product: Product): ProductStatus {
   const hasTitle = !!product.seoTitle?.trim();
   const hasDescription = !!product.seoDescription?.trim();

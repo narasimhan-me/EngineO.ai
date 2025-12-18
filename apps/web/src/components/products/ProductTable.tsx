@@ -89,11 +89,12 @@ export function ProductTable({
     setExpandedProductId((current) => (current === productId ? null : productId));
   };
 
+  // Filter labels explicitly reference metadata status (not overall DEO health)
   const filters: { id: ProductFilter; label: string }[] = [
     { id: 'all', label: 'All' },
-    { id: 'needs-optimization', label: 'Needs Optimization' },
-    { id: 'optimized', label: 'Optimized' },
-    { id: 'missing-metadata', label: 'Missing Metadata' },
+    { id: 'needs-optimization', label: 'Metadata needs work' },
+    { id: 'optimized', label: 'Metadata OK' },
+    { id: 'missing-metadata', label: 'Metadata missing' },
   ];
 
   return (
@@ -126,6 +127,10 @@ export function ProductTable({
         <div className="text-xs text-gray-500">
           Showing {filteredProducts.length} of {statusCounts.all} products
         </div>
+      </div>
+      {/* Metadata status hint */}
+      <div className="border-b border-gray-100 px-4 py-2 text-xs text-gray-400">
+        Filters reflect metadata status only. DEO issues are shown per-row via issue counts.
       </div>
 
       {filteredProducts.length === 0 ? (

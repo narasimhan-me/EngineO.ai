@@ -742,7 +742,13 @@ export default function ProjectOverviewPage() {
             {status?.projectName || 'Project Overview'}
           </h1>
           <p className="text-gray-600">
-            DEO intelligence for your project across content, entities, technical, and visibility.
+            DEO intelligence for your project across content, entities, technical, and visibility.{' '}
+            <Link
+              href={`/projects/${projectId}/deo`}
+              className="text-blue-600 hover:text-blue-800"
+            >
+              View DEO pillars →
+            </Link>
           </p>
         </div>
       </div>
@@ -1145,13 +1151,12 @@ export default function ProjectOverviewPage() {
           <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-900">Top blockers</h3>
-              <button
-                type="button"
-                onClick={() => setShowIssuesPanel(true)}
+              <Link
+                href={`/projects/${projectId}/issues`}
                 className="text-xs font-medium text-blue-600 hover:text-blue-800"
               >
-                View all issues
-              </button>
+                View all issues →
+              </Link>
             </div>
             {deoIssuesLoading ? (
               <p className="text-xs text-gray-500">Loading issues…</p>

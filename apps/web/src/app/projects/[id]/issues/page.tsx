@@ -1,27 +1,34 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-import type { DeoIssue, DeoIssueFixType } from '@engineo/shared';
+import type { DeoIssue, DeoIssueFixType, DeoPillarId } from '@engineo/shared';
+import { DEO_PILLARS } from '@engineo/shared';
 import { ISSUE_UI_CONFIG } from '@/components/issues/IssuesList';
 import { isAuthenticated, getToken } from '@/lib/auth';
 import { ApiError, aiApi, projectsApi } from '@/lib/api';
 import { useFeedback } from '@/components/feedback/FeedbackProvider';
 
 type SeverityFilter = 'all' | 'critical' | 'warning' | 'info';
+type PillarFilter = 'all' | DeoPillarId;
 
 export default function IssuesPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const projectId = params.id as string;
+
+  // Read pillar filter from URL query param (?pillar=metadata_snippet_quality)
+  const pillarParam = searchParams.get('pillar') as DeoPillarId | null;
 
   const [issues, setIssues] = useState<DeoIssue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [projectName, setProjectName] = useState<string | null>(null);
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
+  const [pillarFilter, setPillarFilter] = useState<PillarFilter>(pillarParam ?? 'all');
   const [rescanning, setRescanning] = useState(false);
   const [fixingIssueId, setFixingIssueId] = useState<string | null>(null);
 
@@ -78,6 +85,11 @@ export default function IssuesPage() {
     fetchProjectInfo();
   }, [projectId, router, fetchIssues, fetchProjectInfo]);
 
+  // Sync pillarFilter state when URL param changes
+  useEffect(() => {
+    setPillarFilter(pillarParam ?? 'all');
+  }, [pillarParam]);
+
   useEffect(() => {
     if (previewIssueId && previewPanelRef.current) {
       previewPanelRef.current.focus();
@@ -101,11 +113,32 @@ export default function IssuesPage() {
   const warningCount = issues.filter((i) => i.severity === 'warning').length;
   const infoCount = issues.filter((i) => i.severity === 'info').length;
 
-  // Filter issues by severity
-  const filteredIssues =
-    severityFilter === 'all'
-      ? issues
-      : issues.filter((i) => i.severity === severityFilter);
+  // Filter issues by severity and pillar
+  const filteredIssues = issues.filter((issue) => {
+    // Severity filter
+    if (severityFilter !== 'all' && issue.severity !== severityFilter) {
+      return false;
+    }
+    // Pillar filter
+    if (pillarFilter !== 'all' && issue.pillarId !== pillarFilter) {
+      return false;
+    }
+    return true;
+  });
+
+  // Handler to update pillar filter and URL
+  const handlePillarFilterChange = (newFilter: PillarFilter) => {
+    setPillarFilter(newFilter);
+    // Update URL without full navigation
+    const params = new URLSearchParams(searchParams.toString());
+    if (newFilter === 'all') {
+      params.delete('pillar');
+    } else {
+      params.set('pillar', newFilter);
+    }
+    const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname;
+    router.replace(newUrl, { scroll: false });
+  };
 
   const getFixAction = (issue: DeoIssue) => {
     const fixType = issue.fixType as DeoIssueFixType | undefined;
@@ -435,26 +468,72 @@ export default function IssuesPage() {
         </div>
       </div>
 
-      {/* Severity Filter */}
-      <div className="mb-4 flex flex-wrap gap-2">
-        {(['all', 'critical', 'warning', 'info'] as const).map((filter) => (
-          <button
-            key={filter}
-            onClick={() => setSeverityFilter(filter)}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              severityFilter === filter
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            {filter === 'all' ? 'All' : filter.charAt(0).toUpperCase() + filter.slice(1)}
-            {filter !== 'all' && (
-              <span className="ml-1">
-                ({filter === 'critical' ? criticalCount : filter === 'warning' ? warningCount : infoCount})
-              </span>
-            )}
-          </button>
-        ))}
+      {/* Filters Section */}
+      <div className="mb-6 space-y-4">
+        {/* Pillar Filter */}
+        <div>
+          <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-gray-500">
+            Filter by DEO Pillar
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => handlePillarFilterChange('all')}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                pillarFilter === 'all'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              All pillars
+            </button>
+            {DEO_PILLARS.filter((p) => !p.comingSoon).map((pillar) => {
+              const pillarIssueCount = issues.filter((i) => i.pillarId === pillar.id).length;
+              return (
+                <button
+                  key={pillar.id}
+                  onClick={() => handlePillarFilterChange(pillar.id)}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                    pillarFilter === pillar.id
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {pillar.shortName}
+                  {pillarIssueCount > 0 && (
+                    <span className="ml-1 text-xs opacity-75">({pillarIssueCount})</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Severity Filter */}
+        <div>
+          <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-gray-500">
+            Filter by Severity
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {(['all', 'critical', 'warning', 'info'] as const).map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setSeverityFilter(filter)}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  severityFilter === filter
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {filter === 'all' ? 'All severities' : filter.charAt(0).toUpperCase() + filter.slice(1)}
+                {filter !== 'all' && (
+                  <span className="ml-1">
+                    ({filter === 'critical' ? criticalCount : filter === 'warning' ? warningCount : infoCount})
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Issues List with Fix Actions */}
@@ -474,10 +553,14 @@ export default function IssuesPage() {
             />
           </svg>
           <h3 className="mt-2 text-sm font-medium text-green-800">
-            {severityFilter === 'all' ? 'No issues detected' : `No ${severityFilter} issues`}
+            {severityFilter === 'all' && pillarFilter === 'all'
+              ? 'No issues detected'
+              : pillarFilter !== 'all'
+                ? `No issues for ${DEO_PILLARS.find((p) => p.id === pillarFilter)?.shortName ?? pillarFilter}`
+                : `No ${severityFilter} issues`}
           </h3>
           <p className="mt-1 text-sm text-green-700">
-            {severityFilter === 'all'
+            {severityFilter === 'all' && pillarFilter === 'all'
               ? 'Your project looks healthy based on the latest analysis.'
               : 'Try selecting a different filter to see other issues.'}
           </p>

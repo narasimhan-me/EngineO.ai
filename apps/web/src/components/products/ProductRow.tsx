@@ -102,12 +102,13 @@ export function ProductRow({
     });
   };
 
+  // Status labels explicitly reference metadata status (not overall DEO health)
   const statusLabel =
     status === 'optimized'
-      ? 'Optimized'
+      ? 'Metadata optimized'
       : status === 'needs-optimization'
-        ? 'Needs optimization'
-        : 'Missing metadata';
+        ? 'Metadata needs work'
+        : 'Metadata missing';
 
   const statusClasses =
     status === 'optimized'
@@ -268,7 +269,13 @@ export function ProductRow({
               <span>Alt text</span>
             </span>
             {issueCount && issueCount > 0 && (
-              <IssueBadge count={issueCount} severity={maxIssueSeverity} />
+              <IssueBadge
+                count={issueCount}
+                severity={maxIssueSeverity}
+                onClick={() => {
+                  router.push(`${workspacePath}?from=products&focus=deo-issues`);
+                }}
+              />
             )}
           </div>
         </div>

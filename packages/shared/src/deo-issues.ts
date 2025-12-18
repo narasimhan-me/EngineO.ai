@@ -1,7 +1,17 @@
+import type { DeoPillarId } from './deo-pillars';
+
 export type DeoIssueSeverity = 'critical' | 'warning' | 'info';
 
 /** How an issue is intended to be resolved */
 export type DeoIssueFixType = 'aiFix' | 'manualFix' | 'syncFix';
+
+/**
+ * Coarse UX-level hint for how an issue is addressed:
+ * - 'manual': User-driven work (editing content, settings changes)
+ * - 'automation': AI/sync driven (one-click fixes, automated sync)
+ * - 'informational': Diagnostic only; no direct fix flow
+ */
+export type DeoIssueActionability = 'manual' | 'automation' | 'informational';
 
 /**
  * Issue Engine Full category taxonomy.
@@ -34,6 +44,22 @@ export interface DeoIssue {
   count: number;
   affectedPages?: string[];
   affectedProducts?: string[];
+
+  /**
+   * Canonical pillar assignment. Every issue must belong to exactly one DeoPillarId.
+   * This determines where the issue appears in the pillar-centric UI (DEO Overview,
+   * Issues Engine pillar grouping, Product details pillar tabs).
+   */
+  pillarId?: DeoPillarId;
+
+  /**
+   * Coarse UX-level hint for how this issue is addressed:
+   * - 'manual': User-driven work (editing content, settings changes)
+   * - 'automation': AI/sync driven (one-click fixes, automated sync)
+   * - 'informational': Diagnostic only; no direct fix flow
+   * Always set by backend builders in DEO-IA-1 and later phases.
+   */
+  actionability?: DeoIssueActionability;
 
   // === Issue Engine Lite fields (Phase UX-7) ===
   /** Stable issue type identifier (e.g., 'missing_seo_title', 'weak_description') */

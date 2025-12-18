@@ -329,13 +329,26 @@ export default function ProductOptimizationPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!product) return;
-    if (searchParams.get('focus') !== 'metadata') return;
-    const timeoutId = window.setTimeout(() => {
-      scrollToSection('metadata-section');
-    }, 200);
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
+    const focus = searchParams.get('focus');
+
+    // Handle different focus query params for deep-linking
+    if (focus === 'metadata') {
+      const timeoutId = window.setTimeout(() => {
+        scrollToSection('metadata-section');
+      }, 200);
+      return () => {
+        window.clearTimeout(timeoutId);
+      };
+    }
+
+    if (focus === 'deo-issues') {
+      const timeoutId = window.setTimeout(() => {
+        scrollToSection('deo-issues-section');
+      }, 200);
+      return () => {
+        window.clearTimeout(timeoutId);
+      };
+    }
   }, [product, searchParams, scrollToSection]);
 
   if (loading) {

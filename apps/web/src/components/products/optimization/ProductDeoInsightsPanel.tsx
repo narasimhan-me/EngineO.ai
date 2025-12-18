@@ -77,7 +77,7 @@ export function ProductDeoInsightsPanel({ product, productIssues }: ProductDeoIn
       <div className="space-y-4">
         <div className="rounded-md bg-gray-50 p-3">
           <div className="mb-1 flex items-center justify-between">
-            <span className="text-xs font-medium text-gray-700">DEO Score & Issues</span>
+            <span className="text-xs font-medium text-gray-700">Metadata & Content Status</span>
             <span className={`text-xs font-medium ${statusInfo.color}`}>
               {statusInfo.label}
             </span>
@@ -88,6 +88,12 @@ export function ProductDeoInsightsPanel({ product, productIssues }: ProductDeoIn
           <div className="mt-1 text-xs text-gray-600">
             {metadataSummary}
           </div>
+          {/* Note about overall status not being global DEO verdict */}
+          {productIssues && productIssues.length > 0 && status === 'optimized' && (
+            <div className="mt-2 rounded border border-yellow-200 bg-yellow-50 px-2 py-1 text-[10px] text-yellow-800">
+              DEO issues present — see below. Metadata may look good, but other DEO signals need attention.
+            </div>
+          )}
         </div>
 
         {expanded && (

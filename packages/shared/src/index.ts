@@ -45,6 +45,9 @@ export * from './deo-score-engine';
 // DEO issues types
 export * from './deo-issues';
 
+// DEO pillars types
+export * from './deo-pillars';
+
 // Answer Engine types
 export * from './answer-engine';
 

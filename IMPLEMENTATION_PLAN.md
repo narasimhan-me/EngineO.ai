@@ -11214,4 +11214,73 @@ These Phases 23–30 plus Phases UX-1, UX-1.1, UX-2, UX-3, UX-4, UX-5, UX-6, UX-
 
 ---
 
+## Phase DEO-IA-1 – Pillarized DEO Information Architecture & UX Contracts (Completed)
+
+**Status:** Complete
+
+**Goal:** Establish the canonical 8-pillar DEO model as the organizing principle for all DEO-related features, with clear UX contracts for status vs. health separation, pillar-based filtering, and deep-linking.
+
+### DEO-IA-1 Overview
+
+This phase introduces:
+
+1. **Canonical DEO Pillars** — 8 pillars defined in shared types: Metadata & Snippet Quality, Content & Commerce Signals, Media & Accessibility, Search & Intent Fit, Competitive Positioning, Off-site Signals, Local Discovery, Technical & Indexability.
+2. **Issue-to-Pillar Mapping** — Every DEO issue now includes `pillarId` and `actionability` fields.
+3. **Pillar-Centric Navigation** — Navigation structure updated to reflect pillar workspaces.
+4. **Status vs. Health Separation** — Clear UX distinction between "Metadata status" (title/description presence) and "DEO health" (all issues across pillars).
+5. **Pillar Filtering in Issues Engine** — Filter issues by pillar with URL-based state.
+6. **Deep-Linking Support** — Focus parameters (`?focus=metadata`, `?focus=deo-issues`) and pillar filters (`?pillar=X`).
+7. **DEO Overview Page** — Central hub showing pillar scorecards and issue counts.
+8. **Pillar Placeholder Pages** — Metadata, Media, and Technical pillar workspace pages.
+
+### DEO-IA-1 Implementation Details
+
+**Shared Types (packages/shared):**
+- Created `deo-pillars.ts` with `DeoPillarId`, `DeoPillar`, and `DEO_PILLARS` registry.
+- Updated `deo-issues.ts` with `pillarId` and `actionability` fields.
+- Exported new types from `index.ts`.
+
+**Backend (apps/api):**
+- Updated `deo-issues.service.ts` to include `pillarId` and `actionability` in all issue builders.
+
+**Frontend (apps/web):**
+- Updated `ProjectSideNav.tsx` with pillar-centric navigation order.
+- Created `DEO Overview` page (`/projects/[id]/deo`) with pillar scorecards.
+- Created `Metadata` placeholder page (`/projects/[id]/metadata`).
+- Created `Media` placeholder page (`/projects/[id]/media`).
+- Updated `Technical` page (`/projects/[id]/performance`) with pillar context.
+- Updated `Content` page with pillar context and links.
+- Updated `Issues Engine` with pillar filter UI and URL parameter support.
+- Updated `IssuesList.tsx` with pillar grouping capability.
+- Updated `IssueBadge.tsx` with onClick prop and "DEO issues" label.
+- Updated `ProductRow.tsx` with "Metadata optimized/needs work/missing" labels.
+- Updated `ProductTable.tsx` with metadata-specific filter labels.
+- Updated `ProductDeoInsightsPanel.tsx` to show warning when metadata OK but issues exist.
+- Added `?focus=deo-issues` deep-linking to product workspace.
+
+**Documentation:**
+- Created `docs/DEO_PILLARS.md` — Canonical pillar reference.
+- Created `docs/DEO_INFORMATION_ARCHITECTURE.md` — IA and UX contracts.
+- Created `docs/manual-testing/DEO-IA-1.md` — Manual test script.
+
+### DEO-IA-1 Acceptance Criteria (Completed)
+
+- [x] Canonical 8-pillar model defined in shared types.
+- [x] All DEO issues include `pillarId` and `actionability`.
+- [x] Navigation updated with pillar-centric structure.
+- [x] DEO Overview page shows pillar scorecards.
+- [x] Issues Engine has pillar filter with URL state.
+- [x] Product status labels explicitly say "Metadata".
+- [x] Issue badge shows "X DEO issues" and is clickable.
+- [x] Deep-linking works for `?focus=metadata` and `?focus=deo-issues`.
+- [x] Pillar placeholder pages created (Metadata, Media).
+- [x] Technical page updated with pillar context.
+- [x] Content page shows pillar context.
+- [x] Documentation created (DEO_PILLARS.md, DEO_INFORMATION_ARCHITECTURE.md).
+- [x] Manual testing doc created.
+
+**Manual Testing:** `docs/manual-testing/DEO-IA-1.md`
+
+---
+
 **Author:** Narasimhan Mahendrakumar

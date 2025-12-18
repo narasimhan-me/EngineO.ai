@@ -5,11 +5,15 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 import type { DeoIssue, DeoIssueSeverity } from '@engineo/shared';
+import { DEO_PILLARS } from '@engineo/shared';
 import { isAuthenticated } from '@/lib/auth';
 import { projectsApi } from '@/lib/api';
 import type { ContentPage, ContentStatus, PageType } from '@/lib/content';
 import { getContentStatus } from '@/lib/content';
 import { ContentRow } from '@/components/content/ContentRow';
+import { GuardedLink } from '@/components/navigation/GuardedLink';
+
+const CONTENT_PILLAR = DEO_PILLARS.find((p) => p.id === 'content_commerce_signals')!;
 
 type StatusFilter = 'all' | ContentStatus;
 type PageTypeFilter = 'all' | PageType;
@@ -213,12 +217,30 @@ export default function ContentListPage() {
               {projectName}
             </Link>
             <span className="text-gray-300">/</span>
-            <h1 className="text-2xl font-bold text-gray-900">Content</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{CONTENT_PILLAR.label}</h1>
           </div>
           <p className="mt-1 text-sm text-gray-500">
-            Manage and optimize your non-product content pages for SEO
+            {CONTENT_PILLAR.description}
           </p>
         </div>
+      </div>
+
+      {/* Pillar Context */}
+      <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <h3 className="text-sm font-semibold text-gray-900">
+          About this DEO Pillar
+        </h3>
+        <p className="mt-2 text-sm text-gray-600">{CONTENT_PILLAR.whyItMatters}</p>
+        <p className="mt-3 text-xs text-gray-500">
+          Content-related DEO issues are tracked under this pillar. View them in the{' '}
+          <GuardedLink
+            href={`/projects/${projectId}/issues?pillar=content_commerce_signals`}
+            className="font-medium text-blue-600 hover:underline"
+          >
+            Issues Engine
+          </GuardedLink>
+          .
+        </p>
       </div>
 
       {/* Content card */}

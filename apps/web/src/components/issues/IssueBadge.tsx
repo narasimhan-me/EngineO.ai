@@ -3,9 +3,11 @@ import type { DeoIssueSeverity } from '@engineo/shared';
 interface IssueBadgeProps {
   count: number;
   severity?: DeoIssueSeverity | null;
+  /** Optional click handler to make the badge interactive */
+  onClick?: () => void;
 }
 
-export function IssueBadge({ count, severity }: IssueBadgeProps) {
+export function IssueBadge({ count, severity, onClick }: IssueBadgeProps) {
   if (!count || count <= 0) {
     return null;
   }
@@ -19,13 +21,30 @@ export function IssueBadge({ count, severity }: IssueBadgeProps) {
     colorClasses = 'bg-blue-50 text-blue-700 border border-blue-200';
   }
 
+  const baseClasses = `inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${colorClasses}`;
+
+  // When onClick is provided, render as a clickable button
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`${baseClasses} cursor-pointer hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1`}
+      >
+        <span aria-hidden="true">⚠️</span>
+        <span>
+          {count} DEO {count === 1 ? 'issue' : 'issues'}
+        </span>
+      </button>
+    );
+  }
+
+  // Non-interactive badge
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${colorClasses}`}
-    >
+    <span className={baseClasses}>
       <span aria-hidden="true">⚠️</span>
       <span>
-        {count} {count === 1 ? 'issue' : 'issues'}
+        {count} DEO {count === 1 ? 'issue' : 'issues'}
       </span>
     </span>
   );

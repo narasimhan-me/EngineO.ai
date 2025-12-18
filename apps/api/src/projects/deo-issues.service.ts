@@ -1,7 +1,13 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { DeoSignalsService } from './deo-score.service';
-import { DeoIssue, DeoIssuesResponse, DeoScoreSignals } from '@engineo/shared';
+import {
+  DeoIssue,
+  DeoIssuesResponse,
+  DeoScoreSignals,
+  DeoPillarId,
+  DeoIssueActionability,
+} from '@engineo/shared';
 import { AutomationService } from './automation.service';
 
 @Injectable()
@@ -240,6 +246,9 @@ export class DeoIssuesService {
       count: totalMissing,
       affectedPages,
       affectedProducts,
+      // DEO-IA-1: Pillar assignment
+      pillarId: 'metadata_snippet_quality' as DeoPillarId,
+      actionability: 'manual' as DeoIssueActionability,
       // Issue Engine Full metadata (Phase UX-8 / IE-2.0)
       category: 'metadata',
       whyItMatters:
@@ -307,6 +316,9 @@ export class DeoIssuesService {
       count: thinSurfaces,
       affectedPages,
       affectedProducts,
+      // DEO-IA-1: Pillar assignment
+      pillarId: 'content_commerce_signals' as DeoPillarId,
+      actionability: 'manual' as DeoIssueActionability,
       // Issue Engine Full metadata (Phase UX-8 / IE-2.0)
       category: 'content_entity',
       whyItMatters:
@@ -385,6 +397,9 @@ export class DeoIssuesService {
       count: entityIssueSurfaces,
       affectedPages,
       affectedProducts,
+      // DEO-IA-1: Pillar assignment (ties to entity/content structure)
+      pillarId: 'content_commerce_signals' as DeoPillarId,
+      actionability: 'manual' as DeoIssueActionability,
       // Issue Engine Full metadata (Phase UX-8 / IE-2.0)
       category: 'schema_visibility',
       whyItMatters:
@@ -445,6 +460,9 @@ export class DeoIssuesService {
       severity,
       count: issueCount,
       affectedPages,
+      // DEO-IA-1: Pillar assignment
+      pillarId: 'technical_indexability' as DeoPillarId,
+      actionability: 'manual' as DeoIssueActionability,
       // Issue Engine Full metadata (Phase UX-8 / IE-2.0)
       category: 'technical',
       whyItMatters:
@@ -499,6 +517,9 @@ export class DeoIssuesService {
       severity,
       count: weakCount,
       affectedPages,
+      // DEO-IA-1: Pillar assignment (answer surfaces map to intent-fit & answerability)
+      pillarId: 'search_intent_fit' as DeoPillarId,
+      actionability: 'manual' as DeoIssueActionability,
       // Issue Engine Full metadata (Phase UX-8 / IE-2.0)
       category: 'answerability',
       whyItMatters:
@@ -550,6 +571,9 @@ export class DeoIssuesService {
       severity,
       count,
       affectedPages: missing,
+      // DEO-IA-1: Pillar assignment (brand & navigational strength treated as visibility/off-site signal)
+      pillarId: 'offsite_signals' as DeoPillarId,
+      actionability: 'manual' as DeoIssueActionability,
       // Issue Engine Full metadata (Phase UX-8 / IE-2.0)
       category: 'schema_visibility',
       whyItMatters:
@@ -605,6 +629,9 @@ export class DeoIssuesService {
       severity,
       count: errorCount,
       affectedPages,
+      // DEO-IA-1: Pillar assignment
+      pillarId: 'technical_indexability' as DeoPillarId,
+      actionability: 'manual' as DeoIssueActionability,
       // Issue Engine Full metadata (Phase UX-8 / IE-2.0)
       category: 'technical',
       whyItMatters:
@@ -672,6 +699,9 @@ export class DeoIssuesService {
       severity,
       count: shortOrMissingDescriptions,
       affectedProducts,
+      // DEO-IA-1: Pillar assignment
+      pillarId: 'content_commerce_signals' as DeoPillarId,
+      actionability: 'manual' as DeoIssueActionability,
       // Issue Engine Full metadata (Phase UX-8 / IE-2.0)
       category: 'content_entity',
       whyItMatters:
@@ -715,6 +745,9 @@ export class DeoIssuesService {
       fixType: 'aiFix',
       fixReady: true,
       primaryProductId: affected[0]?.id,
+      // DEO-IA-1: Pillar assignment
+      pillarId: 'metadata_snippet_quality' as DeoPillarId,
+      actionability: 'automation' as DeoIssueActionability,
       // Issue Engine Full metadata (Phase UX-8 / IE-2.0)
       category: 'metadata',
       whyItMatters:
@@ -756,6 +789,9 @@ export class DeoIssuesService {
       fixType: 'aiFix',
       fixReady: true,
       primaryProductId: affected[0]?.id,
+      // DEO-IA-1: Pillar assignment
+      pillarId: 'metadata_snippet_quality' as DeoPillarId,
+      actionability: 'automation' as DeoIssueActionability,
       // Issue Engine Full metadata (Phase UX-8 / IE-2.0)
       category: 'metadata',
       whyItMatters:
@@ -802,6 +838,9 @@ export class DeoIssuesService {
       fixType: 'aiFix',
       fixReady: true,
       primaryProductId: affected[0]?.id,
+      // DEO-IA-1: Pillar assignment
+      pillarId: 'metadata_snippet_quality' as DeoPillarId,
+      actionability: 'automation' as DeoIssueActionability,
       // Issue Engine Full metadata (Phase UX-8 / IE-2.0)
       category: 'metadata',
       whyItMatters:
@@ -848,6 +887,9 @@ export class DeoIssuesService {
       fixType: 'aiFix',
       fixReady: true,
       primaryProductId: affected[0]?.id,
+      // DEO-IA-1: Pillar assignment
+      pillarId: 'metadata_snippet_quality' as DeoPillarId,
+      actionability: 'automation' as DeoIssueActionability,
       // Issue Engine Full metadata (Phase UX-8 / IE-2.0)
       category: 'metadata',
       whyItMatters:
@@ -895,6 +937,9 @@ export class DeoIssuesService {
       fixType: 'manualFix',
       fixReady: false,
       primaryProductId: affected[0]?.id,
+      // DEO-IA-1: Pillar assignment
+      pillarId: 'content_commerce_signals' as DeoPillarId,
+      actionability: 'automation' as DeoIssueActionability,
       // Issue Engine Full metadata (Phase UX-8 / IE-2.0)
       category: 'content_entity',
       whyItMatters:
@@ -960,6 +1005,9 @@ export class DeoIssuesService {
       fixType: 'aiFix',
       fixReady: true,
       primaryProductId: affectedProducts[0],
+      // DEO-IA-1: Pillar assignment
+      pillarId: 'content_commerce_signals' as DeoPillarId,
+      actionability: 'automation' as DeoIssueActionability,
       // Issue Engine Full metadata (Phase UX-8 / IE-2.0)
       category: 'content_entity',
       whyItMatters:
@@ -1013,6 +1061,9 @@ export class DeoIssuesService {
       fixType: 'aiFix',
       fixReady: true,
       primaryProductId: affected[0]?.id,
+      // DEO-IA-1: Pillar assignment
+      pillarId: 'content_commerce_signals' as DeoPillarId,
+      actionability: 'automation' as DeoIssueActionability,
       // Issue Engine Full metadata (Phase UX-8 / IE-2.0)
       category: 'schema_visibility',
       whyItMatters:
@@ -1063,6 +1114,9 @@ export class DeoIssuesService {
       fixType: 'aiFix',
       fixReady: true,
       primaryProductId: affected[0]?.id,
+      // DEO-IA-1: Pillar assignment
+      pillarId: 'search_intent_fit' as DeoPillarId,
+      actionability: 'automation' as DeoIssueActionability,
       // Issue Engine Full metadata (Phase UX-8 / IE-2.0)
       category: 'answerability',
       whyItMatters:
@@ -1116,6 +1170,9 @@ export class DeoIssuesService {
       fixType: 'aiFix',
       fixReady: true,
       primaryProductId: affected[0]?.id,
+      // DEO-IA-1: Pillar assignment
+      pillarId: 'search_intent_fit' as DeoPillarId,
+      actionability: 'automation' as DeoIssueActionability,
       // Issue Engine Full metadata (Phase UX-8 / IE-2.0)
       category: 'answerability',
       whyItMatters:
@@ -1161,6 +1218,9 @@ export class DeoIssuesService {
       fixType: 'manualFix',
       fixReady: false,
       primaryProductId: affected[0]?.id,
+      // DEO-IA-1: Pillar assignment
+      pillarId: 'media_accessibility' as DeoPillarId,
+      actionability: 'manual' as DeoIssueActionability,
       // Issue Engine Full metadata (Phase UX-8 / IE-2.0)
       category: 'technical',
       whyItMatters:
@@ -1207,6 +1267,9 @@ export class DeoIssuesService {
       fixType: 'syncFix',
       fixReady: true,
       primaryProductId: affected[0]?.id,
+      // DEO-IA-1: Pillar assignment (feeds structured data / shopping visibility)
+      pillarId: 'technical_indexability' as DeoPillarId,
+      actionability: 'automation' as DeoIssueActionability,
       // Issue Engine Full metadata (Phase UX-8 / IE-2.0)
       category: 'technical',
       whyItMatters:
@@ -1252,6 +1315,9 @@ export class DeoIssuesService {
       fixType: 'syncFix',
       fixReady: true,
       primaryProductId: affected[0]?.id,
+      // DEO-IA-1: Pillar assignment
+      pillarId: 'content_commerce_signals' as DeoPillarId,
+      actionability: 'automation' as DeoIssueActionability,
       // Issue Engine Full metadata (Phase UX-8 / IE-2.0)
       category: 'schema_visibility',
       whyItMatters:

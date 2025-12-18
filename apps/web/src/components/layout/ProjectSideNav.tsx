@@ -3,17 +3,24 @@
 import { GuardedLink } from '@/components/navigation/GuardedLink';
 import { useParams, usePathname } from 'next/navigation';
 
+/**
+ * Project navigation items aligned with the DEO pillar-centric model.
+ * Order reflects the canonical pillar hierarchy while maintaining existing routes.
+ */
 const navItems = [
   { label: 'Overview', path: 'overview' },
-  { label: 'Issues & Fixes', path: 'issues' },
   { label: 'Products', path: 'products' },
+  { label: 'DEO Overview', path: 'deo' },
+  { label: 'Metadata', path: 'metadata' },
   { label: 'Content', path: 'content' },
-  { label: 'Performance', path: 'performance' },
+  { label: 'Media', path: 'media' },
   { label: 'Search & Intent', path: 'keywords' },
   { label: 'Competitors', path: 'competitors' },
   { label: 'Off-site Signals', path: 'backlinks' },
-  { label: 'Automation', path: 'automation' },
   { label: 'Local Discovery', path: 'local' },
+  // Technical Indexability pillar (using existing performance route)
+  { label: 'Technical', path: 'performance' },
+  { label: 'Automation', path: 'automation' },
   { label: 'Settings', path: 'settings' },
 ];
 
