@@ -8,6 +8,15 @@ import type {
   OffsiteSignalType,
   OffsiteFixDraftType,
 } from '@/lib/offsite-signals';
+import type {
+  ProjectLocalDiscoveryResponse,
+  LocalDiscoveryScorecard,
+  LocalFixDraft,
+  LocalGapType,
+  LocalSignalType,
+  LocalFixDraftType,
+  ProjectLocalConfig,
+} from '@/lib/local-discovery';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -36,6 +45,36 @@ interface OffsiteFixApplyRequest {
 interface OffsiteFixApplyResponse {
   success: boolean;
   updatedCoverage: ProjectOffsiteCoverage;
+  issuesResolved: boolean;
+  issuesAffectedCount: number;
+}
+
+// Local Discovery API types (LOCAL-1)
+interface LocalFixPreviewRequest {
+  gapType: LocalGapType;
+  signalType: LocalSignalType;
+  focusKey: string;
+  draftType: LocalFixDraftType;
+  productId?: string;
+}
+
+interface LocalFixPreviewResponse {
+  draft: LocalFixDraft;
+  generatedWithAi: boolean;
+  aiUsage?: {
+    tokensUsed: number;
+    latencyMs: number;
+  };
+}
+
+interface LocalFixApplyRequest {
+  draftId: string;
+  applyTarget: 'ANSWER_BLOCK' | 'CONTENT_SECTION';
+}
+
+interface LocalFixApplyResponse {
+  success: boolean;
+  updatedScorecard: LocalDiscoveryScorecard;
   issuesResolved: boolean;
   issuesAffectedCount: number;
 }
@@ -507,6 +546,43 @@ export const projectsApi = {
     params: OffsiteFixApplyRequest,
   ): Promise<OffsiteFixApplyResponse> =>
     fetchWithAuth(`/projects/${projectId}/offsite-signals/apply`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    }),
+
+  // LOCAL-1: Local Discovery endpoints
+  localDiscovery: (projectId: string): Promise<ProjectLocalDiscoveryResponse> =>
+    fetchWithAuth(`/projects/${projectId}/local-discovery`),
+
+  localScorecard: (projectId: string): Promise<LocalDiscoveryScorecard> =>
+    fetchWithAuth(`/projects/${projectId}/local-discovery/scorecard`),
+
+  localConfig: (projectId: string): Promise<ProjectLocalConfig | null> =>
+    fetchWithAuth(`/projects/${projectId}/local-discovery/config`),
+
+  updateLocalConfig: (
+    projectId: string,
+    config: Partial<ProjectLocalConfig>,
+  ): Promise<ProjectLocalConfig> =>
+    fetchWithAuth(`/projects/${projectId}/local-discovery/config`, {
+      method: 'PUT',
+      body: JSON.stringify(config),
+    }),
+
+  previewLocalFix: (
+    projectId: string,
+    params: LocalFixPreviewRequest,
+  ): Promise<LocalFixPreviewResponse> =>
+    fetchWithAuth(`/projects/${projectId}/local-discovery/preview`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    }),
+
+  applyLocalFix: (
+    projectId: string,
+    params: LocalFixApplyRequest,
+  ): Promise<LocalFixApplyResponse> =>
+    fetchWithAuth(`/projects/${projectId}/local-discovery/apply`, {
       method: 'POST',
       body: JSON.stringify(params),
     }),

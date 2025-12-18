@@ -11898,4 +11898,199 @@ ENGINEO_E2E=1 cd apps/api && npx jest --config jest.config.ts --testPathPattern=
 
 ---
 
+## Phase LOCAL-1 – Local Discovery & Geo-Intent Signals (Completed)
+
+This phase implements the **Local Discovery** pillar, the fourth DEO vertical slice. Local Discovery helps stores with physical presence or geographic service areas optimize for local search queries ("near me", city-specific terms) and local trust signals.
+
+### LOCAL-1 Design Principle
+
+**CRITICAL:** Non-local/global stores receive **NO penalty** and see "Not Applicable" status without any DEO score impact. Local discovery only applies when local presence is relevant.
+
+### LOCAL-1 Overview
+
+| Aspect | Detail |
+|--------|--------|
+| Goal | Implement Local Discovery pillar for geo-intent optimization |
+| Scope | Local config, signals, coverage/scorecard, gaps, issues, fix drafts |
+| Key Principle | No penalty for global stores (not_applicable status) |
+| DB Tables | 5 new tables (config, signals, coverage, drafts, applications) |
+| Enums Added | LocalApplicabilityStatus, LocalSignalType, LocalGapType, LocalCoverageStatus, LocalFixDraftType, LocalFixApplyTarget |
+
+### LOCAL-1 Signal Types
+
+| Signal Type | Weight | Description |
+|-------------|--------|-------------|
+| `location_presence` | 10 | Physical address, contact info, store location details |
+| `local_intent_coverage` | 9 | Coverage of "near me" and city-specific queries |
+| `local_trust_signals` | 7 | Local reviews, testimonials, community presence |
+| `local_schema_readiness` | 6 | Structured data for location/organization info |
+
+### LOCAL-1 Applicability Reasons
+
+| Reason | Makes Applicable |
+|--------|------------------|
+| `merchant_declared_physical_presence` | Yes |
+| `local_intent_product_category` | Yes |
+| `content_mentions_regions` | Yes |
+| `manual_override_enabled` | Yes |
+| `no_local_indicators` | No |
+| `global_only_config` | No |
+
+### LOCAL-1 Files Created
+
+| File | Description |
+|------|-------------|
+| `packages/shared/src/local-discovery.ts` | Complete type system and helper functions |
+| `apps/api/src/projects/local-discovery.service.ts` | Core service with all business logic |
+| `apps/api/src/projects/local-discovery.controller.ts` | REST endpoints for local discovery |
+| `apps/web/src/lib/local-discovery.ts` | Web app local copy of types |
+
+### LOCAL-1 Files Modified
+
+| File | Change |
+|------|--------|
+| `packages/shared/src/deo-issues.ts` | Added local discovery fields to DeoIssue |
+| `packages/shared/src/deo-pillars.ts` | Activated local_discovery pillar (comingSoon: false) |
+| `packages/shared/src/index.ts` | Added local-discovery exports |
+| `apps/api/prisma/schema.prisma` | Added LOCAL-1 database models |
+| `apps/api/src/ai/ai.service.ts` | Added AI generation methods for local drafts |
+| `apps/api/src/projects/deo-issues.service.ts` | Integrated local issues (no penalty for global) |
+| `apps/api/src/projects/projects.module.ts` | Registered service and controller |
+| `apps/web/src/lib/deo-issues.ts` | Added local fields |
+| `apps/web/src/lib/deo-pillars.ts` | Updated pillar descriptions |
+| `apps/web/src/lib/api.ts` | Added local discovery API client methods |
+
+### LOCAL-1 API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/projects/:id/local-discovery` | Get complete local discovery data |
+| GET | `/projects/:id/local-discovery/scorecard` | Get local discovery scorecard |
+| GET | `/projects/:id/local-discovery/config` | Get project local config |
+| PUT | `/projects/:id/local-discovery/config` | Update project local config |
+| POST | `/projects/:id/local-discovery/preview` | Preview fix draft (draft-first pattern) |
+| POST | `/projects/:id/local-discovery/apply` | Apply fix draft |
+
+### LOCAL-1 Acceptance Criteria (Completed)
+
+- [x] Shared types for local discovery taxonomy
+- [x] Helper functions (isLocalApplicableFromReasons, getLocalCoverageStatusFromScore, etc.)
+- [x] Database schema for local discovery tables
+- [x] LocalDiscoveryService with coverage computation
+- [x] LocalDiscoveryController with REST endpoints
+- [x] AI generation methods for local drafts
+- [x] DEO issues integration (no penalty for global stores)
+- [x] Web app types and API client methods
+- [x] Migration applied successfully
+
+**Note:** LOCAL-1 is the fourth DEO pillar vertical slice, following the patterns established by SEARCH-INTENT-1, COMPETITORS-1, and OFFSITE-1. The key distinction is the "no penalty for global stores" principle, ensuring that stores without local relevance are not penalized.
+
+---
+
+## Phase LOCAL-1-TESTS – Local Discovery Automated Tests (Completed)
+
+This phase adds comprehensive automated test coverage for the Local Discovery pillar (LOCAL-1).
+
+### LOCAL-1-TESTS Overview
+
+| Aspect | Detail |
+|--------|--------|
+| Goal | Add unit and integration tests for Local Discovery pillar |
+| Scope | Shared types, service logic, coverage computation, gap analysis, issue generation, no-penalty principle |
+| Test Files | 4 new test files (2 unit, 1 integration, 1 E2E scaffolding) |
+| Tests Added | 50+ unit tests + integration test suite |
+
+### LOCAL-1-TESTS Test Coverage
+
+#### Unit Tests: Shared Types (`tests/unit/local-discovery/local-discovery-types.test.ts`)
+- **~30 tests covering:**
+  - `isLocalApplicableFromReasons` — Applicability determination from reason arrays
+  - `getLocalCoverageStatusFromScore` — Score classification (weak/needs_improvement/strong)
+  - `calculateLocalSeverity` — Severity calculation based on signal/gap types
+  - `computeLocalFixWorkKey` — Deterministic work key generation for CACHE/REUSE v2
+  - `getLocalGapTypeForMissingSignal` — Signal type to gap type mapping
+  - Type constants validation (weights, labels, descriptions, priority ordering)
+
+#### Unit Tests: Service (`tests/unit/local-discovery/local-discovery.service.test.ts`)
+- **~25 tests covering:**
+  - Applicability determination logic (applicable/not_applicable/unknown)
+  - Coverage/scorecard computation with weighted scoring algorithm
+  - Non-applicable projects return no score (no penalty principle)
+  - Diminishing returns for multiple signals of same type
+  - Status classification based on overall score
+  - Gap generation from scorecard data (only for applicable projects)
+  - DEO issue building for integration with Issues Engine
+  - Signal CRUD operations
+  - Config management and cache invalidation
+  - Coverage caching and retrieval
+
+#### Integration Tests (`tests/integration/local-discovery/local-discovery.integration.test.ts`)
+- **Tests covering (requires test database):**
+  - Local configuration management
+  - Applicability determination with real database
+  - Signal management (create, retrieve, multiple types)
+  - Coverage/scorecard computation with persistence
+  - Gap analysis with actual coverage data
+  - DEO issue integration
+  - Coverage cache lifecycle
+  - Full project data retrieval with access control
+  - **Critical: Local vs Global project comparison (no penalty principle)**
+
+#### E2E Scaffolding (`tests/e2e/automation/local-discovery-flows.spec.ts`)
+- **Scenario descriptions for:**
+  - Local configuration setup flow
+  - Non-applicable status for global stores
+  - Applicable status with missing signals
+  - Signal detection and coverage updates
+  - Fix preview/apply flows (draft-first pattern)
+  - Pillar tab navigation
+  - Issues Engine integration
+  - Diminishing returns for multiple signals
+  - Cache invalidation on config changes
+
+### LOCAL-1-TESTS Files Created
+
+| File | Description |
+|------|-------------|
+| `tests/unit/local-discovery/local-discovery-types.test.ts` | Unit tests for shared types and helper functions |
+| `tests/unit/local-discovery/local-discovery.service.test.ts` | Unit tests for LocalDiscoveryService |
+| `tests/integration/local-discovery/local-discovery.integration.test.ts` | Integration tests for local discovery API |
+| `tests/e2e/automation/local-discovery-flows.spec.ts` | E2E test scaffolding for UX flows |
+
+### LOCAL-1-TESTS Files Modified
+
+| File | Change |
+|------|--------|
+| `apps/api/test/utils/test-db.ts` | Added cleanup for Local Discovery tables |
+
+### LOCAL-1-TESTS Acceptance Criteria (Completed)
+
+- [x] Unit tests for shared types helper functions (~30 tests)
+- [x] Unit tests for LocalDiscoveryService (~25 tests)
+- [x] Integration tests for local discovery API (database-dependent)
+- [x] E2E test scaffolding for UX flows
+- [x] Test database cleanup includes Local Discovery tables
+- [x] Tests follow existing project patterns
+- [x] No-penalty principle explicitly tested (global vs local comparison)
+
+### Running LOCAL-1-TESTS
+
+```bash
+# Run all Local Discovery unit tests
+cd apps/api && npx jest --config jest.config.ts --testPathPattern="local-discovery"
+
+# Run shared types tests only
+cd apps/api && npx jest --config jest.config.ts --testPathPattern="local-discovery-types"
+
+# Run service tests only
+cd apps/api && npx jest --config jest.config.ts --testPathPattern="local-discovery.service.test"
+
+# Run integration tests (requires ENGINEO_E2E=1 and test database)
+ENGINEO_E2E=1 cd apps/api && npx jest --config jest.config.ts --testPathPattern="local-discovery.integration"
+```
+
+**Note:** LOCAL-1-TESTS completes the test coverage for the Local Discovery pillar. The tests follow the same patterns as OFFSITE-1-TESTS. Integration tests require a configured test database and will be skipped if `ENGINEO_E2E` environment variable is not set.
+
+---
+
 **Author:** Narasimhan Mahendrakumar

@@ -1008,4 +1008,213 @@ Respond in JSON format only:
       channel,
     };
   }
+
+  // ============================================================================
+  // LOCAL-1: Local Discovery Draft Generation Methods
+  // ============================================================================
+
+  /**
+   * Generate a local answer block draft for local intent queries.
+   * Creates Q&A content suitable for "near me" or city-specific queries.
+   */
+  async generateLocalAnswerBlockDraft(input: {
+    brandName: string;
+    domain: string;
+    signalType: string;
+    focusKey: string;
+  }): Promise<{ question: string; answer: string }> {
+    // Parse focusKey to extract location info (e.g., "city:denver" or "service_area:front_range")
+    const [locationType, locationValue] = input.focusKey.split(':');
+    const locationDisplay = locationValue
+      ? locationValue.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+      : 'your area';
+
+    const prompt = `You are a local SEO specialist. Generate a Q&A Answer Block for a business with local presence.
+
+Brand Name: ${input.brandName}
+Website: ${input.domain || 'Not provided'}
+Location Type: ${locationType || 'general'}
+Location: ${locationDisplay}
+Signal Type: ${input.signalType}
+
+Requirements:
+- Write a natural question that a local customer would ask (e.g., "Do you serve [location]?", "Where is [brand] located?")
+- Write a clear, helpful answer (2-3 sentences)
+- Include the location name naturally in both question and answer
+- Focus on being informative and helpful for local customers
+- Avoid promotional language; be factual and service-oriented
+
+Respond in JSON format only:
+{"question": "Your question", "answer": "Your answer"}`;
+
+    try {
+      const data = await this.geminiClient.generateWithFallback({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 400,
+        },
+      });
+
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return {
+          question:
+            parsed.question || `Does ${input.brandName} serve ${locationDisplay}?`,
+          answer:
+            parsed.answer ||
+            `Yes, ${input.brandName} proudly serves customers in ${locationDisplay}. Visit our website or contact us for more information about our local services.`,
+        };
+      }
+    } catch (error) {
+      console.error('[AI] generateLocalAnswerBlockDraft error:', error);
+    }
+
+    // Fallback
+    return {
+      question: `Does ${input.brandName} serve ${locationDisplay}?`,
+      answer: `Yes, ${input.brandName} serves customers in ${locationDisplay}. We're committed to providing excellent service to our local community. Contact us to learn more about what we offer in your area.`,
+    };
+  }
+
+  /**
+   * Generate a city/region section draft for location-specific content.
+   * Creates heading and body content suitable for city landing pages or location sections.
+   */
+  async generateCitySectionDraft(input: {
+    brandName: string;
+    domain: string;
+    focusKey: string;
+  }): Promise<{ heading: string; body: string }> {
+    // Parse focusKey to extract location info
+    const [locationType, locationValue] = input.focusKey.split(':');
+    const locationDisplay = locationValue
+      ? locationValue.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+      : 'Your City';
+
+    const prompt = `You are a local content specialist. Generate a city/region section for a business webpage.
+
+Brand Name: ${input.brandName}
+Website: ${input.domain || 'Not provided'}
+Location Type: ${locationType || 'city'}
+Location: ${locationDisplay}
+
+Requirements:
+- Write an engaging heading that includes the location name (e.g., "[Brand] in [Location]" or "Serving [Location]")
+- Write 2-3 paragraphs of body content
+- Naturally mention the location and surrounding areas
+- Focus on how the business serves local customers
+- Include local-friendly language without being overly promotional
+- Keep content factual and helpful
+
+Respond in JSON format only:
+{"heading": "Your heading", "body": "Your body paragraphs"}`;
+
+    try {
+      const data = await this.geminiClient.generateWithFallback({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 600,
+        },
+      });
+
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return {
+          heading: parsed.heading || `${input.brandName} in ${locationDisplay}`,
+          body:
+            parsed.body ||
+            `${input.brandName} is proud to serve the ${locationDisplay} community. We understand the unique needs of local customers and are committed to providing exceptional service.\n\nWhether you're a long-time resident or new to the area, we're here to help. Contact us today to learn more about how we can serve you.`,
+        };
+      }
+    } catch (error) {
+      console.error('[AI] generateCitySectionDraft error:', error);
+    }
+
+    // Fallback
+    return {
+      heading: `${input.brandName} in ${locationDisplay}`,
+      body: `${input.brandName} is dedicated to serving customers in ${locationDisplay} and the surrounding areas. Our team understands the local community and is committed to meeting your needs.\n\nWe take pride in being part of the ${locationDisplay} community. Contact us to learn more about our services and how we can help you.`,
+    };
+  }
+
+  /**
+   * Generate a service area description draft.
+   * Creates summary and bullet points describing the service area coverage.
+   */
+  async generateServiceAreaDescriptionDraft(input: {
+    brandName: string;
+    domain: string;
+    focusKey: string;
+  }): Promise<{ summary: string; bullets: string[] }> {
+    // Parse focusKey to extract service area info
+    const [areaType, areaValue] = input.focusKey.split(':');
+    const areaDisplay = areaValue
+      ? areaValue.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+      : 'Our Service Area';
+
+    const prompt = `You are a local business content specialist. Generate a service area description for a business.
+
+Brand Name: ${input.brandName}
+Website: ${input.domain || 'Not provided'}
+Area Type: ${areaType || 'service_area'}
+Area: ${areaDisplay}
+
+Requirements:
+- Write a brief summary paragraph (2-3 sentences) about the service area
+- Provide 3-5 bullet points highlighting key aspects of the service area coverage
+- Be specific about geographic coverage where possible
+- Focus on customer benefits of local service
+- Keep language professional and informative
+
+Respond in JSON format only:
+{"summary": "Your summary paragraph", "bullets": ["Bullet 1", "Bullet 2", "Bullet 3"]}`;
+
+    try {
+      const data = await this.geminiClient.generateWithFallback({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 500,
+        },
+      });
+
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return {
+          summary:
+            parsed.summary ||
+            `${input.brandName} proudly serves customers throughout ${areaDisplay}. Our local presence means faster service and better support for our community.`,
+          bullets: parsed.bullets || [
+            `Serving ${areaDisplay} and surrounding areas`,
+            'Local expertise and community knowledge',
+            'Fast response times for local customers',
+          ],
+        };
+      }
+    } catch (error) {
+      console.error('[AI] generateServiceAreaDescriptionDraft error:', error);
+    }
+
+    // Fallback
+    return {
+      summary: `${input.brandName} serves customers throughout ${areaDisplay}. Our commitment to the local community means you get personalized service from a team that knows your area.`,
+      bullets: [
+        `Comprehensive coverage across ${areaDisplay}`,
+        'Dedicated local customer support',
+        'Quick response times for local needs',
+        'Community-focused service approach',
+      ],
+    };
+  }
 }

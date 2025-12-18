@@ -45,6 +45,7 @@ export interface DeoPillar {
  * - search_intent_fit (SEARCH-INTENT-1)
  * - competitive_positioning (COMPETITORS-1)
  * - offsite_signals (OFFSITE-1)
+ * - local_discovery (LOCAL-1)
  * - technical_indexability
  *
  * All other pillars are coming soon with placeholder functionality.
@@ -115,10 +116,10 @@ export const DEO_PILLARS: DeoPillar[] = [
     label: 'Local Discovery',
     shortName: 'Local',
     description:
-      'Local SEO signals, Google Business Profile optimization, local citations, and geographic relevance for location-based queries.',
+      'Local intent coverage, location clarity, and local trust signals for stores with physical presence or geographic service areas. This pillar only applies when local discovery is relevant — global-only stores see "Not Applicable" status with no penalty.',
     whyItMatters:
-      'Local signals are critical for businesses serving specific geographic areas. Proper local optimization ensures visibility in "near me" searches and local AI recommendations.',
-    comingSoon: true,
+      'For stores serving specific geographic areas, local signals are critical for "near me" searches, city-specific queries, and local AI recommendations. Clear location content and local trust signals help discovery engines match you with nearby customers. Non-local stores are not penalized.',
+    comingSoon: false,
   },
   {
     id: 'technical_indexability',

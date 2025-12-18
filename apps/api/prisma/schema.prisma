@@ -81,6 +81,7 @@ model User {
   intentFixApplications ProductIntentFixApplication[]
   competitiveFixApplications ProductCompetitiveFixApplication[]
   offsiteFixApplications ProjectOffsiteFixApplication[]
+  localFixApplications ProjectLocalFixApplication[]
 }
 
 model Project {
@@ -116,6 +117,13 @@ model Project {
   offsiteCoverages           ProjectOffsiteCoverage[]
   offsiteFixDrafts           ProjectOffsiteFixDraft[]
   offsiteFixApplications     ProjectOffsiteFixApplication[]
+
+  // LOCAL-1 relations
+  localConfig                ProjectLocalConfig?
+  localCoverages             ProjectLocalCoverage[]
+  localSignals               ProjectLocalSignal[]
+  localFixDrafts             ProjectLocalFixDraft[]
+  localFixApplications       ProjectLocalFixApplication[]
 }
 
 model Integration {
@@ -647,6 +655,147 @@ model ProjectOffsiteFixApplication {
   applyTarget     OffsiteFixApplyTarget
   notes           String?
   appliedAt       DateTime              @default(now())
+
+  @@index([projectId, appliedAt(sort: Desc)])
+  @@index([appliedByUserId, appliedAt(sort: Desc)])
+}
+
+// =============================================================================
+// LOCAL-1: Local Discovery Models
+// =============================================================================
+
+// Local applicability status enumeration
+enum LocalApplicabilityStatus {
+  APPLICABLE
+  NOT_APPLICABLE
+  UNKNOWN
+}
+
+// Local signal type enumeration
+enum LocalSignalType {
+  LOCATION_PRESENCE
+  LOCAL_INTENT_COVERAGE
+  LOCAL_TRUST_SIGNALS
+  LOCAL_SCHEMA_READINESS
+}
+
+// Local gap type enumeration
+enum LocalGapType {
+  MISSING_LOCAL_INTENT_COVERAGE
+  MISSING_LOCATION_CONTENT
+  UNCLEAR_SERVICE_AREA
+  MISSING_LOCAL_TRUST_SIGNAL
+}
+
+// Local fix draft type enumeration
+enum LocalFixDraftType {
+  LOCAL_ANSWER_BLOCK
+  CITY_SECTION
+  SERVICE_AREA_DESCRIPTION
+}
+
+// Local fix apply target enumeration
+enum LocalFixApplyTarget {
+  ANSWER_BLOCK
+  CONTENT_SECTION
+}
+
+// Local coverage status
+enum LocalCoverageStatus {
+  STRONG
+  NEEDS_IMPROVEMENT
+  WEAK
+}
+
+// Project-level local configuration (merchant-declared settings)
+model ProjectLocalConfig {
+  id                      String   @id @default(cuid())
+  project                 Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId               String   @unique
+  hasPhysicalLocation     Boolean  @default(false)
+  serviceAreaDescription  String?
+  enabled                 Boolean  @default(false)  // Manual override to enable local discovery
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([projectId])
+}
+
+// Project-level local coverage snapshot
+model ProjectLocalCoverage {
+  id                        String                  @id @default(cuid())
+  project                   Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId                 String
+  applicabilityStatus       LocalApplicabilityStatus
+  applicabilityReasons      Json                    // LocalApplicabilityReason[]
+  score                     Float?                  // 0-100; null if not applicable
+  status                    LocalCoverageStatus?    // null if not applicable
+  signalCounts              Json                    // Record<LocalSignalType, number>
+  missingLocalSignalsCount  Int                     @default(0)
+  computedAt                DateTime                @default(now())
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
+
+  @@index([projectId, computedAt(sort: Desc)])
+}
+
+// Project-level local signal records
+model ProjectLocalSignal {
+  id          String          @id @default(cuid())
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId   String
+  signalType  LocalSignalType
+  label       String
+  description String
+  url         String?
+  evidence    String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([projectId, signalType])
+}
+
+// Local fix drafts (preview-first pattern)
+model ProjectLocalFixDraft {
+  id                String            @id @default(cuid())
+  project           Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId         String
+  productId         String?           // Optional: if scoped to product-level
+  gapType           LocalGapType
+  signalType        LocalSignalType
+  focusKey          String            // e.g., "city:denver", "service_area:front_range"
+  draftType         LocalFixDraftType
+  draftPayload      Json              // Answer Block or content section structure
+  aiWorkKey         String            // Deterministic key for CACHE/REUSE v2
+  reusedFromWorkKey String?           // If reused, the original work key
+  generatedWithAi   Boolean           @default(true)
+  expiresAt         DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  applications      ProjectLocalFixApplication[]
+
+  @@index([projectId, gapType, signalType, focusKey])
+  @@index([aiWorkKey])
+  @@index([projectId, expiresAt])
+}
+
+// Audit log of applied local fixes
+model ProjectLocalFixApplication {
+  id              String               @id @default(cuid())
+  project         Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId       String
+  productId       String?              // Optional: if scoped to product-level
+  draft           ProjectLocalFixDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  draftId         String
+  appliedBy       User                 @relation(fields: [appliedByUserId], references: [id], onDelete: Cascade)
+  appliedByUserId String
+  gapType         LocalGapType
+  signalType      LocalSignalType
+  focusKey        String
+  applyTarget     LocalFixApplyTarget
+  notes           String?
+  appliedAt       DateTime             @default(now())
 
   @@index([projectId, appliedAt(sort: Desc)])
   @@index([appliedByUserId, appliedAt(sort: Desc)])

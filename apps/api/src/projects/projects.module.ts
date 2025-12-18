@@ -23,6 +23,8 @@ import { CompetitorsService } from './competitors.service';
 import { CompetitorsController } from './competitors.controller';
 import { OffsiteSignalsService } from './offsite-signals.service';
 import { OffsiteSignalsController } from './offsite-signals.controller';
+import { LocalDiscoveryService } from './local-discovery.service';
+import { LocalDiscoveryController } from './local-discovery.controller';
 
 @Module({
   imports: [
@@ -31,7 +33,7 @@ import { OffsiteSignalsController } from './offsite-signals.controller';
     ProductsModule,
     forwardRef(() => ShopifyModule),
   ],
-  controllers: [ProjectsController, ProductAutomationController, SearchIntentController, CompetitorsController, OffsiteSignalsController],
+  controllers: [ProjectsController, ProductAutomationController, SearchIntentController, CompetitorsController, OffsiteSignalsController, LocalDiscoveryController],
   providers: [
     ProjectsService,
     PrismaService,
@@ -49,7 +51,8 @@ import { OffsiteSignalsController } from './offsite-signals.controller';
     SearchIntentService,
     CompetitorsService,
     OffsiteSignalsService,
+    LocalDiscoveryService,
   ],
-  exports: [ProjectsService, DeoScoreService, AutomationService, AnswerEngineService, AutomationPlaybookRunsService, SearchIntentService, CompetitorsService, OffsiteSignalsService],
+  exports: [ProjectsService, DeoScoreService, AutomationService, AnswerEngineService, AutomationPlaybookRunsService, SearchIntentService, CompetitorsService, OffsiteSignalsService, LocalDiscoveryService],
 })
 export class ProjectsModule {}

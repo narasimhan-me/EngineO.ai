@@ -96,3 +96,38 @@ export * from './answer-engine';
 
 // Automation Engine types
 export * from './automation-engine';
+
+// Local Discovery types (LOCAL-1) - explicit named exports for better module resolution
+export {
+  // Constants
+  LOCAL_SIGNAL_LABELS,
+  LOCAL_SIGNAL_DESCRIPTIONS,
+  LOCAL_SIGNAL_WEIGHTS,
+  LOCAL_SIGNAL_TYPES,
+  LOCAL_GAP_LABELS,
+  LOCAL_FIX_DRAFT_LABELS,
+  // Helper functions
+  isLocalApplicableFromReasons,
+  getLocalCoverageStatusFromScore,
+  calculateLocalSeverity,
+  computeLocalFixWorkKey,
+  getLocalGapTypeForMissingSignal,
+  // Types
+  type LocalApplicabilityStatus,
+  type LocalApplicabilityReason,
+  type LocalSignalType,
+  type LocalCoverageStatus,
+  type LocalGapType,
+  type LocalFixDraftType,
+  type LocalFixApplyTarget,
+  type LocalSignal,
+  type LocalDiscoveryScorecard,
+  type LocalGap,
+  type LocalFixDraft,
+  type LocalFixPreviewRequest,
+  type LocalFixPreviewResponse,
+  type LocalFixApplyRequest,
+  type LocalFixApplyResponse,
+  type ProjectLocalDiscoveryResponse,
+  type ProjectLocalConfig,
+} from './local-discovery';

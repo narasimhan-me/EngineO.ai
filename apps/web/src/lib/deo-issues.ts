@@ -117,6 +117,32 @@ export type OffsiteGapType =
   | 'missing_authoritative_listing'
   | 'competitor_has_offsite_signal';
 
+// Local Discovery types (inline to avoid circular deps)
+export type LocalApplicabilityStatus =
+  | 'applicable'
+  | 'not_applicable'
+  | 'unknown';
+
+export type LocalApplicabilityReason =
+  | 'merchant_declared_physical_presence'
+  | 'local_intent_product_category'
+  | 'content_mentions_regions'
+  | 'manual_override_enabled'
+  | 'no_local_indicators'
+  | 'global_only_config';
+
+export type LocalSignalType =
+  | 'location_presence'
+  | 'local_intent_coverage'
+  | 'local_trust_signals'
+  | 'local_schema_readiness';
+
+export type LocalGapType =
+  | 'missing_local_intent_coverage'
+  | 'missing_location_content'
+  | 'unclear_service_area'
+  | 'missing_local_trust_signal';
+
 export type DeoIssueSeverity = 'critical' | 'warning' | 'info';
 
 /** How an issue is intended to be resolved */
@@ -305,6 +331,31 @@ export interface DeoIssue {
    * Distinguishes missing brand mentions, missing trust proof, etc.
    */
   offsiteGapType?: OffsiteGapType;
+
+  // === Local Discovery Pillar fields (LOCAL-1) ===
+
+  /**
+   * For Local Discovery pillar issues: whether local discovery applies to this project.
+   * Non-applicable projects receive no local issues (no penalty for global stores).
+   */
+  localApplicabilityStatus?: LocalApplicabilityStatus;
+
+  /**
+   * Reasons why local discovery is applicable or not.
+   */
+  localApplicabilityReasons?: LocalApplicabilityReason[];
+
+  /**
+   * For Local Discovery pillar issues: the type of local signal
+   * this issue relates to (location_presence, local_intent_coverage, etc.).
+   */
+  localSignalType?: LocalSignalType;
+
+  /**
+   * For Local Discovery pillar issues: the type of local gap.
+   * Distinguishes missing location content, unclear service area, etc.
+   */
+  localGapType?: LocalGapType;
 }
 
 export interface DeoIssuesResponse {

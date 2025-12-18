@@ -2,6 +2,12 @@ import type { DeoPillarId } from './deo-pillars';
 import type { SearchIntentType, IntentCoverageStatus } from './search-intent';
 import type { CompetitorGapType, CompetitiveCoverageAreaId } from './competitors';
 import type { OffsiteSignalType, OffsiteGapType } from './offsite-signals';
+import type {
+  LocalApplicabilityStatus,
+  LocalApplicabilityReason,
+  LocalSignalType,
+  LocalGapType,
+} from './local-discovery';
 
 export type DeoIssueSeverity = 'critical' | 'warning' | 'info';
 
@@ -191,6 +197,32 @@ export interface DeoIssue {
    * Distinguishes missing brand mentions, missing trust proof, etc.
    */
   offsiteGapType?: OffsiteGapType;
+
+  // === Local Discovery Pillar fields (LOCAL-1) ===
+
+  /**
+   * For Local Discovery pillar issues: the applicability status.
+   * Issues are only generated when status is 'applicable'.
+   */
+  localApplicabilityStatus?: LocalApplicabilityStatus;
+
+  /**
+   * For Local Discovery pillar issues: reasons why local is applicable.
+   * Helps users understand why they're seeing local-related issues.
+   */
+  localApplicabilityReasons?: LocalApplicabilityReason[];
+
+  /**
+   * For Local Discovery pillar issues: the type of local signal
+   * this issue relates to (location_presence, local_intent_coverage, etc.).
+   */
+  localSignalType?: LocalSignalType;
+
+  /**
+   * For Local Discovery pillar issues: the type of local gap.
+   * Distinguishes missing local intent, location content, service area, trust signals.
+   */
+  localGapType?: LocalGapType;
 }
 
 export interface DeoIssuesResponse {

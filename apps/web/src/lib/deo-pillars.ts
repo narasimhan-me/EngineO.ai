@@ -95,20 +95,20 @@ export const DEO_PILLARS: DeoPillar[] = [
     label: 'Off-site Signals',
     shortName: 'Off-site',
     description:
-      'Backlinks, brand mentions, citations, and external authority signals that influence your discovery engine rankings.',
+      'Brand mentions, authoritative listings, reviews, certifications, and referenceable content that build trust and authority. This pillar focuses on the presence and quality of off-site trust signals — not raw backlink counts or domain authority metrics.',
     whyItMatters:
-      'Off-site signals like backlinks and brand mentions are trust indicators that search and AI engines use to evaluate authority. Strong off-site signals improve rankings and citation likelihood.',
-    comingSoon: true,
+      'Discovery engines and AI models use off-site trust signals to evaluate brand authority and relevance. Mentions on industry directories, review platforms, and comparison sites increase the likelihood of being cited in AI answers and improve search visibility. Strong off-site presence demonstrates credibility to both algorithms and human buyers.',
+    comingSoon: false,
   },
   {
     id: 'local_discovery',
     label: 'Local Discovery',
     shortName: 'Local',
     description:
-      'Local SEO signals, Google Business Profile optimization, local citations, and geographic relevance for location-based queries.',
+      'Local intent coverage, location clarity, and local trust signals for stores with physical presence or geographic service areas. This pillar only applies when local discovery is relevant — global-only stores see "Not Applicable" status with no penalty.',
     whyItMatters:
-      'Local signals are critical for businesses serving specific geographic areas. Proper local optimization ensures visibility in "near me" searches and local AI recommendations.',
-    comingSoon: true,
+      'For stores serving specific geographic areas, local signals are critical for "near me" searches, city-specific queries, and local AI recommendations. Clear location content and local trust signals help discovery engines match you with nearby customers. Non-local stores are not penalized.',
+    comingSoon: false,
   },
   {
     id: 'technical_indexability',

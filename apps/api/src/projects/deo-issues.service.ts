@@ -12,6 +12,7 @@ import { AutomationService } from './automation.service';
 import { SearchIntentService } from './search-intent.service';
 import { CompetitorsService } from './competitors.service';
 import { OffsiteSignalsService } from './offsite-signals.service';
+import { LocalDiscoveryService } from './local-discovery.service';
 
 @Injectable()
 export class DeoIssuesService {
@@ -22,6 +23,7 @@ export class DeoIssuesService {
     private readonly searchIntentService: SearchIntentService,
     private readonly competitorsService: CompetitorsService,
     private readonly offsiteSignalsService: OffsiteSignalsService,
+    private readonly localDiscoveryService: LocalDiscoveryService,
   ) {}
 
   /**
@@ -159,6 +161,17 @@ export class DeoIssuesService {
       // Log but don't fail the entire issues request
       // eslint-disable-next-line no-console
       console.error('[DeoIssuesService] Failed to build off-site signals issues:', error);
+    }
+
+    // LOCAL-1: Add Local Discovery pillar issues
+    // CRITICAL: Non-applicable projects get NO issues (no penalty for global stores)
+    try {
+      const localIssues = await this.localDiscoveryService.buildLocalIssuesForProject(projectId);
+      issues.push(...localIssues);
+    } catch (error) {
+      // Log but don't fail the entire issues request
+      // eslint-disable-next-line no-console
+      console.error('[DeoIssuesService] Failed to build local discovery issues:', error);
     }
 
     // Fire-and-forget Answer Block automations for relevant answerability issues.
