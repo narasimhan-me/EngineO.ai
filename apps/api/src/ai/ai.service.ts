@@ -17,6 +17,10 @@ import {
   CompetitorGapType,
   CompetitiveCoverageAreaId,
   COMPETITOR_GAP_LABELS,
+  OffsiteGapType,
+  OffsiteSignalType,
+  OFFSITE_SIGNAL_LABELS,
+  OFFSITE_GAP_LABELS,
 } from '@engineo/shared';
 
 interface MetadataInput {
@@ -711,6 +715,297 @@ Respond in JSON format only:
     return {
       positioningContent: `Why Choose ${input.product.title}\n\nThis product stands out with its commitment to quality and customer satisfaction. When you choose ${input.product.title}, you're choosing a product designed with your needs in mind.`,
       placementGuidance: 'Add as a dedicated section on the product page.',
+    };
+  }
+
+  // ============================================================================
+  // Off-site Signals Fix Generation (OFFSITE-1)
+  // ============================================================================
+
+  /**
+   * Generate an outreach email draft for requesting inclusion, mentions, or reviews.
+   * Creates professional, ethical outreach copy that requires human review.
+   *
+   * ETHICAL BOUNDARIES:
+   * - Neutral, ethical, and non-manipulative language
+   * - Avoids false promises or spammy language
+   * - Requires human review before sending
+   */
+  async generateOutreachEmailDraft(input: {
+    brandName: string;
+    domain: string;
+    gapType: OffsiteGapType;
+    signalType: OffsiteSignalType;
+    focusKey: string;
+  }): Promise<{ subject: string; body: string }> {
+    const gapLabel = OFFSITE_GAP_LABELS[input.gapType];
+    const signalLabel = OFFSITE_SIGNAL_LABELS[input.signalType];
+
+    // Determine the purpose based on signal type
+    let purpose = 'brand inclusion';
+    if (input.signalType === 'trust_proof') {
+      purpose = 'review or testimonial consideration';
+    } else if (input.signalType === 'authoritative_listing') {
+      purpose = 'directory or listing inclusion';
+    } else if (input.signalType === 'reference_content') {
+      purpose = 'content collaboration or citation';
+    }
+
+    const prompt = `You are a professional outreach copywriter. Generate a polite, ethical outreach email for a brand seeking ${purpose}.
+
+Brand Name: ${input.brandName}
+Website: ${input.domain || 'Not provided'}
+Gap Type: ${gapLabel}
+Signal Type: ${signalLabel}
+Target Opportunity: ${input.focusKey}
+
+Requirements:
+- Write a professional, friendly subject line (max 60 characters)
+- Write a concise email body (3-4 paragraphs max)
+- Be polite and non-pushy — this is a request, not a demand
+- Explain briefly why inclusion/mention would be relevant
+- DO NOT make false promises or unsubstantiated claims
+- DO NOT use manipulative language or pressure tactics
+- Include a clear but soft call-to-action
+- The recipient should feel respected, not spammed
+
+IMPORTANT: This email will be reviewed by a human before sending. Generate professional, ethical copy that represents the brand well.
+
+Respond in JSON format only:
+{"subject": "Your suggested subject line", "body": "Your email body text"}`;
+
+    try {
+      const data = await this.geminiClient.generateWithFallback({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 500,
+        },
+      });
+
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return {
+          subject: parsed.subject || `Partnership Inquiry from ${input.brandName}`,
+          body:
+            parsed.body ||
+            `Hello,\n\nI'm reaching out on behalf of ${input.brandName}. We're interested in exploring opportunities for collaboration.\n\nWould you be open to a brief conversation?\n\nBest regards`,
+        };
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[AI] generateOutreachEmailDraft error:', error);
+    }
+
+    // Fallback
+    return {
+      subject: `Partnership Inquiry from ${input.brandName}`,
+      body: `Hello,\n\nI'm reaching out on behalf of ${input.brandName}. We're exploring opportunities for brand visibility and thought leadership in our industry.\n\nWe'd love to connect and explore how we might work together.\n\nBest regards,\n${input.brandName} Team`,
+    };
+  }
+
+  /**
+   * Generate a PR pitch draft for promoting reference content or getting featured.
+   * Creates professional pitch copy suitable for publications or blogs.
+   */
+  async generatePrPitchDraft(input: {
+    brandName: string;
+    domain: string;
+    signalType: OffsiteSignalType;
+    focusKey: string;
+  }): Promise<{ subject: string; body: string }> {
+    const signalLabel = OFFSITE_SIGNAL_LABELS[input.signalType];
+
+    const prompt = `You are a PR specialist. Generate a brief, professional pitch for a brand seeking media coverage or inclusion.
+
+Brand Name: ${input.brandName}
+Website: ${input.domain || 'Not provided'}
+Signal Type: ${signalLabel}
+Target Opportunity: ${input.focusKey}
+
+Requirements:
+- Write a compelling subject line that catches editor attention (max 60 characters)
+- Write a concise pitch (2-3 paragraphs max)
+- Focus on what makes this brand newsworthy or relevant
+- DO NOT make false claims or exaggerate
+- Be professional and respectful of the recipient's time
+- Include a soft ask/call-to-action
+- Suggest what angle or story hook might be interesting
+
+IMPORTANT: This pitch will be reviewed and customized by a human before sending.
+
+Respond in JSON format only:
+{"subject": "Your pitch subject line", "body": "Your pitch body text"}`;
+
+    try {
+      const data = await this.geminiClient.generateWithFallback({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 400,
+        },
+      });
+
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return {
+          subject: parsed.subject || `Story Idea: ${input.brandName}`,
+          body:
+            parsed.body ||
+            `Hi,\n\nI wanted to share a potential story idea featuring ${input.brandName}.\n\nWe'd be happy to provide more information if you're interested.\n\nBest regards`,
+        };
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[AI] generatePrPitchDraft error:', error);
+    }
+
+    // Fallback
+    return {
+      subject: `Story Idea: ${input.brandName}`,
+      body: `Hi,\n\nI'm reaching out from ${input.brandName} with a potential story idea that might interest your readers.\n\nOur brand offers a unique perspective on the industry, and we'd love to share our story.\n\nWould you be interested in learning more?\n\nBest regards,\n${input.brandName} Team`,
+    };
+  }
+
+  /**
+   * Generate a brand profile snippet for directory listings or About pages.
+   * Creates reusable brand copy that can be adapted for various platforms.
+   */
+  async generateBrandProfileSnippet(input: {
+    brandName: string;
+    domain: string;
+  }): Promise<{ summary: string; bullets: string[] }> {
+    const prompt = `You are a brand copywriter. Generate a concise brand profile snippet for directory listings and About pages.
+
+Brand Name: ${input.brandName}
+Website: ${input.domain || 'Not provided'}
+
+Requirements:
+- Write a compelling 2-3 sentence brand summary
+- Include 3-4 bullet points highlighting key brand attributes
+- Keep language professional but approachable
+- Focus on brand identity and value proposition
+- DO NOT invent specific products, awards, or statistics
+- The content should be adaptable for various directory listings
+
+IMPORTANT: This is a template that will be reviewed and customized by the brand.
+
+Respond in JSON format only:
+{"summary": "Your brand summary text", "bullets": ["Bullet 1", "Bullet 2", "Bullet 3"]}`;
+
+    try {
+      const data = await this.geminiClient.generateWithFallback({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 400,
+        },
+      });
+
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return {
+          summary:
+            parsed.summary ||
+            `${input.brandName} is committed to delivering quality and value to customers.`,
+          bullets: parsed.bullets || [
+            'Dedicated to customer satisfaction',
+            'Quality products and services',
+            'Industry expertise',
+          ],
+        };
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[AI] generateBrandProfileSnippet error:', error);
+    }
+
+    // Fallback
+    return {
+      summary: `${input.brandName} is dedicated to providing exceptional products and services. Our commitment to quality and customer satisfaction sets us apart in the industry.`,
+      bullets: [
+        'Committed to quality and excellence',
+        'Customer-focused approach',
+        'Industry expertise and knowledge',
+        'Trusted by customers',
+      ],
+    };
+  }
+
+  /**
+   * Generate polite, ethical review request copy.
+   * Creates copy that can be used for email or on-site review solicitation.
+   *
+   * ETHICAL BOUNDARIES:
+   * - Polite and non-manipulative
+   * - Does not offer incentives for positive reviews
+   * - Respects customer autonomy
+   */
+  async generateReviewRequestCopy(input: {
+    brandName: string;
+    focusKey: string;
+  }): Promise<{ message: string; channel: string }> {
+    // Determine suggested channel from focusKey
+    const channel = input.focusKey.includes('email') ? 'email' : 'onsite';
+
+    const prompt = `You are a customer communications specialist. Generate a polite, ethical review request message.
+
+Brand Name: ${input.brandName}
+Preferred Channel: ${channel}
+Target Platform/Context: ${input.focusKey}
+
+Requirements:
+- Write a friendly, non-pushy review request (2-3 sentences max)
+- Be grateful and respectful of the customer's time
+- DO NOT offer incentives for positive reviews (this is unethical)
+- DO NOT pressure customers or make them feel obligated
+- Make it clear that honest feedback is valued
+- Keep the tone warm and appreciative
+
+IMPORTANT: This copy follows ethical review solicitation practices. No incentives, no manipulation.
+
+Respond in JSON format only:
+{"message": "Your review request message", "channel": "${channel}"}`;
+
+    try {
+      const data = await this.geminiClient.generateWithFallback({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 300,
+        },
+      });
+
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return {
+          message:
+            parsed.message ||
+            `Thank you for choosing ${input.brandName}! If you have a moment, we'd love to hear about your experience. Your honest feedback helps us improve.`,
+          channel: parsed.channel || channel,
+        };
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[AI] generateReviewRequestCopy error:', error);
+    }
+
+    // Fallback
+    return {
+      message: `Thank you for being a ${input.brandName} customer! We'd really appreciate it if you could take a moment to share your honest experience. Your feedback helps us serve you better.`,
+      channel,
     };
   }
 }

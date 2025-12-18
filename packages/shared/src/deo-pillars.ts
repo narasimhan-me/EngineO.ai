@@ -44,6 +44,7 @@ export interface DeoPillar {
  * - content_commerce_signals
  * - search_intent_fit (SEARCH-INTENT-1)
  * - competitive_positioning (COMPETITORS-1)
+ * - offsite_signals (OFFSITE-1)
  * - technical_indexability
  *
  * All other pillars are coming soon with placeholder functionality.
@@ -104,10 +105,10 @@ export const DEO_PILLARS: DeoPillar[] = [
     label: 'Off-site Signals',
     shortName: 'Off-site',
     description:
-      'Backlinks, brand mentions, citations, and external authority signals that influence your discovery engine rankings.',
+      'Brand mentions, authoritative listings, reviews, certifications, and referenceable content that build trust and authority. This pillar focuses on the presence and quality of off-site trust signals — not raw backlink counts or domain authority metrics.',
     whyItMatters:
-      'Off-site signals like backlinks and brand mentions are trust indicators that search and AI engines use to evaluate authority. Strong off-site signals improve rankings and citation likelihood.',
-    comingSoon: true,
+      'Discovery engines and AI models use off-site trust signals to evaluate brand authority and relevance. Mentions on industry directories, review platforms, and comparison sites increase the likelihood of being cited in AI answers and improve search visibility. Strong off-site presence demonstrates credibility to both algorithms and human buyers.',
+    comingSoon: false,
   },
   {
     id: 'local_discovery',

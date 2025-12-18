@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { projectsApi } from '@/lib/api';
-import type { DeoIssue } from '@engineo/shared';
+import type { DeoIssue, ProjectOffsiteCoverage } from '@engineo/shared';
 import { DEO_PILLARS, type DeoPillarId } from '@/lib/deo-pillars';
 import { GuardedLink } from '@/components/navigation/GuardedLink';
 
@@ -25,6 +25,7 @@ export default function DeoOverviewPage() {
 
   const [deoIssues, setDeoIssues] = useState<DeoIssuesResponse | null>(null);
   const [deoScore, setDeoScore] = useState<DeoScoreResponse | null>(null);
+  const [offsiteScorecard, setOffsiteScorecard] = useState<ProjectOffsiteCoverage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,12 +34,14 @@ export default function DeoOverviewPage() {
       setLoading(true);
       setError(null);
       try {
-        const [issuesRes, scoreRes] = await Promise.all([
+        const [issuesRes, scoreRes, offsiteRes] = await Promise.all([
           projectsApi.deoIssues(projectId),
           projectsApi.deoScore(projectId),
+          projectsApi.offsiteScorecard(projectId).catch(() => null), // Don't fail if offsite not available
         ]);
         setDeoIssues(issuesRes);
         setDeoScore(scoreRes);
+        setOffsiteScorecard(offsiteRes);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load DEO data');
       } finally {
@@ -148,9 +151,31 @@ export default function DeoOverviewPage() {
           const hasCritical = pillarIssues.some((i) => i.severity === 'critical');
           const hasWarning = pillarIssues.some((i) => i.severity === 'warning');
 
+          // Special handling for off-site signals pillar
+          const isOffsitePillar = pillar.id === 'offsite_signals';
+          const offsiteStatus = offsiteScorecard?.status;
+
           // Determine status badge
           let statusBadge: { label: string; className: string };
-          if (issueCount === 0 && !pillar.comingSoon) {
+          if (isOffsitePillar && offsiteStatus) {
+            // Use off-site scorecard status
+            if (offsiteStatus === 'Low') {
+              statusBadge = {
+                label: 'Low',
+                className: 'bg-red-100 text-red-700',
+              };
+            } else if (offsiteStatus === 'Medium') {
+              statusBadge = {
+                label: 'Medium',
+                className: 'bg-yellow-100 text-yellow-700',
+              };
+            } else {
+              statusBadge = {
+                label: 'Strong',
+                className: 'bg-green-100 text-green-700',
+              };
+            }
+          } else if (issueCount === 0 && !pillar.comingSoon) {
             statusBadge = {
               label: 'Not analyzed yet',
               className: 'bg-gray-100 text-gray-600',
@@ -196,6 +221,19 @@ export default function DeoOverviewPage() {
                 {pillar.description}
               </p>
 
+              {/* Off-site specific info */}
+              {isOffsitePillar && offsiteScorecard && (
+                <div className="mt-3 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="font-semibold text-gray-900">{offsiteScorecard.overallScore}</span>
+                    <span className="text-gray-500">/100 presence</span>
+                  </div>
+                  <div className="text-gray-500">
+                    {offsiteScorecard.totalSignals} signals · {offsiteScorecard.highImpactGaps} gaps
+                  </div>
+                </div>
+              )}
+
               <div className="mt-3 flex items-center justify-between">
                 <div>
                   <span className="text-lg font-bold text-gray-900">{issueCount}</span>
@@ -210,13 +248,21 @@ export default function DeoOverviewPage() {
                 )}
               </div>
 
-              <div className="mt-3">
+              <div className="mt-3 flex items-center justify-between">
                 <GuardedLink
                   href={`/projects/${projectId}/issues?pillar=${pillar.id}`}
                   className="text-xs font-medium text-blue-600 hover:text-blue-800"
                 >
                   View issues
                 </GuardedLink>
+                {isOffsitePillar && (
+                  <GuardedLink
+                    href={`/projects/${projectId}/backlinks`}
+                    className="text-xs font-medium text-gray-600 hover:text-gray-800"
+                  >
+                    Go to workspace
+                  </GuardedLink>
+                )}
               </div>
             </div>
           );

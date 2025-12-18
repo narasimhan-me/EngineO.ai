@@ -11,6 +11,7 @@ import {
 import { AutomationService } from './automation.service';
 import { SearchIntentService } from './search-intent.service';
 import { CompetitorsService } from './competitors.service';
+import { OffsiteSignalsService } from './offsite-signals.service';
 
 @Injectable()
 export class DeoIssuesService {
@@ -20,6 +21,7 @@ export class DeoIssuesService {
     private readonly automationService: AutomationService,
     private readonly searchIntentService: SearchIntentService,
     private readonly competitorsService: CompetitorsService,
+    private readonly offsiteSignalsService: OffsiteSignalsService,
   ) {}
 
   /**
@@ -147,6 +149,16 @@ export class DeoIssuesService {
       // Log but don't fail the entire issues request
       // eslint-disable-next-line no-console
       console.error('[DeoIssuesService] Failed to build competitive issues:', error);
+    }
+
+    // OFFSITE-1: Add Off-site Signals pillar issues
+    try {
+      const offsiteIssues = await this.offsiteSignalsService.buildOffsiteIssuesForProject(projectId);
+      issues.push(...offsiteIssues);
+    } catch (error) {
+      // Log but don't fail the entire issues request
+      // eslint-disable-next-line no-console
+      console.error('[DeoIssuesService] Failed to build off-site signals issues:', error);
     }
 
     // Fire-and-forget Answer Block automations for relevant answerability issues.

@@ -21,6 +21,8 @@ import { SearchIntentService } from './search-intent.service';
 import { SearchIntentController } from './search-intent.controller';
 import { CompetitorsService } from './competitors.service';
 import { CompetitorsController } from './competitors.controller';
+import { OffsiteSignalsService } from './offsite-signals.service';
+import { OffsiteSignalsController } from './offsite-signals.controller';
 
 @Module({
   imports: [
@@ -29,7 +31,7 @@ import { CompetitorsController } from './competitors.controller';
     ProductsModule,
     forwardRef(() => ShopifyModule),
   ],
-  controllers: [ProjectsController, ProductAutomationController, SearchIntentController, CompetitorsController],
+  controllers: [ProjectsController, ProductAutomationController, SearchIntentController, CompetitorsController, OffsiteSignalsController],
   providers: [
     ProjectsService,
     PrismaService,
@@ -46,7 +48,8 @@ import { CompetitorsController } from './competitors.controller';
     AutomationPlaybookRunsService,
     SearchIntentService,
     CompetitorsService,
+    OffsiteSignalsService,
   ],
-  exports: [ProjectsService, DeoScoreService, AutomationService, AnswerEngineService, AutomationPlaybookRunsService, SearchIntentService, CompetitorsService],
+  exports: [ProjectsService, DeoScoreService, AutomationService, AnswerEngineService, AutomationPlaybookRunsService, SearchIntentService, CompetitorsService, OffsiteSignalsService],
 })
 export class ProjectsModule {}

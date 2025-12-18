@@ -60,6 +60,9 @@ export * from './search-intent';
 // Competitive Positioning types (COMPETITORS-1)
 export * from './competitors';
 
+// Off-site Signals types (OFFSITE-1)
+export * from './offsite-signals';
+
 // Answer Engine types
 export * from './answer-engine';
 

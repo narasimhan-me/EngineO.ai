@@ -1,6 +1,7 @@
 import type { DeoPillarId } from './deo-pillars';
 import type { SearchIntentType, IntentCoverageStatus } from './search-intent';
 import type { CompetitorGapType, CompetitiveCoverageAreaId } from './competitors';
+import type { OffsiteSignalType, OffsiteGapType } from './offsite-signals';
 
 export type DeoIssueSeverity = 'critical' | 'warning' | 'info';
 
@@ -176,6 +177,20 @@ export interface DeoIssue {
    * Links to specific area being analyzed (e.g., 'comparison_section', 'transactional_intent').
    */
   competitiveAreaId?: CompetitiveCoverageAreaId;
+
+  // === Off-site Signals Pillar fields (OFFSITE-1) ===
+
+  /**
+   * For Off-site Signals pillar issues: the type of off-site signal
+   * this issue relates to (brand_mention, trust_proof, etc.).
+   */
+  signalType?: OffsiteSignalType;
+
+  /**
+   * For Off-site Signals pillar issues: the type of off-site gap.
+   * Distinguishes missing brand mentions, missing trust proof, etc.
+   */
+  offsiteGapType?: OffsiteGapType;
 }
 
 export interface DeoIssuesResponse {

@@ -893,6 +893,61 @@ export const competitorsApi = {
     fetchWithAuth(`/projects/${projectId}/competitors/scorecard`),
 };
 
+// ============================================================================
+// Off-site Signals API (OFFSITE-1)
+// ============================================================================
+
+import type {
+  ProjectOffsiteSignalsResponse,
+  ProjectOffsiteCoverage,
+  OffsiteFixPreviewRequest,
+  OffsiteFixPreviewResponse,
+  OffsiteFixApplyRequest,
+  OffsiteFixApplyResponse,
+} from '@engineo/shared';
+
+// Add to projectsApi for convenience - project-level off-site methods
+Object.assign(projectsApi, {
+  /**
+   * Get project-level off-site signals, coverage, and gaps.
+   */
+  offsiteSignals: (projectId: string): Promise<ProjectOffsiteSignalsResponse> =>
+    fetchWithAuth(`/projects/${projectId}/offsite-signals`),
+
+  /**
+   * Get project-level off-site scorecard only.
+   * Used by DEO Overview to show off-site pillar status.
+   */
+  offsiteScorecard: (projectId: string): Promise<ProjectOffsiteCoverage> =>
+    fetchWithAuth(`/projects/${projectId}/offsite-signals/scorecard`),
+
+  /**
+   * Preview an off-site fix - generates or retrieves a cached draft.
+   * Draft-first pattern: AI is only called if no cached draft exists.
+   */
+  previewOffsiteFix: (
+    projectId: string,
+    params: OffsiteFixPreviewRequest,
+  ): Promise<OffsiteFixPreviewResponse> =>
+    fetchWithAuth(`/projects/${projectId}/offsite-signals/preview`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    }),
+
+  /**
+   * Apply an off-site fix draft.
+   * No AI call - persists the draft content to appropriate storage.
+   */
+  applyOffsiteFix: (
+    projectId: string,
+    params: OffsiteFixApplyRequest,
+  ): Promise<OffsiteFixApplyResponse> =>
+    fetchWithAuth(`/projects/${projectId}/offsite-signals/apply`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    }),
+});
+
 export const shopifyApi = {
   syncProducts: (projectId: string) =>
     fetchWithAuth(`/shopify/sync-products?projectId=${projectId}`, {

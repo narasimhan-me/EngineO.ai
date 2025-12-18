@@ -11677,4 +11677,225 @@ This phase introduces:
 
 ---
 
+## Phase OFFSITE-1 – Brand Mentions & Authority Signals (Completed)
+
+**Status:** Complete
+
+**Goal:** Implement the Off-site Signals pillar, enabling merchants to understand and improve their brand presence through mentions, authoritative listings, reviews, and referenceable content.
+
+**Dependency:** DEO-IA-1, SEARCH-INTENT-1, COMPETITORS-1, DOC-AUTO-PB-1.3, RUNS-1, AI-USAGE-1/v2, CACHE/REUSE v2
+
+### OFFSITE-1 Overview
+
+This phase introduces:
+
+1. **Off-site Signal Taxonomy:**
+   - `trust_proof` — Third-party reviews, testimonials, certifications (highest weight)
+   - `authoritative_listing` — Directory and marketplace presence
+   - `brand_mention` — Articles, blogs, news references
+   - `reference_content` — Guides, comparisons, studies that cite the brand
+
+2. **Gap Types:**
+   - `missing_brand_mentions` — No brand mentions in articles
+   - `missing_trust_proof` — No third-party reviews or certifications
+   - `missing_authoritative_listing` — Not in key directories
+   - `competitor_has_offsite_signal` — Competitors have signals merchant lacks
+
+3. **Presence-Based Scoring:**
+   - Focus on signal presence, not DA or backlink counts
+   - Weighted scoring per signal type
+   - Status classification: Low (0-39), Medium (40-69), Strong (70-100)
+
+4. **Ethical Boundaries (Critical):**
+   - No link buying or support for purchasing backlinks
+   - No scraping of external content
+   - No automated outreach — all drafts require human review
+   - No DA metrics — focus on presence and quality
+   - Ethical review requests — no incentives, respects customer autonomy
+
+### OFFSITE-1 Implementation Details
+
+**Shared Types (packages/shared/src/offsite-signals.ts):**
+- `OffsiteSignalType`: 'brand_mention' | 'authoritative_listing' | 'trust_proof' | 'reference_content'
+- `OffsiteGapType`: 'missing_brand_mentions' | 'missing_trust_proof' | 'missing_authoritative_listing' | 'competitor_has_offsite_signal'
+- `OffsiteFixDraftType`: 'outreach_email' | 'pr_pitch' | 'brand_profile_snippet' | 'review_request_copy'
+- `OffsiteFixApplyTarget`: 'NOTES' | 'CONTENT_WORKSPACE' | 'OUTREACH_DRAFTS'
+- `ProjectOffsiteSignal`, `ProjectOffsiteCoverage`, `OffsiteGap`, `OffsiteFixDraft` interfaces
+- Helper functions for scoring and work key computation
+
+**Database Schema (apps/api/prisma/schema.prisma):**
+- `OffsiteSignalType` enum
+- `OffsiteGapType` enum
+- `OffsiteFixDraftType` enum
+- `OffsiteFixApplyTarget` enum
+- `OffsitePresenceStatus` enum
+- `ProjectOffsiteSignal` model — Detected or configured signals
+- `ProjectOffsiteCoverage` model — Presence scorecard snapshots
+- `ProjectOffsiteFixDraft` model — Fix draft storage with CACHE/REUSE v2
+- `ProjectOffsiteFixApplication` model — Audit log of applied fixes
+
+**Backend Service (apps/api/src/projects/offsite-signals.service.ts):**
+- Signal management (read/write project signals)
+- Coverage computation with weighted scoring
+- Gap analysis and generation
+- Issue building for DEO Issues Engine
+- No external crawling — heuristic detection only
+
+**Backend Controller (apps/api/src/projects/offsite-signals.controller.ts):**
+- `GET /projects/:id/offsite-signals` — Full off-site data
+- `GET /projects/:id/offsite-signals/scorecard` — Scorecard only
+- `POST /projects/:id/offsite-signals/preview` — Draft generation with CACHE/REUSE v2
+- `POST /projects/:id/offsite-signals/apply` — Apply fix (no AI call)
+
+**AI Service Helpers (apps/api/src/ai/ai.service.ts):**
+- `generateOutreachEmailDraft()` — Professional outreach email
+- `generatePrPitchDraft()` — Media coverage pitch
+- `generateBrandProfileSnippet()` — Directory listing content
+- `generateReviewRequestCopy()` — Ethical review solicitation
+
+**Frontend Components:**
+- `OffsiteSignalsPanel.tsx` — Reusable panel for coverage, gaps, and fix actions
+- Backlinks page upgraded to Off-site Signals workspace
+- DEO Overview integration with off-site scorecard
+
+**API Client (apps/web/src/lib/api.ts):**
+- `projectsApi.offsiteSignals()` — Get project off-site data
+- `projectsApi.offsiteScorecard()` — Get scorecard only
+- `projectsApi.previewOffsiteFix()` — Preview fix draft
+- `projectsApi.applyOffsiteFix()` — Apply fix draft
+
+### OFFSITE-1 Files Created/Modified
+
+**New Files:**
+- `packages/shared/src/offsite-signals.ts` — Shared off-site types
+- `apps/api/src/projects/offsite-signals.service.ts` — Off-site service
+- `apps/api/src/projects/offsite-signals.controller.ts` — Off-site endpoints
+- `apps/web/src/components/projects/OffsiteSignalsPanel.tsx` — Off-site panel
+- `docs/OFFSITE_PILLAR.md` — Pillar reference documentation
+- `docs/manual-testing/OFFSITE-1.md` — Manual testing checklist
+
+**Modified Files:**
+- `packages/shared/src/index.ts` — Re-export off-site types
+- `packages/shared/src/deo-issues.ts` — Add signalType, offsiteGapType fields
+- `packages/shared/src/deo-pillars.ts` — Activate off-site pillar (comingSoon: false)
+- `apps/api/prisma/schema.prisma` — Add off-site models and enums
+- `apps/api/src/projects/projects.module.ts` — Register off-site service/controller
+- `apps/api/src/projects/deo-issues.service.ts` — Inject off-site issues
+- `apps/api/src/ai/ai.service.ts` — Add off-site AI helpers
+- `apps/web/src/app/projects/[id]/backlinks/page.tsx` — Off-site workspace
+- `apps/web/src/app/projects/[id]/deo/page.tsx` — Off-site scorecard in overview
+- `apps/web/src/lib/api.ts` — Add off-site API methods
+- `docs/DEO_INFORMATION_ARCHITECTURE.md` — Add OFFSITE-1 to pillar slices
+
+### OFFSITE-1 Acceptance Criteria (Completed)
+
+- [x] Shared off-site types defined and exported
+- [x] Database schema with signal, coverage, draft, and application models
+- [x] Off-site pillar activated (comingSoon: false)
+- [x] Off-site service with coverage computation and issue generation
+- [x] Off-site controller with preview/apply endpoints
+- [x] AI helpers for outreach, PR, profile, and review copy
+- [x] Off-site workspace functional and accessible
+- [x] DEO Overview shows off-site presence score and status
+- [x] Issues Engine includes off-site issues
+- [x] CACHE/REUSE v2 integration for draft caching
+- [x] Ethical boundaries documented and enforced
+- [x] Documentation created (OFFSITE_PILLAR.md, manual-testing/OFFSITE-1.md)
+- [x] DEO_INFORMATION_ARCHITECTURE.md updated with OFFSITE-1
+
+**Reference Documentation:**
+- `docs/OFFSITE_PILLAR.md` — Pillar reference
+- `docs/manual-testing/OFFSITE-1.md` — Manual testing checklist
+
+**Note:** OFFSITE-1 is the third DEO pillar vertical slice, following the patterns established by SEARCH-INTENT-1 and COMPETITORS-1. The draft-first preview/apply pattern, CACHE/REUSE v2 integration, and ethical content generation approach are maintained. Future pillar implementations (LOCAL-1) should follow the same patterns.
+
+---
+
+## Phase OFFSITE-1-TESTS – Off-site Signals Automated Tests (Completed)
+
+This phase adds comprehensive automated test coverage for the Off-site Signals pillar (OFFSITE-1).
+
+### OFFSITE-1-TESTS Overview
+
+| Aspect | Detail |
+|--------|--------|
+| Goal | Add unit and integration tests for Off-site Signals pillar |
+| Scope | Shared types, service logic, coverage computation, gap analysis, issue generation |
+| Test Files | 3 new test files (2 unit, 1 integration) |
+| Tests Added | 47 unit tests + integration test suite |
+
+### OFFSITE-1-TESTS Test Coverage
+
+#### Unit Tests: Shared Types (`tests/unit/offsite-signals/offsite-signals-types.test.ts`)
+- **27 tests covering:**
+  - `getOffsitePresenceStatusFromScore` — Score classification (Low/Medium/Strong)
+  - `calculateOffsiteSeverity` — Severity calculation based on signal/gap types
+  - `computeOffsiteFixWorkKey` — Deterministic work key generation for CACHE/REUSE v2
+  - `getGapTypeForMissingSignal` — Signal type to gap type mapping
+  - Type constants validation (weights, labels, priority ordering)
+
+#### Unit Tests: Service (`tests/unit/offsite-signals/offsite-signals.service.test.ts`)
+- **20 tests covering:**
+  - Coverage computation with weighted scoring algorithm
+  - Diminishing returns for multiple signals of same type
+  - Status classification based on overall score
+  - Gap generation from coverage data
+  - Competitor-based gap detection
+  - DEO issue building for integration with Issues Engine
+  - Signal CRUD operations
+  - Coverage caching and invalidation
+  - Project access control
+
+#### Integration Tests (`tests/integration/offsite-signals/offsite-signals.integration.test.ts`)
+- **Tests covering (requires test database):**
+  - End-to-end signal management
+  - Coverage computation with real database
+  - Gap analysis with actual coverage data
+  - DEO issue integration
+  - Coverage cache lifecycle
+  - Full project data retrieval with access control
+
+### OFFSITE-1-TESTS Files Created
+
+| File | Description |
+|------|-------------|
+| `tests/unit/offsite-signals/offsite-signals-types.test.ts` | Unit tests for shared types and helper functions |
+| `tests/unit/offsite-signals/offsite-signals.service.test.ts` | Unit tests for OffsiteSignalsService |
+| `tests/integration/offsite-signals/offsite-signals.integration.test.ts` | Integration tests for off-site signals API |
+
+### OFFSITE-1-TESTS Files Modified
+
+| File | Change |
+|------|--------|
+| `apps/api/test/utils/test-db.ts` | Added cleanup for Off-site Signals tables |
+
+### OFFSITE-1-TESTS Acceptance Criteria (Completed)
+
+- [x] Unit tests for shared types helper functions (27 tests)
+- [x] Unit tests for OffsiteSignalsService (20 tests)
+- [x] Integration tests for off-site signals API (database-dependent)
+- [x] All 47 unit tests passing
+- [x] Test database cleanup includes Off-site Signals tables
+- [x] Tests follow existing project patterns
+
+### Running OFFSITE-1-TESTS
+
+```bash
+# Run all Off-site Signals unit tests
+cd apps/api && npx jest --config jest.config.ts --testPathPattern="offsite-signals"
+
+# Run shared types tests only
+cd apps/api && npx jest --config jest.config.ts --testPathPattern="offsite-signals-types"
+
+# Run service tests only
+cd apps/api && npx jest --config jest.config.ts --testPathPattern="offsite-signals.service.test"
+
+# Run integration tests (requires ENGINEO_E2E=1 and test database)
+ENGINEO_E2E=1 cd apps/api && npx jest --config jest.config.ts --testPathPattern="offsite-signals.integration"
+```
+
+**Note:** OFFSITE-1-TESTS completes the test coverage for the Off-site Signals pillar. The tests follow the same patterns as existing test files in the project. Integration tests require a configured test database and will be skipped if `ENGINEO_E2E` environment variable is not set.
+
+---
+
 **Author:** Narasimhan Mahendrakumar

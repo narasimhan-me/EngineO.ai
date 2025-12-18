@@ -80,6 +80,7 @@ model User {
   automationPlaybookRuns AutomationPlaybookRun[]
   intentFixApplications ProductIntentFixApplication[]
   competitiveFixApplications ProductCompetitiveFixApplication[]
+  offsiteFixApplications ProjectOffsiteFixApplication[]
 }
 
 model Project {
@@ -109,6 +110,12 @@ model Project {
   automationPlaybookDrafts   AutomationPlaybookDraft[]
   aiUsageEvents              AiUsageEvent[]
   automationPlaybookRuns     AutomationPlaybookRun[]
+
+  // OFFSITE-1 relations
+  offsiteSignals             ProjectOffsiteSignal[]
+  offsiteCoverages           ProjectOffsiteCoverage[]
+  offsiteFixDrafts           ProjectOffsiteFixDraft[]
+  offsiteFixApplications     ProjectOffsiteFixApplication[]
 }
 
 model Integration {
@@ -522,5 +529,125 @@ model ProductCompetitiveFixApplication {
   appliedAt       DateTime                  @default(now())
 
   @@index([productId, appliedAt(sort: Desc)])
+  @@index([appliedByUserId, appliedAt(sort: Desc)])
+}
+
+// =============================================================================
+// OFFSITE-1: Off-site Signals Models
+// =============================================================================
+
+// Off-site signal type enumeration
+enum OffsiteSignalType {
+  BRAND_MENTION
+  AUTHORITATIVE_LISTING
+  TRUST_PROOF
+  REFERENCE_CONTENT
+}
+
+// Off-site gap type enumeration
+enum OffsiteGapType {
+  MISSING_BRAND_MENTIONS
+  MISSING_TRUST_PROOF
+  MISSING_AUTHORITATIVE_LISTING
+  COMPETITOR_HAS_OFFSITE_SIGNAL
+}
+
+// Off-site fix draft type enumeration
+enum OffsiteFixDraftType {
+  OUTREACH_EMAIL
+  PR_PITCH
+  BRAND_PROFILE_SNIPPET
+  REVIEW_REQUEST_COPY
+}
+
+// Off-site fix apply target enumeration
+enum OffsiteFixApplyTarget {
+  NOTES
+  CONTENT_WORKSPACE
+  OUTREACH_DRAFTS
+}
+
+// Off-site presence status
+enum OffsitePresenceStatus {
+  LOW
+  MEDIUM
+  STRONG
+}
+
+// Project-level off-site signal records
+model ProjectOffsiteSignal {
+  id               String            @id @default(cuid())
+  project          Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId        String
+  signalType       OffsiteSignalType
+  sourceName       String            // Platform, publication, directory name
+  url              String?           // Optional URL (may be absent for "no signals detected" cases)
+  evidence         String            // Short description the UI can show
+  merchantProvided Boolean           @default(false)
+  knownPlatform    Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([projectId, signalType])
+}
+
+// Project-level off-site coverage snapshot
+model ProjectOffsiteCoverage {
+  id           String                @id @default(cuid())
+  project      Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId    String
+  coverageData Json                  // Serialized coverage summary (counts per signal type and gaps)
+  overallScore Float                 // 0-100 presence score
+  status       OffsitePresenceStatus // LOW, MEDIUM, STRONG
+  computedAt   DateTime              @default(now())
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@index([projectId, computedAt(sort: Desc)])
+}
+
+// Off-site fix drafts (preview-first pattern)
+model ProjectOffsiteFixDraft {
+  id                String              @id @default(cuid())
+  project           Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId         String
+  productId         String?             // Optional: if scoped to product-level (nullable for v1, brand-level emphasis)
+  gapType           OffsiteGapType
+  signalType        OffsiteSignalType
+  focusKey          String              // Specific opportunity identifier (e.g., "reviews/trustpilot", "directory:industry")
+  draftType         OffsiteFixDraftType
+  draftPayload      Json                // Outreach/PR/profile/review request content
+  aiWorkKey         String              // Deterministic key for CACHE/REUSE v2
+  reusedFromWorkKey String?             // If reused, the original work key
+  generatedWithAi   Boolean             @default(true)
+  expiresAt         DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  applications      ProjectOffsiteFixApplication[]
+
+  @@index([projectId, gapType, signalType, focusKey])
+  @@index([aiWorkKey])
+  @@index([projectId, expiresAt])
+}
+
+// Audit log of applied off-site fixes
+model ProjectOffsiteFixApplication {
+  id              String                @id @default(cuid())
+  project         Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId       String
+  productId       String?               // Optional: if scoped to product-level
+  draft           ProjectOffsiteFixDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  draftId         String
+  appliedBy       User                  @relation(fields: [appliedByUserId], references: [id], onDelete: Cascade)
+  appliedByUserId String
+  gapType         OffsiteGapType
+  signalType      OffsiteSignalType
+  focusKey        String
+  applyTarget     OffsiteFixApplyTarget
+  notes           String?
+  appliedAt       DateTime              @default(now())
+
+  @@index([projectId, appliedAt(sort: Desc)])
   @@index([appliedByUserId, appliedAt(sort: Desc)])
 }

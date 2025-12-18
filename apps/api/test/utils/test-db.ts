@@ -26,6 +26,11 @@ export async function cleanupTestDb(): Promise<void> {
   await prisma.$executeRawUnsafe('DELETE FROM "Integration" WHERE 1=1');
   await prisma.$executeRawUnsafe('DELETE FROM "DeoScoreSnapshot" WHERE 1=1');
   await prisma.$executeRawUnsafe('DELETE FROM "CrawlResult" WHERE 1=1');
+  // Off-site Signals tables (OFFSITE-1)
+  await prisma.$executeRawUnsafe('DELETE FROM "ProjectOffsiteFixApplication" WHERE 1=1');
+  await prisma.$executeRawUnsafe('DELETE FROM "ProjectOffsiteFixDraft" WHERE 1=1');
+  await prisma.$executeRawUnsafe('DELETE FROM "ProjectOffsiteCoverage" WHERE 1=1');
+  await prisma.$executeRawUnsafe('DELETE FROM "ProjectOffsiteSignal" WHERE 1=1');
   await prisma.$executeRawUnsafe('DELETE FROM "Product" WHERE 1=1');
   // Now delete Project (which has FK to User)
   await prisma.$executeRawUnsafe('DELETE FROM "Project" WHERE 1=1');

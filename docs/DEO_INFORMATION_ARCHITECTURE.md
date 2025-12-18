@@ -241,13 +241,82 @@ Competitive issues include additional fields:
 
 For detailed documentation, see [COMPETITORS_PILLAR.md](./COMPETITORS_PILLAR.md).
 
+### Third Implementation: Off-site Signals Pillar (OFFSITE-1)
+
+The **Off-site Signals** pillar is the third fully-implemented DEO vertical slice, focusing on brand mentions, authoritative listings, reviews, and referenceable content.
+
+#### Key Surfaces
+
+| Surface | Location | Description |
+|---------|----------|-------------|
+| DEO Overview Card | `/projects/[id]/deo` | Shows presence score, status, signal/gap counts |
+| Pillar Workspace | `/projects/[id]/backlinks` | Project-level Off-site Signals workspace |
+| Issues Filter | `/projects/[id]/issues?pillar=offsite_signals` | Off-site issues filtered view |
+
+#### Signal Type Taxonomy
+
+Four types of off-site signals:
+- **Trust Proof** — Third-party reviews, testimonials, certifications (highest weight)
+- **Authoritative Listing** — Directory and marketplace presence
+- **Brand Mention** — Articles, blogs, news references
+- **Reference Content** — Guides, comparisons, studies that cite the brand
+
+#### Gap Types
+
+- **missing_brand_mentions** — No brand mentions in articles
+- **missing_trust_proof** — No third-party reviews or certifications
+- **missing_authoritative_listing** — Not in key directories
+- **competitor_has_offsite_signal** — Competitors have signals merchant lacks
+
+#### Ethical Boundaries (Critical)
+
+Off-site Signals operates within strict ethical limits:
+- **No link buying** — No support for purchasing backlinks
+- **No scraping** — Signals via configuration/heuristics only
+- **No automated outreach** — Drafts require human review
+- **No DA metrics** — Focus on presence, not domain authority
+- **Ethical review requests** — No incentives, respects customer autonomy
+
+#### Draft Types
+
+| Draft Type | Use Case | Output |
+|-----------|----------|--------|
+| Outreach Email | Request inclusion/mentions | Subject + body |
+| PR Pitch | Media coverage requests | Subject + pitch |
+| Brand Profile Snippet | Directory listings | Summary + bullets |
+| Review Request Copy | Customer solicitation | Message + channel |
+
+#### Draft-First Fix Flow
+
+Follows the established pattern:
+1. **Preview** — Generate/retrieve cached off-site fix draft
+2. **Review** — User reviews content in modal
+3. **Apply** — Save to Notes, Outreach Drafts, or Content Workspace
+4. **No automated sending** — Human must review and send manually
+
+#### CACHE/REUSE v2 Integration
+
+Uses `INTENT_FIX_PREVIEW` run type with off-site metadata:
+- `playbookId: 'offsite-signals-fix'`
+- Metadata includes `pillar: 'offsite_signals'`, `gapType`, `signalType`
+- Deterministic `aiWorkKey` prevents duplicate AI calls
+
+#### Off-site Issues
+
+Off-site issues include additional fields:
+- `signalType` — brand_mention, trust_proof, authoritative_listing, reference_content
+- `offsiteGapType` — The specific gap type
+- `competitorCount` — For competitor-based gaps
+- `recommendedAction` — "Add reviews", "Submit to directories", etc.
+
+For detailed documentation, see [OFFSITE_PILLAR.md](./OFFSITE_PILLAR.md).
+
 ### Future Pillar Implementations
 
-The following pillars will follow the Search & Intent and Competitors patterns:
+The following pillars will follow the established patterns:
 
 | Pillar | Phase | Status |
 |--------|-------|--------|
-| Off-site Signals | OFFSITE-1 | Planned |
 | Local Discovery | LOCAL-1 | Planned |
 
 Each implementation should include:
@@ -267,17 +336,22 @@ Each implementation should include:
 | Issue types | `packages/shared/src/deo-issues.ts` |
 | Search intent types | `packages/shared/src/search-intent.ts` |
 | Competitive types | `packages/shared/src/competitors.ts` |
+| Off-site signals types | `packages/shared/src/offsite-signals.ts` |
 | Issue builders | `apps/api/src/projects/deo-issues.service.ts` |
 | Search intent service | `apps/api/src/projects/search-intent.service.ts` |
 | Search intent controller | `apps/api/src/projects/search-intent.controller.ts` |
 | Competitors service | `apps/api/src/projects/competitors.service.ts` |
 | Competitors controller | `apps/api/src/projects/competitors.controller.ts` |
+| Off-site signals service | `apps/api/src/projects/offsite-signals.service.ts` |
+| Off-site signals controller | `apps/api/src/projects/offsite-signals.controller.ts` |
 | Issues list | `apps/web/src/components/issues/IssuesList.tsx` |
 | Issue badge | `apps/web/src/components/issues/IssueBadge.tsx` |
 | Product row | `apps/web/src/components/products/ProductRow.tsx` |
 | Search intent panel | `apps/web/src/components/products/optimization/ProductSearchIntentPanel.tsx` |
 | Competitors panel | `apps/web/src/components/products/optimization/ProductCompetitorsPanel.tsx` |
+| Off-site signals panel | `apps/web/src/components/projects/OffsiteSignalsPanel.tsx` |
 | DEO Overview | `apps/web/src/app/projects/[id]/deo/page.tsx` |
 | Issues page | `apps/web/src/app/projects/[id]/issues/page.tsx` |
 | Search intent workspace | `apps/web/src/app/projects/[id]/keywords/page.tsx` |
 | Competitors workspace | `apps/web/src/app/projects/[id]/competitors/page.tsx` |
+| Off-site signals workspace | `apps/web/src/app/projects/[id]/backlinks/page.tsx` |
