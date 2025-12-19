@@ -4,7 +4,13 @@ const config: Config = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: '../..',
   testRegex: '.*\\.(spec|test)\\.ts$',
-  testPathIgnorePatterns: ['/node_modules/', '/dist/', '\\.e2e-spec\\.ts$'],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/dist/',
+    '\\.e2e-spec\\.ts$',
+    '/apps/web/', // Exclude web app tests (Playwright)
+    '/packages/shared/src/.*\\.test\\.ts$', // Exclude shared package tests (co-located)
+  ],
   // Run tests sequentially to avoid database race conditions with shared test DB
   maxWorkers: 1,
   transform: {

@@ -12,6 +12,8 @@ import { AiService } from '../../src/ai/ai.service';
 import { EntitlementsService } from '../../src/billing/entitlements.service';
 import { ProjectsService } from '../../src/projects/projects.service';
 import { ProductIssueFixService } from '../../src/ai/product-issue-fix.service';
+import { TokenUsageService } from '../../src/ai/token-usage.service';
+import { AiUsageQuotaService } from '../../src/ai/ai-usage-quota.service';
 
 describe('AutomationPlaybooksService.applyPlaybook – no AI contract', () => {
   let service: AutomationPlaybooksService;
@@ -62,6 +64,33 @@ describe('AutomationPlaybooksService.applyPlaybook – no AI contract', () => {
           provide: ProductIssueFixService,
           useValue: {
             fixMissingSeoFieldFromIssue: jest.fn().mockResolvedValue({ updated: true }),
+          },
+        },
+        {
+          provide: TokenUsageService,
+          useValue: {
+            log: jest.fn().mockResolvedValue(undefined),
+            getMonthlyUsage: jest.fn().mockResolvedValue(0),
+          },
+        },
+        {
+          provide: AiUsageQuotaService,
+          useValue: {
+            evaluateQuotaForAction: jest.fn().mockResolvedValue({
+              projectId: 'test-project',
+              planId: 'pro',
+              action: 'PREVIEW_GENERATE',
+              policy: {
+                monthlyAiRunsLimit: null,
+                softThresholdPercent: 80,
+                hardEnforcementEnabled: false,
+              },
+              currentMonthAiRuns: 0,
+              remainingAiRuns: null,
+              currentUsagePercent: null,
+              status: 'allowed',
+              reason: 'unlimited',
+            }),
           },
         },
       ],
