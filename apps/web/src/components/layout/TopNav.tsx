@@ -12,6 +12,7 @@ interface User {
   email: string;
   name: string | null;
   role: string;
+  adminRole?: 'SUPPORT_AGENT' | 'OPS_ADMIN' | 'MANAGEMENT_CEO' | null;
 }
 
 export default function TopNav() {
@@ -98,7 +99,7 @@ export default function TopNav() {
               >
                 Settings
               </GuardedLink>
-              {user?.role === 'ADMIN' && (
+              {user?.role === 'ADMIN' && !!user?.adminRole && (
                 <GuardedLink
                   href="/admin"
                   className="inline-flex items-center px-1 pt-1 text-sm font-medium text-purple-700 hover:text-purple-900"

@@ -12094,3 +12094,244 @@ ENGINEO_E2E=1 cd apps/api && npx jest --config jest.config.ts --testPathPattern=
 ---
 
 **Author:** Narasimhan Mahendrakumar
+
+---
+
+## Phase PERFORMANCE-1 – Discovery-Critical Performance Signals (Completed)
+
+**Status:** Complete
+
+**Goal:** Add lightweight, discovery-focused performance signals to the Technical & Indexability pillar, surfacing issues that directly affect crawlability, rendering, and indexability without introducing a full page-speed audit tool.
+
+**Dependency:** DEO-IA-1, MEDIA-1, SEARCH-INTENT-1, COMPETITORS-1, OFFSITE-1, LOCAL-1, DOC-AUTO-PB-1.3, RUNS-1, AI-USAGE-1/v2, CACHE/REUSE v2
+
+### PERFORMANCE-1 Overview
+
+This phase introduces:
+
+1. **Performance Signal Taxonomy (PERFORMANCE-1):**
+   - `render_blocking` — Render-blocking scripts/styles in `<head>` (no async/defer/module).
+   - `indexability_risk` — `noindex` directives and canonical conflicts.
+   - `ttfb_proxy` — Slow initial response / time-to-first-content proxy based on crawl timing.
+   - `page_weight_risk` — Extremely large HTML payloads (HTML byte size).
+   - `mobile_readiness` — Missing or clearly misconfigured viewport meta.
+
+2. **New Technical Issues (PERFORMANCE-1):**
+   - `render_blocking_resources`
+   - `indexability_conflict`
+   - `slow_initial_response`
+   - `excessive_page_weight`
+   - `mobile_rendering_risk`
+
+   All PERFORMANCE issues:
+   - Use `pillarId = 'technical_indexability'`.
+   - Have `category = 'technical'`.
+   - Include `signalType` mapped to the PERFORMANCE signal taxonomy.
+   - Include `whyItMatters` and `recommendedFix` fields with discovery-focused guidance.
+
+3. **Performance for Discovery Score (Qualitative):**
+   - Derived from PERFORMANCE-1 issues on the Technical pillar:
+     - `Strong` when few or no performance issues exist and no critical severity.
+     - `Needs improvement` when there are multiple warning-level issues or a single risky signal.
+     - `Risky` when any critical issue exists, multiple risky signals, or a high overall issue count.
+   - Displayed in the **Project → Performance** tab as:
+     - “Performance for Discovery” with status badge (Strong / Needs Improvement / Risky).
+     - “X issues affecting discovery” based on the total PERFORMANCE issue counts.
+   - Clearly labeled as a **discovery-focused heuristic**, not a full speed audit or CWV replacement.
+
+### PERFORMANCE-1 Implementation Details
+
+**Shared Types (packages/shared):**
+
+- `packages/shared/src/performance-signals.ts`:
+  - `PerformanceSignalType` (`render_blocking`, `indexability_risk`, `ttfb_proxy`, `page_weight_risk`, `mobile_readiness`).
+  - `PerformanceForDiscoveryStatus`, `PerformanceSignalStatus`, and `PerformanceForDiscoveryScorecard` for future reuse.
+- `packages/shared/src/deo-issues.ts`:
+  - Extended `signalType` on `DeoIssue` to accept `PerformanceSignalType` in addition to Off-site signal types.
+- `packages/shared/src/index.ts`:
+  - Re-exported PERFORMANCE-1 types alongside existing DEO types.
+
+**Backend (apps/api):**
+
+- `apps/api/src/seo-scan/seo-scan.service.ts`:
+  - Extended `scanPage` to compute discovery-critical performance flags during crawl:
+    - `RENDER_BLOCKING_RESOURCES` from `<head>` scripts/styles lacking async/defer/module.
+    - `LARGE_HTML` / `VERY_LARGE_HTML` based on HTML byte size thresholds.
+    - `MISSING_VIEWPORT_META` / `POTENTIAL_MOBILE_LAYOUT_ISSUE` from viewport meta.
+    - `META_ROBOTS_NOINDEX` and `NOINDEX` from meta and `X-Robots-Tag` respectively.
+    - `CANONICAL_CONFLICT` when canonical host differs from the crawled URL.
+  - Preserved existing `SLOW_LOAD_TIME` heuristic based on `loadTimeMs`.
+
+- `apps/api/src/projects/deo-issues.service.ts`:
+  - Added PERFORMANCE-1 builders:
+    - `buildIndexabilityConflictIssue` → `indexability_conflict` (uses indexability signals and noindex/canonical flags).
+    - `buildRenderBlockingResourcesIssue` → `render_blocking_resources` (uses `RENDER_BLOCKING_RESOURCES`).
+    - `buildSlowInitialResponseIssue` → `slow_initial_response` (uses `loadTimeMs` and `SLOW_LOAD_TIME`).
+    - `buildExcessivePageWeightIssue` → `excessive_page_weight` (uses `LARGE_HTML` / `VERY_LARGE_HTML`).
+    - `buildMobileRenderingRiskIssue` → `mobile_rendering_risk` (uses viewport-related flags).
+  - Each builder:
+    - Assigns `pillarId = 'technical_indexability'`, `category = 'technical'`.
+    - Sets `signalType` to the corresponding `PerformanceSignalType`.
+    - Provides clear `whyItMatters` and `recommendedFix` text focused on configuration/content, not unsafe automation.
+  - Integrated PERFORMANCE issues into `getIssuesForProject` alongside existing Technical pillar issues.
+
+**Frontend (apps/web):**
+
+- `apps/web/src/lib/deo-issues.ts`:
+  - Added `PerformanceSignalType` (web-local copy) and extended `signalType` to support PERFORMANCE issues.
+- `apps/web/src/components/issues/IssuesList.tsx`:
+  - Extended `ISSUE_UI_CONFIG` with labels/descriptions for PERFORMANCE issue IDs:
+    - `render_blocking_resources`
+    - `indexability_conflict`
+    - `slow_initial_response`
+    - `excessive_page_weight`
+    - `mobile_rendering_risk`
+  - All mapped to the Technical & Indexability pillar.
+- `apps/web/src/app/projects/[id]/performance/page.tsx`:
+  - Replaced the placeholder Technical page with a dedicated **Performance for Discovery** workspace:
+    - Fetches project details and DEO issues.
+    - Filters technical issues into PERFORMANCE signals and computes a `PerformanceScorecard`:
+      - Per-signal status (`ok` / `needs_attention` / `risky`) based on issue counts and severities.
+      - Overall status (Strong / Needs improvement / Risky) based on total issues and critical flags.
+    - Renders:
+      - Status badge and issues count.
+      - Signal breakdown cards (5 signals) with counts and qualitative status.
+      - PERFORMANCE issue list with severity badges.
+      - Quick actions to view all Technical issues and trigger a fresh crawl.
+      - Explanatory copy describing what Performance for Discovery does and does not cover.
+
+**Documentation:**
+
+- `docs/pillars/PERFORMANCE_PILLAR.md`:
+  - Canonical pillar reference for Performance for Discovery, including signal definitions, detection logic, thresholds, and future enhancements.
+- `docs/deo-issues-spec.md`:
+  - Section **9. PERFORMANCE-1: Discovery-Critical Performance Issues** documenting:
+    - `PerformanceSignalType` and issue mapping.
+    - Detection rules and severity thresholds.
+    - Scorecard model and status calculation.
+- `docs/testing/PERFORMANCE-1.md`:
+  - Manual testing checklist for PERFORMANCE-1:
+    - Crawl signal verification for all five signals.
+    - DEO issue generation and severity thresholds.
+    - Performance tab scorecard rendering and issue lists.
+    - Issues Engine integration under the Technical pillar.
+
+### PERFORMANCE-1 Acceptance Criteria (Completed)
+
+- [x] Runtime crawl captures discovery-critical performance flags (render-blocking, indexability hints, page weight, mobile readiness) without external performance tooling.
+- [x] PERFORMANCE-1 issues (`render_blocking_resources`, `indexability_conflict`, `slow_initial_response`, `excessive_page_weight`, `mobile_rendering_risk`) are built with `pillarId = 'technical_indexability'` and appropriate `signalType`.
+- [x] Project Performance tab shows a qualitative Performance for Discovery status (Strong / Needs improvement / Risky) and total issues affecting discovery.
+- [x] PERFORMANCE issues appear in the Issues Engine under the Technical & Indexability pillar and respect existing filtering.
+- [x] Performance signals are framed as DEO enablers, not generic speed audits, with no promises of ranking improvements.
+- [x] Documentation created/updated (`docs/pillars/PERFORMANCE_PILLAR.md`, `docs/deo-issues-spec.md` Section 9, `docs/testing/PERFORMANCE-1.md`).
+
+**Manual Testing:** `docs/testing/PERFORMANCE-1.md`
+
+---
+
+## Phase ADMIN-OPS-1 – Support & Management Operations Dashboard (Completed)
+
+Internal-only operational control plane for Support Agents, Ops Admins, and Management/CEO.
+
+**Dependency:** Phase 1.4 (Billing), Phase 1.5 (Entitlements), RUNS-1 (Run types), AI-USAGE-1/v2 (Quota system)
+
+### ADMIN-OPS-1 Overview
+
+Implements a locked, internal-only admin dashboard with:
+1. **Internal Admin Roles (ADMIN-OPS-1):**
+   - `InternalAdminRole` enum: `SUPPORT_AGENT`, `OPS_ADMIN`, `MANAGEMENT_CEO`
+   - `AccountStatus` enum: `ACTIVE`, `SUSPENDED`
+   - Capability-based access control (read, support_action, ops_action)
+
+2. **Immutable Audit Logging:**
+   - `AdminAuditLog` model for all admin actions
+   - Logs actor, action type, target, and metadata
+   - Cannot be modified or deleted
+
+3. **Dashboard Sections (D1-D8):**
+   - D1: Overview with platform metrics and APPLY invariant alert
+   - D2: Users list with filtering
+   - D3: User detail with subscription and AI usage info
+   - D4: Projects with sync status
+   - D5: Runs explorer with retry capability
+   - D6: Issues summary
+   - D7: AI Usage metrics
+   - D8: Audit Log viewer
+
+4. **Admin Capabilities:**
+   - Read-only impersonation (support_action)
+   - Quota reset via offsets (ops_action)
+   - Plan override (ops_action)
+   - Safe resync without AI automation (ops_action)
+   - Run retry (ops_action)
+   - Admin role changes (ops_action)
+
+### ADMIN-OPS-1 Files Created
+
+**Backend (apps/api):**
+- `src/auth/admin-roles.guard.ts` — Capability-based guard with RequireAdminCapability decorator
+- `prisma/migrations/README.md` — Migration notes for ADMIN-OPS-1
+
+**Frontend (apps/web):**
+- `src/app/admin/users/[id]/page.tsx` — User detail page
+- `src/app/admin/projects/page.tsx` — Projects list
+- `src/app/admin/runs/page.tsx` — Runs explorer
+- `src/app/admin/runs/[id]/page.tsx` — Run detail
+- `src/app/admin/issues/page.tsx` — Issues summary
+- `src/app/admin/ai-usage/page.tsx` — AI Usage console
+- `src/app/admin/system-health/page.tsx` — System health metrics
+- `src/app/admin/audit-log/page.tsx` — Audit log viewer
+
+**Tests:**
+- `test/integration/admin-ops-1.test.ts` — Integration tests
+
+**Documentation:**
+- `docs/ADMIN_OPS.md` — Feature documentation
+- `docs/manual-testing/ADMIN-OPS-1.md` — Manual testing checklist
+
+### ADMIN-OPS-1 Files Modified
+
+**Backend (apps/api):**
+| File | Changes |
+|------|---------|
+| `prisma/schema.prisma` | Added InternalAdminRole enum, AccountStatus enum, AdminAuditLog model, AiMonthlyQuotaReset model, extended User model |
+| `prisma/seed.ts` | Set adminRole=OPS_ADMIN and accountStatus=ACTIVE for default admin |
+| `src/auth/admin.guard.ts` | Tightened to require adminRole in addition to role=ADMIN |
+| `src/auth/jwt.strategy.ts` | Added impersonation payload support |
+| `src/auth/jwt-auth.guard.ts` | Added read-only impersonation enforcement |
+| `src/admin/admin.controller.ts` | Added all D1-D8 endpoints with capability guards |
+| `src/admin/admin.service.ts` | Added all admin service methods with audit logging |
+| `src/ai/ai-usage-quota.service.ts` | Added quota reset offset support |
+| `src/shopify/shopify.service.ts` | Added triggerAutomation option for safe resync |
+| `test/utils/test-db.ts` | Added cleanup for AdminAuditLog and AiMonthlyQuotaReset |
+
+**Frontend (apps/web):**
+| File | Changes |
+|------|---------|
+| `src/components/layout/AdminSideNav.tsx` | Updated nav items for D1-D8 |
+| `src/app/admin/layout.tsx` | Added adminRole check |
+| `src/lib/api.ts` | Added all adminApi methods |
+| `src/app/admin/page.tsx` | Updated for Overview (D1) |
+| `src/app/admin/users/page.tsx` | Updated with filters and columns |
+
+**Documentation:**
+| File | Changes |
+|------|---------|
+| `docs/testing/CRITICAL_PATH_MAP.md` | Added CP-013: Admin Operations Dashboard |
+
+### ADMIN-OPS-1 Acceptance Criteria (Completed)
+
+- [x] Users must have role=ADMIN AND adminRole set to access /admin
+- [x] SUPPORT_AGENT can perform read + support actions (impersonation)
+- [x] OPS_ADMIN can perform read + support + ops actions (quota reset, resync, retry)
+- [x] MANAGEMENT_CEO has read-only access (no support or ops actions)
+- [x] Read-only impersonation blocks POST/PUT/PATCH/DELETE
+- [x] Quota reset creates offset record (ledger preserved)
+- [x] Safe resync triggers Shopify sync without AI automation
+- [x] All admin actions logged immutably to AdminAuditLog
+- [x] Overview shows APPLY invariant red alert (APPLY runs with aiUsed=true)
+- [x] Integration tests cover role gating, impersonation, quota reset, audit logging
+- [x] Documentation created (docs/ADMIN_OPS.md, docs/manual-testing/ADMIN-OPS-1.md)
+- [x] CRITICAL_PATH_MAP.md updated with CP-013
+
+**Manual Testing:** `docs/manual-testing/ADMIN-OPS-1.md`

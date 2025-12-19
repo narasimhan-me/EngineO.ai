@@ -95,6 +95,18 @@ interface ShopifyGraphqlEnvelope<T> {
   errors?: ShopifyGraphqlError[];
 }
 
+/**
+ * [ADMIN-OPS-1] Options for product sync.
+ */
+interface SyncProductsOptions {
+  /**
+   * When false, skips automation triggers for new products.
+   * Used by admin resync to prevent AI side effects.
+   * Default: true (triggers automation)
+   */
+  triggerAutomation?: boolean;
+}
+
 export function mapAnswerBlocksToMetafieldPayloads(
   blocks: { questionId: string; answerText: string }[],
 ): {
@@ -807,14 +819,20 @@ export class ShopifyService {
   }
 
   /**
-   * Sync products from Shopify store to local database
+   * Sync products from Shopify store to local database.
+   * [ADMIN-OPS-1] Accepts options.triggerAutomation (default true) to control automation triggers.
    */
-  async syncProducts(projectId: string, userId: string): Promise<{
+  async syncProducts(
+    projectId: string,
+    userId: string,
+    options: SyncProductsOptions = {},
+  ): Promise<{
     projectId: string;
     synced: number;
     created: number;
     updated: number;
   }> {
+    const { triggerAutomation = true } = options;
     // Validate ownership
     const isOwner = await this.validateProjectOwnership(projectId, userId);
     if (!isOwner) {
@@ -878,24 +896,28 @@ export class ShopifyService {
         dbProductId = newProduct.id;
         created++;
 
-        // Trigger automation for new products (non-blocking)
-        // This runs AUTO_GENERATE_METADATA_ON_NEW_PRODUCT rule
-        this.automationService
-          .runNewProductSeoTitleAutomation(projectId, newProduct.id, userId)
-          .catch((err) => {
-            this.logger.warn(
-              `[ShopifySync] Automation failed for new product ${newProduct.id}: ${err.message}`,
-            );
-          });
+        // [ADMIN-OPS-1] Only trigger automation if triggerAutomation is true
+        // Admin resync passes triggerAutomation=false to prevent AI side effects
+        if (triggerAutomation) {
+          // Trigger automation for new products (non-blocking)
+          // This runs AUTO_GENERATE_METADATA_ON_NEW_PRODUCT rule
+          this.automationService
+            .runNewProductSeoTitleAutomation(projectId, newProduct.id, userId)
+            .catch((err) => {
+              this.logger.warn(
+                `[ShopifySync] Automation failed for new product ${newProduct.id}: ${err.message}`,
+              );
+            });
 
-        // Trigger Answer Block automation for new products (non-blocking)
-        this.automationService
-          .triggerAnswerBlockAutomationForProduct(newProduct.id, userId, 'product_synced')
-          .catch((err) => {
-            this.logger.warn(
-              `[ShopifySync] Answer Block automation failed for new product ${newProduct.id}: ${err.message}`,
-            );
-          });
+          // Trigger Answer Block automation for new products (non-blocking)
+          this.automationService
+            .triggerAnswerBlockAutomationForProduct(newProduct.id, userId, 'product_synced')
+            .catch((err) => {
+              this.logger.warn(
+                `[ShopifySync] Answer Block automation failed for new product ${newProduct.id}: ${err.message}`,
+              );
+            });
+        }
       }
 
       // MEDIA-1: Upsert ProductImage records for image alt text sync

@@ -336,6 +336,35 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 
 ---
 
+### CP-013: Admin Operations Dashboard
+
+**Description:** Internal-only operational control plane for Support Agents, Ops Admins, and Management/CEO with role-based access control, read-only impersonation, quota resets, safe resyncs, and immutable audit logging.
+
+| Field | Value |
+|-------|-------|
+| **Manual Testing Doc(s)** | `docs/manual-testing/ADMIN-OPS-1.md`, `docs/ADMIN_OPS.md` |
+| **Automated Tests** | `apps/api/test/integration/admin-ops-1.test.ts` |
+| **Last Verified (Manual)** | [YYYY-MM-DD] |
+| **Last Verified (Automated)** | N/A |
+| **Owner** | Core Team |
+
+**Key Scenarios:**
+- [ ] Internal admin role gating (role=ADMIN + adminRole required)
+- [ ] SUPPORT_AGENT can perform read + support actions (impersonation)
+- [ ] OPS_ADMIN can perform read + support + ops actions (quota reset, plan override, safe resync)
+- [ ] MANAGEMENT_CEO has read-only access (no support or ops actions)
+- [ ] Read-only impersonation blocks all write actions (POST/PUT/PATCH/DELETE)
+- [ ] Impersonation token allows read actions
+- [ ] Quota reset creates offset record without deleting ledger
+- [ ] Safe resync triggers Shopify sync without AI automation
+- [ ] All admin actions logged immutably to AdminAuditLog
+- [ ] Audit log displays correct actor, action, and target
+- [ ] Overview dashboard shows APPLY invariant red alert (APPLY runs with aiUsed=true)
+- [ ] User detail page shows subscription, quota, and action buttons
+- [ ] System health endpoint returns platform metrics
+
+---
+
 ## Coverage Summary
 
 | Critical Path | Manual Docs | Auto Tests | Status |
@@ -352,6 +381,7 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 | CP-010: Issue Engine Full | ✅ | Planned | 🟡 Manual Only |
 | CP-011: Answer Engine | ✅ | Planned | 🟡 Manual Only |
 | CP-012: Automation Engine | ✅ | Planned | 🟡 Manual Only |
+| CP-013: Admin Operations | ✅ | ✅ | 🟢 Full Coverage |
 
 **Legend:**
 - 🟢 Full Coverage (Manual + Automated)
@@ -402,3 +432,4 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 | 2.3 | 2025-12-15 | Added AUTO-PB-1.2 UX coherence and navigation safety scenarios to CP-012, including new manual testing doc and Playwright coverage |
 | 2.4 | 2025-12-15 | Added AUTO-PB-1.3 (Planned) Preview Persistence & Cross-Surface Drafts scenario to CP-012 |
 | 2.5 | 2025-12-18 | Added MEDIA-1 scenarios to CP-006 (Shopify Sync), CP-009 (Issue Engine Lite), CP-010 (Issue Engine Full) for Media & Accessibility pillar |
+| 2.6 | 2025-12-19 | Added CP-013: Admin Operations Dashboard (ADMIN-OPS-1) with internal admin roles, impersonation, quota reset, and audit logging |

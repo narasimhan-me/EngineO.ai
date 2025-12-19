@@ -15,6 +15,19 @@ enum UserRole {
   ADMIN
 }
 
+// [ADMIN-OPS-1] Internal admin roles (internal-only, not customer-facing)
+enum InternalAdminRole {
+  SUPPORT_AGENT
+  OPS_ADMIN
+  MANAGEMENT_CEO
+}
+
+// [ADMIN-OPS-1] Account status for users
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+}
+
 // Supported ecommerce platform integration types
 enum IntegrationType {
   SHOPIFY
@@ -64,15 +77,19 @@ enum AutomationPlaybookRunStatus {
 }
 
 model User {
-  id               String   @id @default(cuid())
-  email            String   @unique
+  id               String              @id @default(cuid())
+  email            String              @unique
   password         String
   name             String?
-  role             UserRole @default(USER)
-  twoFactorEnabled Boolean  @default(false)
-  twoFactorSecret  String?  // Base32-encoded TOTP secret
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  role             UserRole            @default(USER)
+  twoFactorEnabled Boolean             @default(false)
+  twoFactorSecret  String?             // Base32-encoded TOTP secret
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  // [ADMIN-OPS-1] Internal admin role and account status
+  adminRole        InternalAdminRole?  // Nullable; only meaningful when role === ADMIN
+  accountStatus    AccountStatus       @default(ACTIVE)
 
   projects     Project[]
   subscription Subscription?
@@ -83,6 +100,12 @@ model User {
   offsiteFixApplications ProjectOffsiteFixApplication[]
   localFixApplications ProjectLocalFixApplication[]
   mediaFixApplications ProductMediaFixApplication[]
+
+  // [ADMIN-OPS-1] Admin audit log relations
+  adminAuditLogsPerformed AdminAuditLog[] @relation("PerformedBy")
+  adminAuditLogsTargeted  AdminAuditLog[] @relation("TargetUser")
+  aiQuotaResetsPerformed  AiMonthlyQuotaReset[] @relation("CreatedBy")
+  aiQuotaResetsReceived   AiMonthlyQuotaReset[] @relation("UserReset")
 }
 
 model Project {
@@ -125,6 +148,9 @@ model Project {
   localSignals               ProjectLocalSignal[]
   localFixDrafts             ProjectLocalFixDraft[]
   localFixApplications       ProjectLocalFixApplication[]
+
+  // [ADMIN-OPS-1] Admin audit log relation
+  adminAuditLogsTargeted     AdminAuditLog[] @relation("TargetProject")
 }
 
 model Integration {
@@ -879,4 +905,64 @@ model ProductMediaFixApplication {
 
   @@index([productId, appliedAt(sort: Desc)])
   @@index([appliedByUserId, appliedAt(sort: Desc)])
+}
+
+// =============================================================================
+// ADMIN-OPS-1: Support & Management Operations Dashboard Models
+// =============================================================================
+
+// Immutable admin audit log (no update/delete flows)
+model AdminAuditLog {
+  id                    String              @id @default(cuid())
+  createdAt             DateTime            @default(now())
+
+  // Who performed the action
+  performedBy           User                @relation("PerformedBy", fields: [performedByUserId], references: [id])
+  performedByUserId     String
+  performedByAdminRole  InternalAdminRole   // Denormalized snapshot of role at time
+
+  // Action type (string enum-like for extensibility)
+  actionType            String              // e.g., "impersonation", "quota_reset", "plan_override", "project_resync", "run_retry", "admin_role_change"
+
+  // Optional targets
+  targetUser            User?               @relation("TargetUser", fields: [targetUserId], references: [id])
+  targetUserId          String?
+  targetProject         Project?            @relation("TargetProject", fields: [targetProjectId], references: [id])
+  targetProjectId       String?
+  targetRunId           String?             // Nullable; string reference to AutomationPlaybookRun.id
+
+  // Additional context (must avoid storing raw secrets/tokens)
+  metadata              Json?
+
+  @@index([createdAt(sort: Desc)])
+  @@index([performedByUserId, createdAt(sort: Desc)])
+  @@index([actionType, createdAt(sort: Desc)])
+  @@index([targetUserId, createdAt(sort: Desc)])
+  @@index([targetProjectId, createdAt(sort: Desc)])
+}
+
+// [ADMIN-OPS-1] Quota reset without deleting ledger (user-scoped, month-scoped)
+model AiMonthlyQuotaReset {
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now())
+
+  // Target user whose quota is being reset
+  user            User     @relation("UserReset", fields: [userId], references: [id])
+  userId          String
+
+  // Month scope (normalized to UTC first-of-month)
+  monthStart      DateTime
+
+  // "Reset baseline" captured at reset time
+  aiRunsOffset    Int
+
+  // Who performed the reset (ops admin)
+  createdByUser   User     @relation("CreatedBy", fields: [createdByUserId], references: [id])
+  createdByUserId String
+
+  // Optional reason for the reset
+  reason          String?
+
+  @@index([userId, monthStart])
+  @@index([createdAt(sort: Desc)])
 }

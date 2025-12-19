@@ -1199,32 +1199,163 @@ export const billingApi = {
 };
 
 /**
- * Admin API - for admin-only operations
+ * [ADMIN-OPS-1] Admin API - for admin-only operations
+ * Extends with new endpoints for the Support & Management Operations Dashboard.
  */
 export const adminApi = {
-  /** Get admin dashboard statistics */
+  // ===========================================================================
+  // [D1] Overview
+  // ===========================================================================
+
+  /** Get executive snapshot overview */
+  getOverview: () => fetchWithAuth('/admin/overview'),
+
+  /** Get admin dashboard statistics (legacy) */
   getStats: () => fetchWithAuth('/admin/stats'),
 
-  /** Get all users with pagination */
+  // ===========================================================================
+  // [D2] Users
+  // ===========================================================================
+
+  /** Get all users with pagination and expanded details */
   getUsers: (page = 1, limit = 20) =>
     fetchWithAuth(`/admin/users?page=${page}&limit=${limit}`),
 
-  /** Get a single user by ID */
+  /** Get a single user by ID with admin context */
   getUser: (userId: string) => fetchWithAuth(`/admin/users/${userId}`),
 
-  /** Update user role */
+  /** Start read-only impersonation (SUPPORT_AGENT + OPS_ADMIN only) */
+  impersonateUser: (userId: string, reason?: string) =>
+    fetchWithAuth(`/admin/users/${userId}/impersonate`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+
+  /** Update user's subscription/plan (OPS_ADMIN only) */
+  updateUserSubscription: (userId: string, planId: string) =>
+    fetchWithAuth(`/admin/users/${userId}/subscription`, {
+      method: 'PUT',
+      body: JSON.stringify({ planId }),
+    }),
+
+  /** Reset AI quota for user (OPS_ADMIN only) */
+  resetUserQuota: (userId: string, reason?: string) =>
+    fetchWithAuth(`/admin/users/${userId}/quota-reset`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+
+  /** Assign internal admin role (OPS_ADMIN only) */
+  updateAdminRole: (userId: string, adminRole: 'SUPPORT_AGENT' | 'OPS_ADMIN' | 'MANAGEMENT_CEO' | null) =>
+    fetchWithAuth(`/admin/users/${userId}/admin-role`, {
+      method: 'PUT',
+      body: JSON.stringify({ adminRole }),
+    }),
+
+  /** Update user role (legacy) */
   updateUserRole: (userId: string, role: 'USER' | 'ADMIN') =>
     fetchWithAuth(`/admin/users/${userId}/role`, {
       method: 'PUT',
       body: JSON.stringify({ role }),
     }),
 
-  /** Update user's subscription (admin override) */
-  updateUserSubscription: (userId: string, planId: string) =>
-    fetchWithAuth(`/admin/users/${userId}/subscription`, {
-      method: 'PUT',
-      body: JSON.stringify({ planId }),
+  // ===========================================================================
+  // [D3] Projects
+  // ===========================================================================
+
+  /** Get all projects with admin details */
+  getProjects: (page = 1, limit = 20) =>
+    fetchWithAuth(`/admin/projects?page=${page}&limit=${limit}`),
+
+  /** Trigger safe resync for a project (no AI side effects) */
+  resyncProject: (projectId: string) =>
+    fetchWithAuth(`/admin/projects/${projectId}/resync`, {
+      method: 'POST',
     }),
+
+  // ===========================================================================
+  // [D4] Runs
+  // ===========================================================================
+
+  /** Get runs with filters */
+  getRuns: (filters?: {
+    projectId?: string;
+    runType?: string;
+    status?: string;
+    aiUsed?: boolean;
+    reused?: boolean;
+    page?: number;
+    limit?: number;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.projectId) params.set('projectId', filters.projectId);
+    if (filters?.runType) params.set('runType', filters.runType);
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.aiUsed !== undefined) params.set('aiUsed', String(filters.aiUsed));
+    if (filters?.reused !== undefined) params.set('reused', String(filters.reused));
+    if (filters?.page) params.set('page', String(filters.page));
+    if (filters?.limit) params.set('limit', String(filters.limit));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return fetchWithAuth(`/admin/runs${qs}`);
+  },
+
+  /** Get run detail with redacted inputs */
+  getRun: (runId: string) => fetchWithAuth(`/admin/runs/${runId}`),
+
+  /** Retry a failed run (safe runs only) */
+  retryRun: (runId: string) =>
+    fetchWithAuth(`/admin/runs/${runId}/retry`, {
+      method: 'POST',
+    }),
+
+  // ===========================================================================
+  // [D5] Issues
+  // ===========================================================================
+
+  /** Get global issues summary (derived, no AI calls) */
+  getIssuesSummary: () => fetchWithAuth('/admin/issues/summary'),
+
+  // ===========================================================================
+  // [D6] AI Usage
+  // ===========================================================================
+
+  /** Get AI usage metrics with APPLY invariant check */
+  getAiUsage: () => fetchWithAuth('/admin/ai-usage'),
+
+  // ===========================================================================
+  // [D7] System Health
+  // ===========================================================================
+
+  /** Get system health signals */
+  getSystemHealth: () => fetchWithAuth('/admin/system-health'),
+
+  // ===========================================================================
+  // [D8] Audit Log
+  // ===========================================================================
+
+  /** Get audit log with filters */
+  getAuditLog: (filters?: {
+    actorId?: string;
+    targetUserId?: string;
+    targetProjectId?: string;
+    actionType?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.actorId) params.set('actorId', filters.actorId);
+    if (filters?.targetUserId) params.set('targetUserId', filters.targetUserId);
+    if (filters?.targetProjectId) params.set('targetProjectId', filters.targetProjectId);
+    if (filters?.actionType) params.set('actionType', filters.actionType);
+    if (filters?.startDate) params.set('startDate', filters.startDate);
+    if (filters?.endDate) params.set('endDate', filters.endDate);
+    if (filters?.page) params.set('page', String(filters.page));
+    if (filters?.limit) params.set('limit', String(filters.limit));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return fetchWithAuth(`/admin/audit-log${qs}`);
+  },
 };
 
 /**
