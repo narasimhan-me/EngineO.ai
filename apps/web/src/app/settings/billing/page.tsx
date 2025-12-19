@@ -17,6 +17,8 @@ interface Plan {
     crawledPages: number;
     automationSuggestionsPerDay: number;
   };
+  /** [BILLING-GTM-1] Monthly AI runs quota (null = unlimited) */
+  aiQuotaMonthlyRuns: number | null;
 }
 
 interface BillingSummary {
@@ -54,12 +56,16 @@ function BillingSettingsContent() {
   const [pollingForUpdate, setPollingForUpdate] = useState(false);
   // [SELF-SERVICE-1] Account role for owner-only billing actions
   const [accountRole, setAccountRole] = useState<'OWNER' | 'EDITOR' | 'VIEWER'>('OWNER');
-  // [SELF-SERVICE-1] AI usage data
+  // [SELF-SERVICE-1] [BILLING-GTM-1] AI usage data with trust messaging
   const [aiUsage, setAiUsage] = useState<{
     periodLabel: string;
     totalRuns: number;
+    aiUsedRuns: number;
+    runsAvoided: number;
     quotaLimit: number | null;
     quotaUsedPercent: number;
+    applyInvariantMessage: string;
+    reuseMessage: string;
   } | null>(null);
 
   const feedback = useFeedback();
@@ -84,12 +90,16 @@ function BillingSettingsContent() {
       setSummary(summaryData);
       // [SELF-SERVICE-1] Set account role for role-safe UI
       setAccountRole(profileData.accountRole);
-      // [SELF-SERVICE-1] Set AI usage for quota display
+      // [SELF-SERVICE-1] [BILLING-GTM-1] Set AI usage for quota display with trust messaging
       setAiUsage({
         periodLabel: aiUsageData.periodLabel,
         totalRuns: aiUsageData.totalRuns,
+        aiUsedRuns: aiUsageData.aiUsedRuns,
+        runsAvoided: aiUsageData.runsAvoided,
         quotaLimit: aiUsageData.quotaLimit,
         quotaUsedPercent: aiUsageData.quotaUsedPercent,
+        applyInvariantMessage: aiUsageData.applyInvariantMessage,
+        reuseMessage: aiUsageData.reuseMessage,
       });
       return summaryData;
     } catch (err: unknown) {
@@ -345,13 +355,18 @@ function BillingSettingsContent() {
           </div>
         )}
 
-        {/* [SELF-SERVICE-1] AI Usage Quota */}
+        {/* [SELF-SERVICE-1] [BILLING-GTM-1] AI Usage Quota with Trust Messaging */}
         {aiUsage && (
           <div className="mt-4 p-4 bg-blue-50 rounded-md">
             <h3 className="text-sm font-medium text-gray-700 mb-2">AI Usage ({aiUsage.periodLabel})</h3>
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-gray-600 space-y-2">
+              {/* [BILLING-GTM-1] Fix: Show aiUsedRuns as numerator, not totalRuns */}
               <p>
-                AI Runs: {aiUsage.totalRuns} / {aiUsage.quotaLimit !== null ? aiUsage.quotaLimit : 'Unlimited'}
+                AI runs used: {aiUsage.aiUsedRuns} / {aiUsage.quotaLimit !== null ? aiUsage.quotaLimit : 'Unlimited'}
+              </p>
+              {/* [BILLING-GTM-1] Show runs avoided via reuse */}
+              <p className="text-green-700">
+                Runs avoided via reuse: {aiUsage.runsAvoided}
               </p>
               {aiUsage.quotaLimit !== null && (
                 <div className="mt-2">
@@ -372,6 +387,11 @@ function BillingSettingsContent() {
                   </p>
                 </div>
               )}
+            </div>
+            {/* [BILLING-GTM-1] Trust invariant display */}
+            <div className="mt-3 pt-3 border-t border-blue-200">
+              <p className="text-xs text-blue-800 font-medium">{aiUsage.applyInvariantMessage}</p>
+              <p className="text-xs text-blue-700 mt-1">{aiUsage.reuseMessage}</p>
             </div>
             <Link href="/settings/ai-usage" className="text-xs text-blue-600 hover:text-blue-800 mt-2 inline-block">
               View detailed AI usage &rarr;
@@ -460,6 +480,10 @@ function BillingSettingsContent() {
                   </p>
                   <p className="text-xs text-gray-500">
                     {formatLimit(plan.limits.automationSuggestionsPerDay)} suggestions/day
+                  </p>
+                  {/* [BILLING-GTM-1] Monthly AI runs quota */}
+                  <p className="text-xs text-gray-500">
+                    {plan.aiQuotaMonthlyRuns === null ? 'Unlimited' : plan.aiQuotaMonthlyRuns} AI runs/month
                   </p>
                 </div>
               </div>

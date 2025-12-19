@@ -14,6 +14,12 @@ interface Plan {
   features: string[];
 }
 
+/**
+ * [BILLING-GTM-1] Marketing pricing plans aligned with backend:
+ * - Free: 1 project, 50 crawled pages, 5 suggestions/day
+ * - Pro: 5 projects, 500 crawled pages, 25 suggestions/day
+ * - Business: Unlimited projects/pages/suggestions
+ */
 const plans: Plan[] = [
   {
     id: 'free',
@@ -25,13 +31,13 @@ const plans: Plan[] = [
     ctaHref: '/signup',
     features: [
       '1 project',
-      '100 crawled pages',
+      '50 crawled pages',
       'Weekly crawl',
-      'DEO Score (v1)',
-      'Critical issues only',
-      'Product Workspace (1 product)',
+      'DEO Score & Insights',
+      'Full Issues Engine',
+      'Product Workspace',
       'Content Workspace (view-only)',
-      '5 AI suggestions per day',
+      '5 automation suggestions/day',
     ],
   },
   {
@@ -45,14 +51,14 @@ const plans: Plan[] = [
     ctaHref: '/signup',
     features: [
       '5 projects',
-      '5,000 crawled pages',
+      '500 crawled pages',
       'Daily crawl',
       'Full Issues Engine',
       'Full Product Workspace',
       'Full Content Workspace',
-      'Unlimited AI suggestions',
+      '25 automation suggestions/day',
+      'Higher monthly AI quota',
       'Shopify SEO sync',
-      'DEO Trends (coming soon)',
       'Priority support',
     ],
   },
@@ -62,20 +68,27 @@ const plans: Plan[] = [
     price: '$99',
     period: '/mo',
     tagline: 'For larger teams and multi-site setups.',
-    ctaLabel: 'Contact Sales',
-    ctaHref: '/contact',
+    ctaLabel: 'Get Business',
+    ctaHref: '/signup',
     features: [
-      '20 projects',
-      '25,000 crawled pages',
-      'Hourly crawl scheduling (coming soon)',
-      'Team roles',
+      'Unlimited projects',
+      'Unlimited crawled pages',
+      'Unlimited automation suggestions',
+      'Unlimited monthly AI runs',
+      'Team roles (coming soon)',
       'API access',
       'Audit exports',
-      'Dedicated account manager',
+      'Priority support',
     ],
   },
 ];
 
+/**
+ * [BILLING-GTM-1] Comparison features aligned with backend limits.
+ * - Removed "Critical issues only" (all plans get full Issues Engine)
+ * - Replaced "DEO Trends (coming soon)" with "Insights" (INSIGHTS-1 exists)
+ * - AI suggestions = automation suggestions/day entitlement
+ */
 const comparisonFeatures: {
   label: string;
   free: string;
@@ -86,29 +99,29 @@ const comparisonFeatures: {
     label: 'Projects',
     free: '1',
     pro: '5',
-    business: '20',
+    business: 'Unlimited',
   },
   {
     label: 'Crawled pages',
-    free: '100',
-    pro: '5,000',
-    business: '25,000',
+    free: '50',
+    pro: '500',
+    business: 'Unlimited',
   },
   {
     label: 'Crawl frequency',
     free: 'Weekly',
     pro: 'Daily',
-    business: 'Hourly (coming soon)',
+    business: 'Daily',
   },
   {
     label: 'Issues Engine',
-    free: 'Critical issues only',
+    free: 'Full',
     pro: 'Full',
     business: 'Full',
   },
   {
     label: 'Product Workspace',
-    free: '1 product',
+    free: 'Full',
     pro: 'Full',
     business: 'Full',
   },
@@ -119,9 +132,15 @@ const comparisonFeatures: {
     business: 'Full',
   },
   {
-    label: 'AI suggestions',
-    free: '5 / day',
-    pro: 'Unlimited',
+    label: 'Automation suggestions/day',
+    free: '5',
+    pro: '25',
+    business: 'Unlimited',
+  },
+  {
+    label: 'Monthly AI runs',
+    free: 'Limited',
+    pro: 'Higher quota',
     business: 'Unlimited',
   },
   {
@@ -131,16 +150,16 @@ const comparisonFeatures: {
     business: 'Included',
   },
   {
-    label: 'DEO Trends',
-    free: '—',
-    pro: 'Coming soon',
-    business: 'Coming soon',
+    label: 'Insights dashboard',
+    free: 'Included',
+    pro: 'Included',
+    business: 'Included',
   },
   {
     label: 'Support',
     free: 'Standard',
     pro: 'Priority',
-    business: 'Priority + account manager',
+    business: 'Priority',
   },
 ];
 
@@ -192,24 +211,6 @@ export function PricingTable() {
               </ul>
             </div>
           ))}
-        </div>
-
-        {/* Optional Enterprise row */}
-        <div className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-700">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="font-semibold text-slate-900">Need more?</p>
-              <p className="text-sm text-slate-600">
-                Enterprise and high-volume plans are available with custom pricing.
-              </p>
-            </div>
-            <Link
-              href="/contact"
-              className="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-50 hover:bg-slate-800"
-            >
-              Book Demo
-            </Link>
-          </div>
         </div>
 
         {/* Feature comparison table */}

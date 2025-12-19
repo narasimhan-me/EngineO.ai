@@ -382,10 +382,11 @@ export default function AutomationPlaybooksPage() {
           setAiQuotaEvaluation(quota);
 
           if (quota.status === 'warning' && quota.currentUsagePercent !== null) {
-            // Soft warning: allow the action but inform the user before AI runs.
+            // [BILLING-GTM-1] Predict → Warn: Show limit-style toast with Upgrade CTA but allow action.
             const percentRounded = Math.round(quota.currentUsagePercent);
-            feedback.showWarning(
-              `This will use AI. You're at ${percentRounded}% of your monthly Automation Playbooks limit.`,
+            feedback.showLimit(
+              `This will use AI. You're at ${percentRounded}% of your monthly limit. You can still proceed, but consider upgrading for more AI runs.`,
+              '/settings/billing',
             );
           }
 

@@ -234,6 +234,37 @@ Persistent AI drafts that survive navigation and can be reused across Playbooks 
 
 ---
 
+## Phase BILLING-GTM-1: Pricing pages & trust-safe upgrade flows ✅ COMPLETE
+
+**Status:** Complete
+**Date Completed:** 2025-12-19
+
+Public pricing and in-app upgrade flows that surface value first and enforce quotas via Predict → Warn → Enforce, Stripe-first.
+
+### Key Behaviors
+
+1. **Value before price**: Users see progress and savings before upgrade CTAs
+2. **Predict → Warn → Enforce**: Warnings precede limits; no surprise blocks
+3. **Stripe is source of truth**: EngineO.ai never handles card data
+4. **Apply remains AI-free**: Billing does not change Apply semantics
+
+### Implementation Details
+
+- Env-driven AI quota: `AI_USAGE_MONTHLY_RUN_LIMIT_<PLAN>`
+- Fixed billing page to show `aiUsedRuns` (not `totalRuns`)
+- Added trust messaging: "APPLY never uses AI", "Reuse saves AI runs"
+- Contextual upgrade prompts on Insights pages when quota >=80%
+- Marketing pricing aligned with backend limits (removed mismatched claims)
+- Self-serve CTAs on all plans (removed enterprise/sales references)
+
+### Related Documents
+
+- [BILLING_GTM.md](./BILLING_GTM.md) - Architecture documentation
+- [BILLING-GTM-1.md](./manual-testing/BILLING-GTM-1.md) - Manual testing guide
+- [CRITICAL_PATH_MAP.md](./testing/CRITICAL_PATH_MAP.md) - CP-002 entry
+
+---
+
 ## Document History
 
 | Version | Date | Changes |
@@ -241,3 +272,5 @@ Persistent AI drafts that survive navigation and can be reused across Playbooks 
 | 1.0 | 2025-12-19 | Created with GTM-ONBOARD-1, SELF-SERVICE-1, ADMIN-OPS-1, MEDIA-1, AUTO-PB-1 phases |
 | 1.1 | 2025-12-19 | Corrected GTM-ONBOARD-1 status to "Docs Complete; Implementation Pending". Added locked trust contracts and expanded dependencies. |
 | 1.2 | 2025-12-19 | Added INSIGHTS-1: Project Insights Dashboard (Complete) |
+| 1.3 | 2025-12-19 | Added BILLING-GTM-1: Pricing pages & trust-safe upgrade flows (Complete) |
+| 1.4 | 2025-12-19 | SECURITY HOTFIX: Sanitized auth query params to prevent password leakage in logs/history; added middleware + client-side defense-in-depth + Playwright coverage; added manual testing doc. |

@@ -177,6 +177,28 @@ test.describe('SELF-SERVICE-1 – Plan & Billing (D3)', () => {
     await expect(page.getByText(/AI Usage/i)).toBeVisible();
   });
 
+  /**
+   * [BILLING-GTM-1] Validate trust messaging and correct AI runs display
+   */
+  test('Billing page shows runs avoided and APPLY trust message', async ({
+    page,
+    request,
+  }) => {
+    const { accessToken } = await seedSelfServiceOwner(request);
+    await loginWithToken(page, accessToken);
+
+    await page.goto('/settings/billing');
+
+    // [BILLING-GTM-1] Should show "Runs avoided via reuse" (not totalRuns as numerator)
+    await expect(page.getByText(/Runs avoided via reuse/i)).toBeVisible();
+
+    // [BILLING-GTM-1] Should show the APPLY trust invariant message
+    await expect(page.getByText(/APPLY never uses AI/i)).toBeVisible();
+
+    // [BILLING-GTM-1] Should show "AI runs used" (the corrected numerator, not totalRuns)
+    await expect(page.getByText(/AI runs used/i)).toBeVisible();
+  });
+
   test('OWNER can access billing actions', async ({ page, request }) => {
     const { accessToken } = await seedSelfServiceOwner(request);
     await loginWithToken(page, accessToken);

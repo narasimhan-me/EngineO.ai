@@ -286,6 +286,151 @@ describe('SELF-SERVICE-1 Integration Tests', () => {
   });
 
   // ==========================================================================
+  // [BILLING-GTM-1] AI Usage Quota Env-Driven
+  // ==========================================================================
+
+  describe('CP-002: BILLING-GTM-1 AI Quota', () => {
+    const ORIGINAL_ENV = process.env;
+
+    beforeEach(() => {
+      process.env = { ...ORIGINAL_ENV };
+    });
+
+    afterEach(() => {
+      process.env = ORIGINAL_ENV;
+    });
+
+    it('should return quota limit from env variable', async () => {
+      // Set a known small value for testing
+      process.env.AI_USAGE_MONTHLY_RUN_LIMIT_PRO = '50';
+
+      const { user, accessToken } = await createTestUserWithToken({
+        accountRole: 'OWNER',
+        plan: 'pro',
+      });
+
+      // Create some runs - mix of AI used, reused, and APPLY
+      const project = await createTestProject(prisma as any, { userId: user.id });
+
+      const testPlaybookId = 'test_playbook';
+      const testScopeId = `project:${project.id}`;
+      const testRulesHash = 'test-hash-123';
+
+      // AI-used run
+      const aiRun = await prisma.automationPlaybookRun.create({
+        data: {
+          project: { connect: { id: project.id } },
+          createdBy: { connect: { id: user.id } },
+          playbookId: testPlaybookId,
+          scopeId: testScopeId,
+          rulesHash: testRulesHash,
+          idempotencyKey: `ai-run-${Date.now()}`,
+          runType: 'PREVIEW_GENERATE',
+          status: 'SUCCEEDED',
+          aiUsed: true,
+        },
+      });
+
+      // Reused run
+      await prisma.automationPlaybookRun.create({
+        data: {
+          project: { connect: { id: project.id } },
+          createdBy: { connect: { id: user.id } },
+          playbookId: testPlaybookId,
+          scopeId: testScopeId,
+          rulesHash: testRulesHash,
+          idempotencyKey: `reuse-run-${Date.now()}`,
+          runType: 'PREVIEW_GENERATE',
+          status: 'SUCCEEDED',
+          aiUsed: false,
+          reusedFromRunId: aiRun.id,
+          reused: true,
+        },
+      });
+
+      // APPLY run (must have aiUsed=false)
+      await prisma.automationPlaybookRun.create({
+        data: {
+          project: { connect: { id: project.id } },
+          createdBy: { connect: { id: user.id } },
+          playbookId: testPlaybookId,
+          scopeId: testScopeId,
+          rulesHash: testRulesHash,
+          idempotencyKey: `apply-run-${Date.now()}`,
+          runType: 'APPLY',
+          status: 'SUCCEEDED',
+          aiUsed: false,
+        },
+      });
+
+      const response = await request(app.getHttpServer())
+        .get('/account/ai-usage')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      // Quota limit should match env value
+      expect(response.body.quotaLimit).toBe(50);
+
+      // AI used runs should be 1
+      expect(response.body.aiUsedRuns).toBe(1);
+
+      // Runs avoided (reused) should be 1
+      expect(response.body.runsAvoided).toBe(1);
+
+      // APPLY invariant: no violations
+      expect(response.body.applyInvariantViolations).toBe(0);
+
+      // Trust messages should be present
+      expect(response.body.applyInvariantMessage).toContain('APPLY never uses AI');
+      expect(response.body.reuseMessage).toContain('Reuse');
+    });
+
+    it('should return null quota limit when env not configured', async () => {
+      // Ensure env is not set
+      delete process.env.AI_USAGE_MONTHLY_RUN_LIMIT_PRO;
+
+      const { accessToken } = await createTestUserWithToken({
+        accountRole: 'OWNER',
+        plan: 'pro',
+      });
+
+      const response = await request(app.getHttpServer())
+        .get('/account/ai-usage')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      // Quota limit should be null (unlimited)
+      expect(response.body.quotaLimit).toBeNull();
+
+      // quotaUsedPercent should be 0 when unlimited
+      expect(response.body.quotaUsedPercent).toBe(0);
+    });
+
+    it('should include aiQuotaMonthlyRuns field in plans response', async () => {
+      process.env.AI_USAGE_MONTHLY_RUN_LIMIT_FREE = '10';
+      process.env.AI_USAGE_MONTHLY_RUN_LIMIT_PRO = '100';
+
+      const { accessToken } = await createTestUserWithToken();
+
+      const response = await request(app.getHttpServer())
+        .get('/billing/plans')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      expect(Array.isArray(response.body)).toBe(true);
+
+      // Check that at least one plan has the aiQuotaMonthlyRuns field
+      const freePlan = response.body.find((p: any) => p.id === 'free');
+      const proPlan = response.body.find((p: any) => p.id === 'pro');
+
+      expect(freePlan).toBeDefined();
+      expect(proPlan).toBeDefined();
+      expect(freePlan).toHaveProperty('aiQuotaMonthlyRuns');
+      expect(proPlan).toHaveProperty('aiQuotaMonthlyRuns');
+    });
+  });
+
+  // ==========================================================================
   // No AI side effects from /account/* endpoints
   // ==========================================================================
 

@@ -86,13 +86,26 @@ export interface SessionResponse {
   isCurrent: boolean;
 }
 
-// Plan-based AI quota limits (same as AI-USAGE-1)
-const AI_QUOTA_LIMITS: Record<string, number | null> = {
-  free: 10,
-  pro: 100,
-  business: 1000,
-  enterprise: null, // unlimited
-};
+/**
+ * [BILLING-GTM-1] Parse AI quota limit from environment variable.
+ * Pattern: AI_USAGE_MONTHLY_RUN_LIMIT_${PLAN_ID}
+ * Returns null (unlimited) if missing, blank, non-positive, or non-numeric.
+ */
+function getAiQuotaLimitFromEnv(planId: string): number | null {
+  const envKey = `AI_USAGE_MONTHLY_RUN_LIMIT_${planId.toUpperCase()}`;
+  const envValue = process.env[envKey];
+
+  if (!envValue || envValue.trim() === '') {
+    return null; // Unlimited
+  }
+
+  const parsed = parseInt(envValue, 10);
+  if (isNaN(parsed) || parsed <= 0) {
+    return null; // Unlimited
+  }
+
+  return parsed;
+}
 
 @Injectable()
 export class AccountService {
@@ -248,9 +261,9 @@ export class AccountService {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-    // Get user's plan for quota limit
+    // [BILLING-GTM-1] Get user's plan and quota limit from env
     const planId = await this.entitlementsService.getUserPlan(userId);
-    const quotaLimit = AI_QUOTA_LIMITS[planId] ?? null;
+    const quotaLimit = getAiQuotaLimitFromEnv(planId);
 
     // Query automation playbook runs for the current month
     const runs = await this.prisma.automationPlaybookRun.findMany({
@@ -304,11 +317,12 @@ export class AccountService {
       quotaLimit,
       quotaUsedPercent,
       applyInvariantViolations,
+      // [BILLING-GTM-1] Trust-safe messaging
       applyInvariantMessage:
         applyInvariantViolations === 0
-          ? 'APPLY never uses AI - all apply operations are quota-free.'
+          ? 'APPLY never uses AI — applying fixes is always quota-free.'
           : `WARNING: ${applyInvariantViolations} APPLY operations used AI. This should not happen.`,
-      reuseMessage: `Reuse does not consume quota. ${reusedRuns} operations were reused this month.`,
+      reuseMessage: `Reuse saves AI usage. ${reusedRuns} operations were served from cache this month, avoiding ${reusedRuns} AI calls.`,
     };
   }
 

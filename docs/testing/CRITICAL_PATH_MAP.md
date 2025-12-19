@@ -23,8 +23,8 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 
 | Field | Value |
 |-------|-------|
-| **Manual Testing Doc(s)** | `docs/testing/user-profile-and-account-settings.md`, `docs/manual-testing/SELF-SERVICE-1.md` |
-| **Automated Tests** | `apps/api/test/integration/self-service-1.test.ts` |
+| **Manual Testing Doc(s)** | `docs/testing/user-profile-and-account-settings.md`, `docs/manual-testing/SELF-SERVICE-1.md`, `docs/manual-testing/SECURITY-LOGIN-QUERY-PARAMS.md` |
+| **Automated Tests** | `apps/api/test/integration/self-service-1.test.ts`, `apps/web/tests/auth-security.spec.ts` |
 | **Last Verified (Manual)** | [YYYY-MM-DD] |
 | **Last Verified (Automated)** | N/A |
 | **Owner** | Core Team |
@@ -39,6 +39,12 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 - [ ] SELF-SERVICE-1: Sign-out-all invalidates other sessions via tokenInvalidBefore
 - [ ] SELF-SERVICE-1: JWT validation checks session validity and tokenInvalidBefore
 - [ ] SELF-SERVICE-1: Session lastSeenAt updates throttled (5-minute cadence)
+- [ ] SECURITY: Login page sanitizes password/email from URL query params
+- [ ] SECURITY: Signup page sanitizes password/confirmPassword from URL query params
+- [ ] SECURITY: Middleware redirects to sanitized URL (server-side)
+- [ ] SECURITY: Client-side defense-in-depth sanitization
+- [ ] SECURITY: Security message shown when URL was sanitized
+- [ ] SECURITY: `next` param preserved for post-login redirect
 
 ---
 
@@ -48,8 +54,8 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 
 | Field | Value |
 |-------|-------|
-| **Manual Testing Doc(s)** | `docs/testing/billing-and-limits.md`, `docs/testing/entitlements-matrix.md`, `docs/testing/plan-definitions.md`, `docs/manual-testing/SELF-SERVICE-1.md` |
-| **Automated Tests** | `apps/api/test/integration/self-service-1.test.ts` |
+| **Manual Testing Doc(s)** | `docs/testing/billing-and-limits.md`, `docs/testing/entitlements-matrix.md`, `docs/testing/plan-definitions.md`, `docs/manual-testing/SELF-SERVICE-1.md`, `docs/manual-testing/BILLING-GTM-1.md` |
+| **Automated Tests** | `apps/api/test/integration/self-service-1.test.ts`, `apps/web/tests/self-service-1.spec.ts` |
 | **Last Verified (Manual)** | [YYYY-MM-DD] |
 | **Last Verified (Automated)** | N/A |
 | **Owner** | Core Team |
@@ -64,6 +70,13 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 - [ ] SELF-SERVICE-1: Owner-only billing mutations enforced at API level
 - [ ] SELF-SERVICE-1: EDITOR/VIEWER cannot create checkout or portal sessions
 - [ ] SELF-SERVICE-1: Role-safe billing UI (OWNER sees actions, others see read-only)
+- [ ] BILLING-GTM-1: Public pricing page readable without login
+- [ ] BILLING-GTM-1: Billing page shows aiUsedRuns (not totalRuns) in quota display
+- [ ] BILLING-GTM-1: Trust messaging visible: "APPLY never uses AI", "Runs avoided via reuse"
+- [ ] BILLING-GTM-1: Env-driven AI quota limits (AI_USAGE_MONTHLY_RUN_LIMIT_<PLAN>)
+- [ ] BILLING-GTM-1: Contextual upgrade prompt on Insights when quota >=80%
+- [ ] BILLING-GTM-1: Limit-style toast with Upgrade CTA on Playbooks quota warning
+- [ ] BILLING-GTM-1: Marketing pricing aligned with backend limits (no mismatched claims)
 
 ---
 
@@ -530,3 +543,5 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 | 2.7 | 2025-12-19 | Added CP-014: Customer Self-Service Control Plane (SELF-SERVICE-1) with profile, preferences, sessions, and role-based access; updated CP-001 and CP-002 with SELF-SERVICE-1 scenarios |
 | 2.8 | 2025-12-19 | Added CP-015: Guided Onboarding & First DEO Win (GTM-ONBOARD-1) - Docs Complete; Implementation Pending. Added manual testing guide and spec documentation. |
 | 2.9 | 2025-12-19 | Added CP-016: Project Insights Dashboard (INSIGHTS-1) - Read-only derived insights with DEO progress, AI efficiency, issue resolution, and opportunity signals. |
+| 3.0 | 2025-12-19 | Added BILLING-GTM-1 scenarios to CP-002: env-driven AI quota, trust messaging, contextual upgrade prompts, and marketing alignment. Added manual testing doc and Playwright test file. |
+| 3.1 | 2025-12-19 | SECURITY: Added auth URL sanitization to CP-001. Middleware + client-side defense-in-depth prevents passwords in URL query params. Added manual testing doc and Playwright coverage. |

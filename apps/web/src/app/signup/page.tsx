@@ -1,14 +1,18 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { authApi } from '@/lib/api';
 import { setToken } from '@/lib/auth';
 import { Captcha } from '@/components/common/Captcha';
 
+// Sensitive query params that should never appear in URLs
+const SENSITIVE_PARAMS = ['password', 'pass', 'pwd', 'confirmPassword', 'email'];
+
 export default function SignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,6 +20,27 @@ export default function SignupPage() {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [securityMessage, setSecurityMessage] = useState('');
+
+  // [SECURITY] Client-side defense-in-depth: sanitize URL if sensitive params detected
+  useEffect(() => {
+    const hasSensitiveParams = SENSITIVE_PARAMS.some((param) =>
+      searchParams.has(param)
+    );
+
+    if (hasSensitiveParams) {
+      router.replace('/signup?sanitized=1');
+      setSecurityMessage('For security, we removed sensitive parameters from the URL. Please enter your information.');
+      return;
+    }
+
+    // Show message if redirected from middleware sanitization
+    if (searchParams.get('sanitized') === '1') {
+      setSecurityMessage('For security, we removed sensitive parameters from the URL. Please enter your information.');
+      // Clean up the sanitized flag from URL
+      router.replace('/signup');
+    }
+  }, [searchParams, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,6 +91,12 @@ export default function SignupPage() {
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          {securityMessage && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded">
+              {securityMessage}
+            </div>
+          )}
+
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
               {error}

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { isAuthenticated } from '@/lib/auth';
 import { projectsApi } from '@/lib/api';
 import type { ProjectInsightsResponse } from '@/lib/insights';
@@ -127,7 +128,16 @@ export default function AiEfficiencyPage() {
       {/* Quota Status */}
       <section className="mt-6">
         <div className="rounded-lg border border-gray-200 bg-white p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quota Status</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Quota Status</h3>
+            {/* [BILLING-GTM-1] Always-visible billing link */}
+            <Link
+              href="/settings/billing"
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+            >
+              Manage Plan & Billing &rarr;
+            </Link>
+          </div>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Monthly Limit</span>
@@ -164,6 +174,28 @@ export default function AiEfficiencyPage() {
               </div>
             )}
           </div>
+          {/* [BILLING-GTM-1] Conditional upgrade prompt when quota pressure is high */}
+          {(saved.quota.usedPercent !== null && saved.quota.usedPercent >= 80) || saved.quota.remaining === 0 ? (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <p className="text-sm text-amber-800">
+                  {saved.quota.remaining === 0
+                    ? 'Your AI quota is exhausted for this period.'
+                    : `You're at ${saved.quota.usedPercent}% of your monthly limit.`}
+                </p>
+                <p className="text-xs text-amber-700 mt-1">{saved.trust.invariantMessage}</p>
+                <Link
+                  href="/settings/billing"
+                  className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-amber-800 hover:text-amber-900"
+                >
+                  Upgrade for more AI runs
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </div>
+            </div>
+          ) : null}
         </div>
       </section>
 

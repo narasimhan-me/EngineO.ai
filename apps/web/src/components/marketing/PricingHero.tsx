@@ -1,14 +1,19 @@
 import Link from 'next/link';
 
+/**
+ * [BILLING-GTM-1] Pricing hero with DEO + trust-safe AI governance framing.
+ * - Removed "Contact Sales" CTA (enterprise out of scope for v1)
+ * - Avoids ranking/revenue guarantees
+ */
 export function PricingHero() {
   return (
     <section className="border-b border-slate-100 bg-slate-50/60">
       <div className="mx-auto max-w-6xl px-4 py-12 text-center sm:px-6 lg:px-8">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-          Simple pricing for every website.
+          DEO plans that grow with your business
         </h1>
         <p className="mt-3 text-sm text-slate-600">
-          Choose a plan that grows with your business.
+          Optimize your site for search and AI discovery. Reuse saves AI runs. Apply is always free.
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <Link
@@ -18,10 +23,10 @@ export function PricingHero() {
             Start Free
           </Link>
           <Link
-            href="/contact"
+            href="#features"
             className="text-sm font-medium text-slate-700 hover:text-slate-900"
           >
-            Contact Sales &rarr;
+            See how it works &rarr;
           </Link>
         </div>
       </div>

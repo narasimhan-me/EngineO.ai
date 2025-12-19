@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, lazy, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, lazy, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { authApi, ApiError } from '@/lib/api';
 import { setToken } from '@/lib/auth';
@@ -14,14 +14,44 @@ const Captcha = lazy(() =>
 // Session storage key for 2FA temp token
 const TEMP_2FA_TOKEN_KEY = 'engineo_temp_2fa_token';
 
+// Sensitive query params that should never appear in URLs
+const SENSITIVE_PARAMS = ['password', 'pass', 'pwd', 'email'];
+
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [showCaptcha, setShowCaptcha] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [securityMessage, setSecurityMessage] = useState('');
+
+  // [SECURITY] Client-side defense-in-depth: sanitize URL if sensitive params detected
+  useEffect(() => {
+    const hasSensitiveParams = SENSITIVE_PARAMS.some((param) =>
+      searchParams.has(param)
+    );
+
+    if (hasSensitiveParams) {
+      // Build sanitized URL preserving only `next` param
+      const nextParam = searchParams.get('next');
+      const sanitizedUrl = nextParam ? `/login?next=${encodeURIComponent(nextParam)}&sanitized=1` : '/login?sanitized=1';
+      router.replace(sanitizedUrl);
+      setSecurityMessage('For security, we removed sensitive parameters from the URL. Please enter your credentials.');
+      return;
+    }
+
+    // Show message if redirected from middleware sanitization
+    if (searchParams.get('sanitized') === '1') {
+      setSecurityMessage('For security, we removed sensitive parameters from the URL. Please enter your credentials.');
+      // Clean up the sanitized flag from URL
+      const nextParam = searchParams.get('next');
+      const cleanUrl = nextParam ? `/login?next=${encodeURIComponent(nextParam)}` : '/login';
+      router.replace(cleanUrl);
+    }
+  }, [searchParams, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,6 +110,12 @@ export default function LoginPage() {
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          {securityMessage && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded">
+              {securityMessage}
+            </div>
+          )}
+
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
               {error}

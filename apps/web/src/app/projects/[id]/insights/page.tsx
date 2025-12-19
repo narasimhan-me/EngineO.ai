@@ -168,6 +168,42 @@ export default function InsightsPage() {
         </div>
       </section>
 
+      {/* [BILLING-GTM-1] Contextual Upgrade Prompt - appears when quota pressure is high or exhausted */}
+      {(overview.saved.quota.usedPercent !== null && overview.saved.quota.usedPercent >= 80) || overview.saved.quota.remaining === 0 ? (
+        <section className="mt-6">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <div className="flex items-start gap-3">
+              <svg className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-amber-800">
+                  {overview.saved.quota.remaining === 0 ? 'AI Quota Exhausted' : 'AI Quota Running Low'}
+                </h3>
+                <p className="mt-1 text-sm text-amber-700">
+                  You&apos;ve saved {overview.saved.aiRunsAvoidedViaReuse} AI runs via reuse and applied {overview.resolved.actionsCount} fixes this period.
+                  {overview.saved.quota.remaining === 0
+                    ? ' Your quota has been fully used.'
+                    : ` You're at ${overview.saved.quota.usedPercent}% of your monthly limit.`}
+                </p>
+                <p className="mt-2 text-xs text-amber-600">
+                  {overview.saved.trust.invariantMessage}
+                </p>
+                <Link
+                  href="/settings/billing"
+                  className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-amber-800 hover:text-amber-900"
+                >
+                  Upgrade for more AI runs
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {/* DEO Progress Section */}
       <section className="mt-8">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">DEO Progress</h2>
