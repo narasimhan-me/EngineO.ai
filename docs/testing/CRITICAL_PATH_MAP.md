@@ -19,12 +19,12 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 
 ### CP-001: Authentication & Authorization
 
-**Description:** User authentication flows including sign-up, login, logout, session management, and role-based access control.
+**Description:** User authentication flows including sign-up, login, logout, session management, sign-out-all, and role-based access control.
 
 | Field | Value |
 |-------|-------|
-| **Manual Testing Doc(s)** | `docs/testing/user-profile-and-account-settings.md` |
-| **Automated Tests** | Planned |
+| **Manual Testing Doc(s)** | `docs/testing/user-profile-and-account-settings.md`, `docs/manual-testing/SELF-SERVICE-1.md` |
+| **Automated Tests** | `apps/api/test/integration/self-service-1.test.ts` |
 | **Last Verified (Manual)** | [YYYY-MM-DD] |
 | **Last Verified (Automated)** | N/A |
 | **Owner** | Core Team |
@@ -35,17 +35,21 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 - [ ] Session persistence and expiration
 - [ ] Logout and session invalidation
 - [ ] Protected route access
+- [ ] SELF-SERVICE-1: Session tracking with UserSession model
+- [ ] SELF-SERVICE-1: Sign-out-all invalidates other sessions via tokenInvalidBefore
+- [ ] SELF-SERVICE-1: JWT validation checks session validity and tokenInvalidBefore
+- [ ] SELF-SERVICE-1: Session lastSeenAt updates throttled (5-minute cadence)
 
 ---
 
 ### CP-002: Billing & Limits
 
-**Description:** Stripe subscription management, plan entitlements enforcement, project limits, and daily AI usage quotas.
+**Description:** Stripe subscription management, plan entitlements enforcement, project limits, daily AI usage quotas, and owner-only billing restrictions.
 
 | Field | Value |
 |-------|-------|
-| **Manual Testing Doc(s)** | `docs/testing/billing-and-limits.md`, `docs/testing/entitlements-matrix.md`, `docs/testing/plan-definitions.md` |
-| **Automated Tests** | Planned |
+| **Manual Testing Doc(s)** | `docs/testing/billing-and-limits.md`, `docs/testing/entitlements-matrix.md`, `docs/testing/plan-definitions.md`, `docs/manual-testing/SELF-SERVICE-1.md` |
+| **Automated Tests** | `apps/api/test/integration/self-service-1.test.ts` |
 | **Last Verified (Manual)** | [YYYY-MM-DD] |
 | **Last Verified (Automated)** | N/A |
 | **Owner** | Core Team |
@@ -57,6 +61,9 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 - [ ] Project limit enforcement
 - [ ] Daily AI limit enforcement
 - [ ] Stripe webhook processing
+- [ ] SELF-SERVICE-1: Owner-only billing mutations enforced at API level
+- [ ] SELF-SERVICE-1: EDITOR/VIEWER cannot create checkout or portal sessions
+- [ ] SELF-SERVICE-1: Role-safe billing UI (OWNER sees actions, others see read-only)
 
 ---
 
@@ -365,12 +372,39 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 
 ---
 
+### CP-014: Customer Self-Service Control Plane
+
+**Description:** Customer self-service account management including profile, preferences, organization settings, AI usage visibility, session management, and role-based access control (OWNER/EDITOR/VIEWER).
+
+| Field | Value |
+|-------|-------|
+| **Manual Testing Doc(s)** | `docs/manual-testing/SELF-SERVICE-1.md`, `docs/SELF_SERVICE.md` |
+| **Automated Tests** | `apps/api/test/integration/self-service-1.test.ts`, `apps/web/tests/self-service-1.spec.ts` |
+| **Last Verified (Manual)** | [YYYY-MM-DD] |
+| **Last Verified (Automated)** | N/A |
+| **Owner** | Core Team |
+
+**Key Scenarios:**
+- [ ] Profile management (name, avatar, timezone, locale)
+- [ ] Preferences persistence (notification toggles, default behaviors)
+- [ ] Organization name editing (OWNER/EDITOR only)
+- [ ] Connected stores list and disconnect (OWNER only)
+- [ ] AI usage visibility (runs, quota, reuse metrics)
+- [ ] Session list and sign-out-all functionality
+- [ ] CustomerAccountRole access control (OWNER/EDITOR/VIEWER)
+- [ ] VIEWER read-only restrictions across all settings
+- [ ] Account menu navigation in TopNav
+- [ ] Settings hub page displays all settings cards
+- [ ] APPLY invariant messaging on AI Usage page
+
+---
+
 ## Coverage Summary
 
 | Critical Path | Manual Docs | Auto Tests | Status |
 |---------------|-------------|------------|--------|
-| CP-001: Auth | ✅ | Planned | 🟡 Manual Only |
-| CP-002: Billing & Limits | ✅ | Planned | 🟡 Manual Only |
+| CP-001: Auth | ✅ | ✅ | 🟢 Full Coverage |
+| CP-002: Billing & Limits | ✅ | ✅ | 🟢 Full Coverage |
 | CP-003: Product Optimize (AI) | ✅ | Planned | 🟡 Manual Only |
 | CP-004: Crawl Pipeline | ✅ | Planned | 🟡 Manual Only |
 | CP-005: DEO Score Compute | ✅ | Planned | 🟡 Manual Only |
@@ -382,6 +416,7 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 | CP-011: Answer Engine | ✅ | Planned | 🟡 Manual Only |
 | CP-012: Automation Engine | ✅ | Planned | 🟡 Manual Only |
 | CP-013: Admin Operations | ✅ | ✅ | 🟢 Full Coverage |
+| CP-014: Self-Service Control Plane | ✅ | ✅ | 🟢 Full Coverage |
 
 **Legend:**
 - 🟢 Full Coverage (Manual + Automated)
@@ -433,3 +468,4 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 | 2.4 | 2025-12-15 | Added AUTO-PB-1.3 (Planned) Preview Persistence & Cross-Surface Drafts scenario to CP-012 |
 | 2.5 | 2025-12-18 | Added MEDIA-1 scenarios to CP-006 (Shopify Sync), CP-009 (Issue Engine Lite), CP-010 (Issue Engine Full) for Media & Accessibility pillar |
 | 2.6 | 2025-12-19 | Added CP-013: Admin Operations Dashboard (ADMIN-OPS-1) with internal admin roles, impersonation, quota reset, and audit logging |
+| 2.7 | 2025-12-19 | Added CP-014: Customer Self-Service Control Plane (SELF-SERVICE-1) with profile, preferences, sessions, and role-based access; updated CP-001 and CP-002 with SELF-SERVICE-1 scenarios |

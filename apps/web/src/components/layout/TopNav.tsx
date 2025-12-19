@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { isAuthenticated, removeToken } from '@/lib/auth';
 import { usersApi } from '@/lib/api';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 interface User {
   id: string;
@@ -13,6 +13,8 @@ interface User {
   name: string | null;
   role: string;
   adminRole?: 'SUPPORT_AGENT' | 'OPS_ADMIN' | 'MANAGEMENT_CEO' | null;
+  // [SELF-SERVICE-1] Account role for customer permissions
+  accountRole?: 'OWNER' | 'EDITOR' | 'VIEWER';
 }
 
 export default function TopNav() {
@@ -20,6 +22,9 @@ export default function TopNav() {
   const [authenticated, setAuthenticated] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  // [SELF-SERVICE-1] Account menu dropdown state
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -37,6 +42,20 @@ export default function TopNav() {
       });
     }
   }, []);
+
+  // [SELF-SERVICE-1] Close account menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(event.target as Node)) {
+        setAccountMenuOpen(false);
+      }
+    }
+
+    if (accountMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [accountMenuOpen]);
 
   const handleSignOut = () => {
     removeToken();
@@ -112,20 +131,126 @@ export default function TopNav() {
           <div className="flex items-center space-x-4">
             {authenticated ? (
               <>
-                <a
-                  href="https://docs.seoengine.io"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm font-medium text-gray-600 hover:text-blue-600"
-                >
-                  Help
-                </a>
-                <button
-                  onClick={handleSignOut}
-                  className="text-sm font-medium text-gray-600 hover:text-blue-600"
-                >
-                  Sign out
-                </button>
+                {/* [SELF-SERVICE-1] Account Menu Dropdown */}
+                <div className="relative" ref={accountMenuRef}>
+                  <button
+                    onClick={() => setAccountMenuOpen(!accountMenuOpen)}
+                    className="flex items-center text-sm font-medium text-gray-700 hover:text-blue-600"
+                  >
+                    <span className="sr-only">Open account menu</span>
+                    <svg
+                      className="h-5 w-5 mr-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                      />
+                    </svg>
+                    Account
+                    <svg
+                      className={`ml-1 h-4 w-4 transition-transform ${accountMenuOpen ? 'rotate-180' : ''}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {accountMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
+                      <div className="py-1" role="menu">
+                        {/* User info header */}
+                        <div className="px-4 py-2 border-b border-gray-100">
+                          <p className="text-sm font-medium text-gray-900 truncate">{user?.name || 'User'}</p>
+                          <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                        </div>
+
+                        {/* Account menu items */}
+                        <GuardedLink
+                          href="/settings/profile"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setAccountMenuOpen(false)}
+                        >
+                          Profile
+                        </GuardedLink>
+                        <GuardedLink
+                          href="/settings/organization"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setAccountMenuOpen(false)}
+                        >
+                          Organization / Stores
+                        </GuardedLink>
+                        <GuardedLink
+                          href="/settings/billing"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setAccountMenuOpen(false)}
+                        >
+                          Plan & Billing
+                        </GuardedLink>
+                        <GuardedLink
+                          href="/settings/ai-usage"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setAccountMenuOpen(false)}
+                        >
+                          AI Usage
+                        </GuardedLink>
+                        <GuardedLink
+                          href="/settings/preferences"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setAccountMenuOpen(false)}
+                        >
+                          Preferences
+                        </GuardedLink>
+                        <GuardedLink
+                          href="/settings/security"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setAccountMenuOpen(false)}
+                        >
+                          Security
+                        </GuardedLink>
+                        <GuardedLink
+                          href="/settings/help"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          onClick={() => setAccountMenuOpen(false)}
+                        >
+                          Help & Support
+                        </GuardedLink>
+
+                        {/* Admin link (gated to internal admins) */}
+                        {user?.role === 'ADMIN' && !!user?.adminRole && (
+                          <>
+                            <div className="border-t border-gray-100 my-1" />
+                            <GuardedLink
+                              href="/admin"
+                              className="block px-4 py-2 text-sm text-purple-700 hover:bg-purple-50"
+                              onClick={() => setAccountMenuOpen(false)}
+                            >
+                              Admin Dashboard
+                            </GuardedLink>
+                          </>
+                        )}
+
+                        {/* Sign out */}
+                        <div className="border-t border-gray-100 my-1" />
+                        <button
+                          onClick={() => {
+                            setAccountMenuOpen(false);
+                            handleSignOut();
+                          }}
+                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          Sign out
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </>
             ) : (
               <>

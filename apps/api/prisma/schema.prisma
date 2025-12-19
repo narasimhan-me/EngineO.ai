@@ -22,6 +22,19 @@ enum InternalAdminRole {
   MANAGEMENT_CEO
 }
 
+// [SELF-SERVICE-1] Customer-facing account roles (separate from internal UserRole)
+enum CustomerAccountRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+// [SELF-SERVICE-1] Session type enumeration
+enum SessionType {
+  USER_LOGIN
+  // Future types can be added here
+}
+
 // [ADMIN-OPS-1] Account status for users
 enum AccountStatus {
   ACTIVE
@@ -90,6 +103,23 @@ model User {
   // [ADMIN-OPS-1] Internal admin role and account status
   adminRole        InternalAdminRole?  // Nullable; only meaningful when role === ADMIN
   accountStatus    AccountStatus       @default(ACTIVE)
+
+  // [SELF-SERVICE-1] Customer-facing account role and profile fields
+  accountRole      CustomerAccountRole @default(OWNER)
+  avatarUrl        String?
+  timezone         String?
+  locale           String?
+  organizationName String?
+
+  // [SELF-SERVICE-1] Security fields
+  lastLoginAt         DateTime?
+  lastLoginIp         String?
+  tokenInvalidBefore  DateTime?   // For "sign out all sessions"
+
+  // [SELF-SERVICE-1] Relations
+  preferences          UserPreferences?
+  sessions             UserSession[]
+  userAccountAuditLogs UserAccountAuditLog[]
 
   projects     Project[]
   subscription Subscription?
@@ -965,4 +995,67 @@ model AiMonthlyQuotaReset {
 
   @@index([userId, monthStart])
   @@index([createdAt(sort: Desc)])
+}
+
+// =============================================================================
+// SELF-SERVICE-1: Customer Self-Service Control Plane Models
+// =============================================================================
+
+// [SELF-SERVICE-1] User preferences (1:1 with User)
+model UserPreferences {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String   @unique
+
+  // Notification toggles
+  notifyQuotaWarnings   Boolean @default(true)
+  notifyRunFailures     Boolean @default(true)
+  notifyWeeklyDeoSummary Boolean @default(true)
+
+  // Default behaviors
+  autoOpenIssuesTab       Boolean @default(false)
+  preferredPillarLanding  String? // e.g., "metadata", "search_intent", etc.
+
+  // Future-proofing JSON column for extensible preferences
+  additionalPrefs Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// [SELF-SERVICE-1] Active sessions for "active sessions" visibility
+model UserSession {
+  id          String      @id @default(cuid())
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  sessionType SessionType @default(USER_LOGIN)
+
+  createdAt   DateTime  @default(now())
+  lastSeenAt  DateTime?
+  revokedAt   DateTime?
+
+  ip          String?
+  userAgent   String?
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, revokedAt])
+}
+
+// [SELF-SERVICE-1] Customer audit log (immutable)
+model UserAccountAuditLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // Who performed the action (the user themselves)
+  actorUser   User   @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+  actorUserId String
+
+  // Action type (extensible string enum)
+  actionType  String // e.g., "profile_updated", "preferences_updated", "organization_updated", "sign_out_all_sessions", "disconnect_store"
+
+  // Additional context (must avoid storing secrets)
+  metadata    Json?
+
+  @@index([actorUserId, createdAt(sort: Desc)])
+  @@index([actionType, createdAt(sort: Desc)])
 }

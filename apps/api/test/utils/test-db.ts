@@ -22,6 +22,10 @@ export async function cleanupTestDb(): Promise<void> {
   // [ADMIN-OPS-1] Admin audit and quota reset tables (FK to User)
   await prisma.$executeRawUnsafe('DELETE FROM "AdminAuditLog" WHERE 1=1');
   await prisma.$executeRawUnsafe('DELETE FROM "AiMonthlyQuotaReset" WHERE 1=1');
+  // [SELF-SERVICE-1] Customer self-service tables (FK to User)
+  await prisma.$executeRawUnsafe('DELETE FROM "UserAccountAuditLog" WHERE 1=1');
+  await prisma.$executeRawUnsafe('DELETE FROM "UserSession" WHERE 1=1');
+  await prisma.$executeRawUnsafe('DELETE FROM "UserPreferences" WHERE 1=1');
   // Tables with FK to Product must be deleted first
   await prisma.$executeRawUnsafe('DELETE FROM "AnswerBlock" WHERE 1=1');
   await prisma.$executeRawUnsafe('DELETE FROM "AnswerBlockAutomationLog" WHERE 1=1');

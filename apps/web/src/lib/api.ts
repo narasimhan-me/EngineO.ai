@@ -1369,3 +1369,118 @@ export const contactApi = {
       body: JSON.stringify(data),
     }),
 };
+
+// =============================================================================
+// [SELF-SERVICE-1] Account API - Customer Self-Service Control Plane
+// =============================================================================
+
+export interface AccountProfile {
+  id: string;
+  email: string;
+  name: string | null;
+  avatarUrl: string | null;
+  timezone: string | null;
+  locale: string | null;
+  organizationName: string | null;
+  accountRole: 'OWNER' | 'EDITOR' | 'VIEWER';
+  lastLoginAt: string | null;
+}
+
+export interface AccountPreferences {
+  notifyQuotaWarnings: boolean;
+  notifyRunFailures: boolean;
+  notifyWeeklyDeoSummary: boolean;
+  autoOpenIssuesTab: boolean;
+  preferredPillarLanding: string | null;
+}
+
+export interface AccountAiUsageSummary {
+  month: string;
+  periodLabel: string;
+  totalRuns: number;
+  aiUsedRuns: number;
+  reusedRuns: number;
+  runsAvoided: number;
+  quotaLimit: number | null;
+  quotaUsedPercent: number;
+  applyInvariantViolations: number;
+  applyInvariantMessage: string;
+  reuseMessage: string;
+}
+
+export interface AccountConnectedStore {
+  projectId: string;
+  projectName: string;
+  storeDomain: string | null;
+  integrationType: string;
+  integrationId: string;
+  connectedAt: string;
+}
+
+export interface AccountSession {
+  id: string;
+  createdAt: string;
+  lastSeenAt: string | null;
+  ip: string | null;
+  userAgent: string | null;
+  isCurrent: boolean;
+}
+
+/**
+ * [SELF-SERVICE-1] Account API
+ *
+ * Customer-facing self-service endpoints.
+ * No AI side effects from any of these endpoints.
+ */
+export const accountApi = {
+  /** Get current user's profile */
+  getProfile: (): Promise<AccountProfile> => fetchWithAuth('/account/profile'),
+
+  /** Update profile (name, avatar, timezone, locale, organizationName) */
+  updateProfile: (data: {
+    name?: string;
+    avatarUrl?: string | null;
+    timezone?: string | null;
+    locale?: string | null;
+    organizationName?: string | null;
+  }): Promise<AccountProfile> =>
+    fetchWithAuth('/account/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  /** Get current user's preferences */
+  getPreferences: (): Promise<AccountPreferences> =>
+    fetchWithAuth('/account/preferences'),
+
+  /** Update preferences (VIEWER cannot update) */
+  updatePreferences: (data: Partial<AccountPreferences>): Promise<AccountPreferences> =>
+    fetchWithAuth('/account/preferences', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  /** Get AI usage summary for current month */
+  getAiUsage: (): Promise<AccountAiUsageSummary> =>
+    fetchWithAuth('/account/ai-usage'),
+
+  /** Get connected Shopify stores */
+  getStores: (): Promise<AccountConnectedStore[]> =>
+    fetchWithAuth('/account/stores'),
+
+  /** Disconnect a Shopify store (OWNER only) */
+  disconnectStore: (projectId: string): Promise<{ success: boolean }> =>
+    fetchWithAuth(`/account/stores/${projectId}/disconnect`, {
+      method: 'POST',
+    }),
+
+  /** Get active sessions */
+  getSessions: (): Promise<AccountSession[]> =>
+    fetchWithAuth('/account/sessions'),
+
+  /** Sign out all sessions (invalidates all tokens) */
+  signOutAllSessions: (): Promise<{ revokedCount: number }> =>
+    fetchWithAuth('/account/sessions/sign-out-all', {
+      method: 'POST',
+    }),
+};

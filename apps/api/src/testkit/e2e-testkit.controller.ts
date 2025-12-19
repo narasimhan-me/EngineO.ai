@@ -153,4 +153,175 @@ export class E2eTestkitController {
       shopDomain: integration.externalId,
     };
   }
+
+  // ==========================================================================
+  // [SELF-SERVICE-1] E2E Seeds
+  // ==========================================================================
+
+  /**
+   * POST /testkit/e2e/seed-self-service-user
+   *
+   * Seed a user with chosen plan and some runs (including reused) for AI usage page validation.
+   * Also creates at least one Shopify-connected project for stores page validation.
+   *
+   * Body:
+   * - plan: "free" | "pro" | "business" (default: "pro")
+   * - accountRole: "OWNER" | "EDITOR" | "VIEWER" (default: "OWNER")
+   * - includeRuns: boolean (default: true)
+   *
+   * Returns:
+   * - user (id, email, accountRole)
+   * - projectId
+   * - shopDomain
+   * - accessToken
+   */
+  @Post('seed-self-service-user')
+  async seedSelfServiceUser(
+    @Body()
+    body: {
+      plan?: string;
+      accountRole?: 'OWNER' | 'EDITOR' | 'VIEWER';
+      includeRuns?: boolean;
+    } = {},
+  ) {
+    this.ensureE2eMode();
+
+    const plan = body.plan ?? 'pro';
+    const accountRole = body.accountRole ?? 'OWNER';
+    const includeRuns = body.includeRuns !== false;
+
+    // Create user with specified accountRole
+    const { user } = await createTestUser(this.prisma as any, {
+      plan,
+      accountRole,
+    });
+
+    // Create project with Shopify connection
+    const project = await createTestProject(this.prisma as any, {
+      userId: user.id,
+    });
+
+    const integration = await createTestShopifyStoreConnection(
+      this.prisma as any,
+      {
+        projectId: project.id,
+      },
+    );
+
+    // Optionally seed some AI usage runs (including reused)
+    if (includeRuns) {
+      const now = new Date();
+      const testPlaybookId = 'test-playbook-id';
+      const testScopeId = 'test-scope-id';
+      const testRulesHash = 'test-rules-hash';
+
+      // Create some preview runs with AI
+      for (let i = 0; i < 5; i++) {
+        await this.prisma.automationPlaybookRun.create({
+          data: {
+            project: { connect: { id: project.id } },
+            createdBy: { connect: { id: user.id } },
+            playbookId: testPlaybookId,
+            scopeId: testScopeId,
+            rulesHash: testRulesHash,
+            idempotencyKey: `preview-ai-${i}-${Date.now()}`,
+            runType: 'PREVIEW_GENERATE',
+            status: 'SUCCEEDED',
+            aiUsed: true,
+            createdAt: new Date(now.getTime() - i * 60000),
+          },
+        });
+      }
+
+      // Create some reused runs (no AI)
+      for (let i = 0; i < 3; i++) {
+        const originalRun = await this.prisma.automationPlaybookRun.findFirst({
+          where: { createdByUserId: user.id, aiUsed: true },
+        });
+
+        await this.prisma.automationPlaybookRun.create({
+          data: {
+            project: { connect: { id: project.id } },
+            createdBy: { connect: { id: user.id } },
+            playbookId: testPlaybookId,
+            scopeId: testScopeId,
+            rulesHash: testRulesHash,
+            idempotencyKey: `preview-reuse-${i}-${Date.now()}`,
+            runType: 'PREVIEW_GENERATE',
+            status: 'SUCCEEDED',
+            aiUsed: false,
+            reusedFromRunId: originalRun?.id,
+            reused: true,
+            createdAt: new Date(now.getTime() - (5 + i) * 60000),
+          },
+        });
+      }
+
+      // Create some APPLY runs (should never use AI per invariant)
+      for (let i = 0; i < 2; i++) {
+        await this.prisma.automationPlaybookRun.create({
+          data: {
+            project: { connect: { id: project.id } },
+            createdBy: { connect: { id: user.id } },
+            playbookId: testPlaybookId,
+            scopeId: testScopeId,
+            rulesHash: testRulesHash,
+            idempotencyKey: `apply-${i}-${Date.now()}`,
+            runType: 'APPLY',
+            status: 'SUCCEEDED',
+            aiUsed: false, // APPLY never uses AI
+            createdAt: new Date(now.getTime() - (8 + i) * 60000),
+          },
+        });
+      }
+    }
+
+    // Generate JWT with session ID
+    const session = await this.prisma.userSession.create({
+      data: {
+        userId: user.id,
+        lastSeenAt: new Date(),
+      },
+    });
+
+    const accessToken = this.jwtService.sign({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      sessionId: session.id,
+    });
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        accountRole: user.accountRole,
+      },
+      projectId: project.id,
+      shopDomain: integration.externalId,
+      accessToken,
+    };
+  }
+
+  /**
+   * POST /testkit/e2e/seed-self-service-editor
+   *
+   * Convenience endpoint: seeds a user with EDITOR accountRole.
+   * Same as seed-self-service-user with accountRole=EDITOR.
+   */
+  @Post('seed-self-service-editor')
+  async seedSelfServiceEditor() {
+    return this.seedSelfServiceUser({ accountRole: 'EDITOR', plan: 'pro' });
+  }
+
+  /**
+   * POST /testkit/e2e/seed-self-service-viewer
+   *
+   * Convenience endpoint: seeds a user with VIEWER accountRole.
+   * Same as seed-self-service-user with accountRole=VIEWER.
+   */
+  @Post('seed-self-service-viewer')
+  async seedSelfServiceViewer() {
+    return this.seedSelfServiceUser({ accountRole: 'VIEWER', plan: 'pro' });
+  }
 }

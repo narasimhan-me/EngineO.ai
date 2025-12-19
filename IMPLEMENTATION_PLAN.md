@@ -12335,3 +12335,122 @@ Implements a locked, internal-only admin dashboard with:
 - [x] CRITICAL_PATH_MAP.md updated with CP-013
 
 **Manual Testing:** `docs/manual-testing/ADMIN-OPS-1.md`
+
+---
+
+## Phase SELF-SERVICE-1 – Customer Self-Service Control Plane (Completed)
+
+Customer-facing self-service portal for account management, preferences, and billing visibility.
+
+**Dependency:** Phase 1.4 (Billing), ADMIN-OPS-1 (for session patterns)
+
+### SELF-SERVICE-1 Overview
+
+Implements a comprehensive customer self-service control plane with:
+
+1. **Customer Account Roles (SELF-SERVICE-1):**
+   - `CustomerAccountRole` enum: `OWNER`, `EDITOR`, `VIEWER`
+   - OWNER: Full access including billing mutations
+   - EDITOR: Can edit profile, organization, preferences (no billing)
+   - VIEWER: Read-only access to all settings
+
+2. **Session Management:**
+   - `UserSession` model for active session tracking
+   - `SessionType` enum: `WEB_LOGIN`, `API_TOKEN`, `IMPERSONATION`
+   - `tokenInvalidBefore` field for sign-out-all functionality
+   - Throttled `lastSeenAt` updates (5-minute cadence)
+
+3. **User Preferences (Lazy Initialization):**
+   - `UserPreferences` model (1:1 with User)
+   - Notification toggles (quota warnings, run failures, weekly summary)
+   - Default behavior settings (auto-open Issues tab, preferred pillar landing)
+
+4. **Account Management Pages (D1-D7):**
+   - D1: Profile (name, avatar, timezone, locale)
+   - D2: Organization / Stores (org name, connected stores, disconnect)
+   - D3: Plan & Billing (current plan, AI quota, Stripe portal)
+   - D4: AI Usage (runs, quota, reuse metrics, APPLY invariant)
+   - D5: Preferences (notification toggles, default behaviors)
+   - D6: Security (active sessions, sign-out-all)
+   - D7: Help & Support (docs, contact, issue reporting)
+
+5. **Role-Safe UI:**
+   - OWNER sees all actions enabled
+   - EDITOR sees billing restricted
+   - VIEWER sees read-only notices on all pages
+
+### SELF-SERVICE-1 Files Created
+
+**Backend (apps/api):**
+- `src/account/account.module.ts` — Module wiring
+- `src/account/account.service.ts` — Service with profile, preferences, AI usage, stores, sessions
+- `src/account/account.controller.ts` — All /account/* endpoints
+
+**Frontend (apps/web):**
+- `src/app/settings/profile/page.tsx` — Profile management
+- `src/app/settings/organization/page.tsx` — Organization & stores
+- `src/app/settings/ai-usage/page.tsx` — AI usage visibility
+- `src/app/settings/preferences/page.tsx` — Preferences management
+- `src/app/settings/help/page.tsx` — Help & support
+
+**Tests:**
+- `test/integration/self-service-1.test.ts` — Integration tests
+- `apps/web/tests/self-service-1.spec.ts` — Playwright E2E tests
+
+**Documentation:**
+- `docs/SELF_SERVICE.md` — Feature documentation
+- `docs/manual-testing/SELF-SERVICE-1.md` — Manual testing checklist
+
+### SELF-SERVICE-1 Files Modified
+
+**Backend (apps/api):**
+| File | Changes |
+|------|---------|
+| `prisma/schema.prisma` | Added CustomerAccountRole enum, SessionType enum, UserSession model, UserPreferences model, UserAccountAuditLog model, extended User model |
+| `prisma/migrations/README.md` | Added SELF-SERVICE-1 migration notes |
+| `src/auth/auth.service.ts` | Added createSessionAndToken(), signOutAllSessions(), updateSessionLastSeen(), isSessionValid() |
+| `src/auth/jwt.strategy.ts` | Added session validation, tokenInvalidBefore enforcement, throttled lastSeenAt updates |
+| `src/billing/billing.controller.ts` | Added owner-only billing mutation guards |
+| `src/integrations/integrations.controller.ts` | Added project ownership validation |
+| `src/app.module.ts` | Added AccountModule import |
+| `src/testkit/index.ts` | Added accountRole support to createTestUser |
+| `src/testkit/e2e-testkit.controller.ts` | Added seed-self-service-user, seed-self-service-editor, seed-self-service-viewer |
+| `test/utils/test-db.ts` | Added cleanup for UserAccountAuditLog, UserSession, UserPreferences |
+
+**Frontend (apps/web):**
+| File | Changes |
+|------|---------|
+| `src/components/layout/TopNav.tsx` | Added account menu dropdown with all settings links |
+| `src/app/settings/page.tsx` | Updated settings hub with all settings cards |
+| `src/app/settings/billing/page.tsx` | Added role-safe UI, AI quota display, Stripe portal messaging |
+| `src/app/settings/security/page.tsx` | Added sessions section with sign-out-all |
+| `src/lib/api.ts` | Added accountApi with all self-service endpoints |
+
+**Documentation:**
+| File | Changes |
+|------|---------|
+| `docs/testing/CRITICAL_PATH_MAP.md` | Added CP-014, updated CP-001 and CP-002 with SELF-SERVICE-1 scenarios |
+
+### SELF-SERVICE-1 Acceptance Criteria (Completed)
+
+- [x] CustomerAccountRole (OWNER/EDITOR/VIEWER) enforces access control
+- [x] Session tracking with UserSession model
+- [x] Sign-out-all invalidates other sessions via tokenInvalidBefore
+- [x] JWT validation checks session validity and tokenInvalidBefore
+- [x] Session lastSeenAt updates throttled (5-minute cadence)
+- [x] Profile management (name, avatar, timezone, locale)
+- [x] Preferences persistence (notification toggles, default behaviors)
+- [x] Organization name editing (OWNER/EDITOR only)
+- [x] Connected stores list and disconnect (OWNER only)
+- [x] AI usage visibility (runs, quota, reuse metrics)
+- [x] APPLY invariant messaging on AI Usage page
+- [x] Owner-only billing mutations enforced at API level
+- [x] Role-safe billing UI (OWNER sees actions, others see read-only)
+- [x] Account menu navigation in TopNav
+- [x] Settings hub page displays all settings cards
+- [x] Integration tests cover sessions, sign-out-all, billing restrictions
+- [x] Playwright E2E tests cover all settings pages
+- [x] Documentation created (docs/SELF_SERVICE.md, docs/manual-testing/SELF-SERVICE-1.md)
+- [x] CRITICAL_PATH_MAP.md updated with CP-014
+
+**Manual Testing:** `docs/manual-testing/SELF-SERVICE-1.md`
