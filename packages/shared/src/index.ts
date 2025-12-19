@@ -156,3 +156,11 @@ export {
   type ProjectMediaAccessibilityResponse,
   type ProductImageView,
 } from './media-accessibility';
+
+// PERFORMANCE-1: Performance for Discovery types (Technical & Indexability pillar)
+export {
+  type PerformanceSignalType,
+  type PerformanceForDiscoveryStatus,
+  type PerformanceSignalStatus,
+  type PerformanceForDiscoveryScorecard,
+} from './performance-signals';

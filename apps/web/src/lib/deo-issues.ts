@@ -117,6 +117,14 @@ export type OffsiteGapType =
   | 'missing_authoritative_listing'
   | 'competitor_has_offsite_signal';
 
+// PERFORMANCE-1: Performance signal types (Technical & Indexability pillar)
+export type PerformanceSignalType =
+  | 'render_blocking'
+  | 'indexability_risk'
+  | 'ttfb_proxy'
+  | 'page_weight_risk'
+  | 'mobile_readiness';
+
 // Local Discovery types (inline to avoid circular deps)
 export type LocalApplicabilityStatus =
   | 'applicable'
@@ -323,8 +331,10 @@ export interface DeoIssue {
   /**
    * For Off-site Signals pillar issues: the type of off-site signal
    * this issue relates to (brand_mention, trust_proof, etc.).
+   * For Performance for Discovery issues (PERFORMANCE-1): the performance
+   * signal this issue relates to (render_blocking, page_weight_risk, etc.).
    */
-  signalType?: OffsiteSignalType;
+  signalType?: OffsiteSignalType | PerformanceSignalType;
 
   /**
    * For Off-site Signals pillar issues: the type of off-site gap.

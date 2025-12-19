@@ -2,6 +2,7 @@ import type { DeoPillarId } from './deo-pillars';
 import type { SearchIntentType, IntentCoverageStatus } from './search-intent';
 import type { CompetitorGapType, CompetitiveCoverageAreaId } from './competitors';
 import type { OffsiteSignalType, OffsiteGapType } from './offsite-signals';
+import type { PerformanceSignalType } from './performance-signals';
 import type {
   LocalApplicabilityStatus,
   LocalApplicabilityReason,
@@ -189,8 +190,10 @@ export interface DeoIssue {
   /**
    * For Off-site Signals pillar issues: the type of off-site signal
    * this issue relates to (brand_mention, trust_proof, etc.).
+   * For Performance for Discovery issues (PERFORMANCE-1): the performance
+   * signal this issue relates to (render_blocking, page_weight_risk, etc.).
    */
-  signalType?: OffsiteSignalType;
+  signalType?: OffsiteSignalType | PerformanceSignalType;
 
   /**
    * For Off-site Signals pillar issues: the type of off-site gap.

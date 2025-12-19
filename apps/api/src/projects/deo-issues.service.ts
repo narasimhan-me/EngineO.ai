@@ -7,6 +7,7 @@ import {
   DeoScoreSignals,
   DeoPillarId,
   DeoIssueActionability,
+  PerformanceSignalType,
 } from '@engineo/shared';
 import { AutomationService } from './automation.service';
 import { SearchIntentService } from './search-intent.service';
@@ -92,6 +93,14 @@ export class DeoIssuesService {
       issues.push(indexabilityIssue);
     }
 
+    const indexabilityConflictIssue = this.buildIndexabilityConflictIssue(
+      crawlResults,
+      signals,
+    );
+    if (indexabilityConflictIssue) {
+      issues.push(indexabilityConflictIssue);
+    }
+
     const answerSurfaceIssue = this.buildAnswerSurfaceIssue(crawlResults, signals);
     if (answerSurfaceIssue) {
       issues.push(answerSurfaceIssue);
@@ -105,6 +114,29 @@ export class DeoIssuesService {
     const crawlHealthIssue = this.buildCrawlHealthIssue(crawlResults, signals);
     if (crawlHealthIssue) {
       issues.push(crawlHealthIssue);
+    }
+
+    const renderBlockingIssue =
+      this.buildRenderBlockingResourcesIssue(crawlResults);
+    if (renderBlockingIssue) {
+      issues.push(renderBlockingIssue);
+    }
+
+    const slowInitialResponseIssue =
+      this.buildSlowInitialResponseIssue(crawlResults);
+    if (slowInitialResponseIssue) {
+      issues.push(slowInitialResponseIssue);
+    }
+
+    const pageWeightIssue = this.buildExcessivePageWeightIssue(crawlResults);
+    if (pageWeightIssue) {
+      issues.push(pageWeightIssue);
+    }
+
+    const mobileRenderingIssue =
+      this.buildMobileRenderingRiskIssue(crawlResults);
+    if (mobileRenderingIssue) {
+      issues.push(mobileRenderingIssue);
     }
 
     const productDepthIssue = this.buildProductContentDepthIssue(products);
@@ -535,6 +567,70 @@ export class DeoIssuesService {
     };
   }
 
+  private buildIndexabilityConflictIssue(
+    crawlResults: any[],
+    signals: DeoScoreSignals | null,
+  ): DeoIssue | null {
+    if (crawlResults.length === 0) {
+      return null;
+    }
+
+    let conflictCount = 0;
+    const affectedPages: string[] = [];
+
+    for (const cr of crawlResults) {
+      const issues = (cr.issues as string[]) ?? [];
+      const hasNoindex =
+        issues.includes('NOINDEX') ||
+        issues.includes('NO_INDEX') ||
+        issues.includes('META_ROBOTS_NOINDEX');
+      const hasCanonicalConflict = issues.includes('CANONICAL_CONFLICT');
+
+      if (hasNoindex || hasCanonicalConflict) {
+        conflictCount++;
+        if (affectedPages.length < 20) {
+          affectedPages.push(cr.url);
+        }
+      }
+    }
+
+    if (conflictCount === 0) {
+      return null;
+    }
+
+    const indexability = signals?.indexability ?? null;
+    const severity = this.getSeverityForLowerIsWorse(indexability, {
+      critical: 0.6,
+      warning: 0.8,
+      info: 0.95,
+    });
+
+    if (!severity) {
+      return null;
+    }
+
+    return {
+      id: 'indexability_conflict',
+      type: 'indexability_conflict',
+      title: 'Indexability conflicts (noindex/canonical)',
+      description:
+        'Some pages send mixed signals about whether they should be indexed, via noindex directives or canonical URLs pointing away from your store.',
+      severity,
+      count: conflictCount,
+      affectedPages,
+      pillarId: 'technical_indexability' as DeoPillarId,
+      actionability: 'manual' as DeoIssueActionability,
+      category: 'technical',
+      whyItMatters:
+        'Conflicting indexability signals can cause important pages to be dropped from search results or treated as duplicates, reducing overall visibility.',
+      recommendedFix:
+        'Review robots meta tags, X-Robots-Tag headers, and canonical URLs for the affected pages. Remove unintended noindex directives and ensure canonical URLs point to the correct version of each page.',
+      aiFixable: false,
+      fixCost: 'advanced',
+      signalType: 'indexability_risk' as PerformanceSignalType,
+    };
+  }
+
   private buildAnswerSurfaceIssue(
     crawlResults: any[],
     signals: DeoScoreSignals | null,
@@ -701,6 +797,243 @@ export class DeoIssuesService {
         'Identify and fix broken pages, server errors, and timeout issues. Monitor crawl health regularly to catch new problems early.',
       aiFixable: false,
       fixCost: 'advanced',
+    };
+  }
+
+  private buildRenderBlockingResourcesIssue(
+    crawlResults: any[],
+  ): DeoIssue | null {
+    if (crawlResults.length === 0) {
+      return null;
+    }
+
+    let blockingPages = 0;
+    const affectedPages: string[] = [];
+
+    for (const cr of crawlResults) {
+      const issues = (cr.issues as string[]) ?? [];
+      if (issues.includes('RENDER_BLOCKING_RESOURCES')) {
+        blockingPages++;
+        if (affectedPages.length < 20) {
+          affectedPages.push(cr.url);
+        }
+      }
+    }
+
+    if (blockingPages === 0) {
+      return null;
+    }
+
+    const totalPages = crawlResults.length;
+    const ratio = totalPages > 0 ? blockingPages / totalPages : 0;
+    const severity = this.getSeverityForHigherIsWorse(ratio, {
+      info: 0.05,
+      warning: 0.15,
+      critical: 0.3,
+    });
+
+    if (!severity) {
+      return null;
+    }
+
+    return {
+      id: 'render_blocking_resources',
+      type: 'render_blocking_resources',
+      title: 'Render-blocking scripts and styles',
+      description:
+        'Some pages load multiple blocking scripts or styles in the head before content, delaying when users and crawlers see meaningful content.',
+      severity,
+      count: blockingPages,
+      affectedPages,
+      pillarId: 'technical_indexability' as DeoPillarId,
+      actionability: 'manual' as DeoIssueActionability,
+      category: 'technical',
+      whyItMatters:
+        'Render-blocking resources slow down initial rendering, which makes it harder for discovery engines and real users on slower connections to reach your content.',
+      recommendedFix:
+        'Defer or async non-critical scripts, move heavy third-party tags below the main content, and keep critical CSS lean for above-the-fold content.',
+      aiFixable: false,
+      fixCost: 'advanced',
+      signalType: 'render_blocking' as PerformanceSignalType,
+    };
+  }
+
+  private buildSlowInitialResponseIssue(crawlResults: any[]): DeoIssue | null {
+    if (crawlResults.length === 0) {
+      return null;
+    }
+
+    let slowPages = 0;
+    const affectedPages: string[] = [];
+
+    for (const cr of crawlResults) {
+      const loadTimeMs =
+        typeof cr.loadTimeMs === 'number' ? cr.loadTimeMs : null;
+      const issues = (cr.issues as string[]) ?? [];
+      const isSlow =
+        (loadTimeMs != null && loadTimeMs > 2500) ||
+        issues.includes('SLOW_LOAD_TIME');
+
+      if (isSlow) {
+        slowPages++;
+        if (affectedPages.length < 20) {
+          affectedPages.push(cr.url);
+        }
+      }
+    }
+
+    if (slowPages === 0) {
+      return null;
+    }
+
+    const ratio = slowPages / crawlResults.length;
+    const severity = this.getSeverityForHigherIsWorse(ratio, {
+      info: 0.1,
+      warning: 0.3,
+      critical: 0.5,
+    });
+
+    if (!severity) {
+      return null;
+    }
+
+    return {
+      id: 'slow_initial_response',
+      type: 'slow_initial_response',
+      title: 'Slow initial response',
+      description:
+        'Some pages take a long time before any content is ready, which can lead to timeouts for crawlers and impatient visitors.',
+      severity,
+      count: slowPages,
+      affectedPages,
+      pillarId: 'technical_indexability' as DeoPillarId,
+      actionability: 'manual' as DeoIssueActionability,
+      category: 'technical',
+      whyItMatters:
+        'Slow initial responses reduce how much of your site discovery engines can crawl and increase the chance that users abandon before your content appears.',
+      recommendedFix:
+        'Review hosting and theme configuration for the affected pages. Reduce heavy above-the-fold apps and scripts, enable caching where possible, and keep key templates lean.',
+      aiFixable: false,
+      fixCost: 'manual',
+      signalType: 'ttfb_proxy' as PerformanceSignalType,
+    };
+  }
+
+  private buildExcessivePageWeightIssue(crawlResults: any[]): DeoIssue | null {
+    if (crawlResults.length === 0) {
+      return null;
+    }
+
+    let heavyPages = 0;
+    const affectedPages: string[] = [];
+
+    for (const cr of crawlResults) {
+      const issues = (cr.issues as string[]) ?? [];
+      if (
+        issues.includes('VERY_LARGE_HTML') ||
+        issues.includes('LARGE_HTML')
+      ) {
+        heavyPages++;
+        if (affectedPages.length < 20) {
+          affectedPages.push(cr.url);
+        }
+      }
+    }
+
+    if (heavyPages === 0) {
+      return null;
+    }
+
+    const ratio = heavyPages / crawlResults.length;
+    const severity = this.getSeverityForHigherIsWorse(ratio, {
+      info: 0.05,
+      warning: 0.15,
+      critical: 0.3,
+    });
+
+    if (!severity) {
+      return null;
+    }
+
+    return {
+      id: 'excessive_page_weight',
+      type: 'excessive_page_weight',
+      title: 'Page weight risk',
+      description:
+        'Some pages have very large HTML payloads, which slows down rendering and makes them more expensive for discovery engines to crawl.',
+      severity,
+      count: heavyPages,
+      affectedPages,
+      pillarId: 'technical_indexability' as DeoPillarId,
+      actionability: 'manual' as DeoIssueActionability,
+      category: 'technical',
+      whyItMatters:
+        'Very heavy pages consume more crawl budget and are more likely to time out on slower connections, reducing how much of your catalog can be reliably discovered.',
+      recommendedFix:
+        'Review theme templates and apps on the affected pages. Remove unused sections, avoid duplicating large blocks of HTML, and simplify markup to keep HTML lean.',
+      aiFixable: false,
+      fixCost: 'manual',
+      signalType: 'page_weight_risk' as PerformanceSignalType,
+    };
+  }
+
+  private buildMobileRenderingRiskIssue(
+    crawlResults: any[],
+  ): DeoIssue | null {
+    if (crawlResults.length === 0) {
+      return null;
+    }
+
+    let mobileRiskPages = 0;
+    const affectedPages: string[] = [];
+
+    for (const cr of crawlResults) {
+      const issues = (cr.issues as string[]) ?? [];
+      if (
+        issues.includes('MISSING_VIEWPORT_META') ||
+        issues.includes('POTENTIAL_MOBILE_LAYOUT_ISSUE')
+      ) {
+        mobileRiskPages++;
+        if (affectedPages.length < 20) {
+          affectedPages.push(cr.url);
+        }
+      }
+    }
+
+    if (mobileRiskPages === 0) {
+      return null;
+    }
+
+    const ratio = mobileRiskPages / crawlResults.length;
+    const severity = this.getSeverityForHigherIsWorse(ratio, {
+      info: 0.1,
+      warning: 0.3,
+      critical: 0.5,
+    });
+
+    if (!severity) {
+      return null;
+    }
+
+    return {
+      id: 'mobile_rendering_risk',
+      type: 'mobile_rendering_risk',
+      title: 'Mobile rendering risk',
+      description:
+        'Some pages are missing responsive viewport configuration or may render poorly on smaller screens.',
+      severity,
+      count: mobileRiskPages,
+      affectedPages,
+      pillarId: 'technical_indexability' as DeoPillarId,
+      actionability: 'manual' as DeoIssueActionability,
+      category: 'technical',
+      whyItMatters:
+        'Poor mobile rendering hurts engagement on mobile devices and makes it harder for mobile-first discovery engines to trust and surface your content.',
+      recommendedFix:
+        'Ensure your theme sets a responsive viewport meta tag and test the affected pages on mobile devices. Avoid fixed-width layouts that require horizontal scrolling.',
+      aiFixable: false,
+      fixCost: 'manual',
+      signalType: 'mobile_readiness' as PerformanceSignalType,
     };
   }
 

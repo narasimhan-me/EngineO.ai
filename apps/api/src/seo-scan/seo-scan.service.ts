@@ -208,6 +208,7 @@ export class SeoScanService {
     const startTime = Date.now();
     let statusCode = 0;
     let html = '';
+    let robotsHeader: string | null = null;
 
     // In E2E mode, return a deterministic synthetic scan result without network.
     if (isE2EMode()) {
@@ -232,6 +233,7 @@ export class SeoScanService {
         redirect: 'follow',
       });
       statusCode = response.status;
+      robotsHeader = response.headers.get('x-robots-tag');
       html = await response.text();
     } catch (error) {
       return {
@@ -253,10 +255,17 @@ export class SeoScanService {
     const title = $('title').first().text().trim() || null;
     const metaDescription = $('meta[name="description"]').attr('content')?.trim() || null;
     const h1 = $('h1').first().text().trim() || null;
+    const canonicalHref =
+      $('link[rel="canonical"]').attr('href')?.trim() || null;
+    const robotsMeta =
+      $('meta[name="robots"]').attr('content')?.trim().toLowerCase() || '';
+    const viewportContent =
+      $('meta[name="viewport"]').attr('content')?.trim() || '';
 
     // Calculate word count (simple: text content divided by average word length)
     const bodyText = $('body').text().replace(/\s+/g, ' ').trim();
     const wordCount = bodyText.split(/\s+/).filter(Boolean).length;
+    const htmlBytes = Buffer.byteLength(html, 'utf8');
 
     // Build issues array
     const issues: string[] = [];
@@ -287,6 +296,55 @@ export class SeoScanService {
 
     if (loadTimeMs > 3000) {
       issues.push('SLOW_LOAD_TIME');
+    }
+
+    // PERFORMANCE-1: Discovery-critical performance heuristics
+    // Render-blocking resources: scripts/styles in <head> without async/defer/module
+    const blockingScripts = $('head script[src]').filter((_, el) => {
+      const attribs = (el as any).attribs ?? {};
+      const hasAsyncOrDefer = 'async' in attribs || 'defer' in attribs;
+      const isModule = attribs.type === 'module';
+      return !hasAsyncOrDefer && !isModule;
+    });
+    const blockingStyles = $('head link[rel="stylesheet"]');
+    if (blockingScripts.length >= 3 || blockingStyles.length >= 4) {
+      issues.push('RENDER_BLOCKING_RESOURCES');
+    }
+
+    // Page weight risk (very large HTML payloads)
+    if (htmlBytes > 800 * 1024) {
+      issues.push('VERY_LARGE_HTML');
+    } else if (htmlBytes > 400 * 1024) {
+      issues.push('LARGE_HTML');
+    }
+
+    // Mobile readiness heuristics
+    if (!viewportContent) {
+      issues.push('MISSING_VIEWPORT_META');
+    } else {
+      const viewportLower = viewportContent.toLowerCase();
+      if (!viewportLower.includes('width=device-width')) {
+        issues.push('POTENTIAL_MOBILE_LAYOUT_ISSUE');
+      }
+    }
+
+    // Indexability-related hints (noindex and canonical conflicts)
+    if (robotsMeta.includes('noindex')) {
+      issues.push('META_ROBOTS_NOINDEX');
+    }
+    if (robotsHeader && robotsHeader.toLowerCase().includes('noindex')) {
+      issues.push('NOINDEX');
+    }
+    if (canonicalHref) {
+      try {
+        const canonicalUrl = new URL(canonicalHref, url);
+        const originalUrl = new URL(url);
+        if (canonicalUrl.hostname !== originalUrl.hostname) {
+          issues.push('CANONICAL_CONFLICT');
+        }
+      } catch {
+        // Ignore invalid canonical URLs; structural issues are covered elsewhere.
+      }
     }
 
     if (statusCode >= 400) {

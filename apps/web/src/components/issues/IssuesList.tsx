@@ -130,6 +130,37 @@ export const ISSUE_UI_CONFIG: Record<
       'Products without categories are harder to organize and surface in relevant contexts.',
     pillarId: 'content_commerce_signals',
   },
+  // PERFORMANCE-1: Discovery-critical performance issues (Technical pillar)
+  render_blocking_resources: {
+    label: 'Render-blocking Resources',
+    description:
+      'Blocking scripts or styles ahead of content can delay first contentful paint for users and crawlers.',
+    pillarId: 'technical_indexability',
+  },
+  indexability_conflict: {
+    label: 'Indexability Conflict',
+    description:
+      'Pages have conflicting indexing directives (e.g., noindex in robots meta or X-Robots-Tag, or canonical pointing elsewhere).',
+    pillarId: 'technical_indexability',
+  },
+  slow_initial_response: {
+    label: 'Slow Initial Response',
+    description:
+      'HTML document is very large, which may indicate slow TTFB or excessive inline content.',
+    pillarId: 'technical_indexability',
+  },
+  excessive_page_weight: {
+    label: 'Excessive Page Weight',
+    description:
+      'Page HTML exceeds recommended size thresholds, potentially slowing crawlers and users.',
+    pillarId: 'technical_indexability',
+  },
+  mobile_rendering_risk: {
+    label: 'Mobile Rendering Risk',
+    description:
+      'Pages may have mobile rendering issues due to missing viewport meta or potential layout problems.',
+    pillarId: 'technical_indexability',
+  },
 };
 
 /**
