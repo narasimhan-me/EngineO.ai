@@ -151,6 +151,52 @@ Internal-only operational control plane for Support Agents, Ops Admins, and Mana
 
 ---
 
+## Phase INSIGHTS-1: Project Insights Dashboard ✅ COMPLETE
+
+**Status:** Complete
+**Date Completed:** 2025-12-19
+
+Read-only derived insights dashboard showing DEO progress, AI efficiency metrics, issue resolution, and opportunity signals.
+
+### Key Features
+
+1. **Overview Cards**: DEO score improvements, AI runs saved, issues resolved, next opportunity
+2. **DEO Progress**: Score trends, component deltas, fixes applied over time
+3. **AI Efficiency**: Reuse rates, quota status, trust invariant display ("Apply never uses AI")
+4. **Issue Resolution**: By-pillar breakdown, high-impact open issues, recently resolved
+5. **Opportunity Signals**: Prioritized opportunities by impact level
+
+### Trust Invariants
+
+1. **Read-Only Only**: Insights endpoint never triggers AI or mutations
+2. **Cached Data**: Uses `*ReadOnly` service methods that don't recompute
+3. **Trust Display**: Shows "Apply never uses AI" prominently in AI Efficiency page
+4. **No Side Effects**: Page views cannot trigger automations or AI calls
+
+### Implementation Details
+
+- API: `GET /projects/:id/insights` → `ProjectInsightsService.getProjectInsights()`
+- Service: `project-insights.service.ts` with aggregation from existing data
+- Read-only methods added to:
+  - `deo-issues.service.ts` (`getIssuesForProjectReadOnly`)
+  - `offsite-signals.service.ts` (`buildOffsiteIssuesForProjectReadOnly`)
+  - `local-discovery.service.ts` (`buildLocalIssuesForProjectReadOnly`)
+- E2E seed: `POST /testkit/e2e/seed-insights-1`
+
+### Web UI
+
+- Main page: `/projects/[id]/insights`
+- Subpages: `deo-progress`, `ai-efficiency`, `issue-resolution`, `opportunity-signals`
+- Components: `InsightsSubnav.tsx`, `Sparkline.tsx`
+- Navigation: Added to `ProjectSideNav.tsx`
+
+### Related Documents
+
+- [INSIGHTS-1.md](./manual-testing/INSIGHTS-1.md) - Manual testing guide
+- [CRITICAL_PATH_MAP.md](./testing/CRITICAL_PATH_MAP.md) - CP-016 entry
+
+---
+
 ## Phase MEDIA-1: Media & Accessibility Pillar ✅ COMPLETE
 
 **Status:** Complete
@@ -194,3 +240,4 @@ Persistent AI drafts that survive navigation and can be reused across Playbooks 
 |---------|------|---------|
 | 1.0 | 2025-12-19 | Created with GTM-ONBOARD-1, SELF-SERVICE-1, ADMIN-OPS-1, MEDIA-1, AUTO-PB-1 phases |
 | 1.1 | 2025-12-19 | Corrected GTM-ONBOARD-1 status to "Docs Complete; Implementation Pending". Added locked trust contracts and expanded dependencies. |
+| 1.2 | 2025-12-19 | Added INSIGHTS-1: Project Insights Dashboard (Complete) |

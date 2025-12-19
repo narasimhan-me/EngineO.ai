@@ -38,6 +38,7 @@ import {
   AutomationPlaybookRunsService,
   AutomationPlaybookRunType,
 } from './automation-playbook-runs.service';
+import { ProjectInsightsService } from './project-insights.service';
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard)
@@ -53,6 +54,7 @@ export class ProjectsController {
     private readonly seoScanService: SeoScanService,
     private readonly automationPlaybooksService: AutomationPlaybooksService,
     private readonly automationPlaybookRunsService: AutomationPlaybookRunsService,
+    private readonly projectInsightsService: ProjectInsightsService,
   ) {}
 
   /**
@@ -125,6 +127,15 @@ export class ProjectsController {
   @Get(':id/overview')
   async getProjectOverview(@Request() req: any, @Param('id') projectId: string) {
     return this.projectsService.getProjectOverview(projectId, req.user.id);
+  }
+
+  /**
+   * GET /projects/:id/insights
+   * INSIGHTS-1: Read-only derived insights (no AI, no mutations).
+   */
+  @Get(':id/insights')
+  async getProjectInsights(@Request() req: any, @Param('id') projectId: string) {
+    return this.projectInsightsService.getProjectInsights(projectId, req.user.id);
   }
 
   /**

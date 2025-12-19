@@ -324,4 +324,227 @@ export class E2eTestkitController {
   async seedSelfServiceViewer() {
     return this.seedSelfServiceUser({ accountRole: 'VIEWER', plan: 'pro' });
   }
+
+  // ==========================================================================
+  // [INSIGHTS-1] E2E Seeds
+  // ==========================================================================
+
+  /**
+   * POST /testkit/e2e/seed-insights-1
+   *
+   * Seed a Pro-plan user with:
+   * - A Shopify-connected project
+   * - Products with mixed SEO state (some fixed, some with issues)
+   * - Historical DEO snapshots for trend visualization
+   * - AI usage runs (some reused) for quota/efficiency metrics
+   * - APPLY runs for fix tracking
+   * - Cached offsite/local data for read-only issue computation
+   *
+   * Returns:
+   * - user (id, email)
+   * - projectId
+   * - shopDomain
+   * - accessToken
+   */
+  @Post('seed-insights-1')
+  async seedInsights1() {
+    this.ensureE2eMode();
+
+    const { user } = await createTestUser(this.prisma as any, {
+      plan: 'pro',
+    });
+
+    const project = await createTestProject(this.prisma as any, {
+      userId: user.id,
+    });
+
+    const integration = await createTestShopifyStoreConnection(
+      this.prisma as any,
+      {
+        projectId: project.id,
+      },
+    );
+
+    // Create products with mixed SEO state
+    await createTestProducts(this.prisma as any, {
+      projectId: project.id,
+      count: 10,
+      withSeo: false, // Some will be fixed via APPLY runs below
+      withIssues: true,
+    });
+
+    const now = new Date();
+
+    // Create historical DEO snapshots for trend visualization (last 30 days)
+    for (let i = 30; i >= 0; i -= 5) {
+      const snapshotDate = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      // Simulate improving score over time
+      const score = Math.min(100, Math.round(45 + (30 - i) * 1.5));
+
+      await this.prisma.deoScoreSnapshot.create({
+        data: {
+          projectId: project.id,
+          overallScore: score,
+          contentScore: Math.min(100, Math.round(50 + (30 - i) * 1.0)),
+          entityScore: Math.min(100, Math.round(40 + (30 - i) * 1.2)),
+          technicalScore: Math.min(100, Math.round(60 + (30 - i) * 0.8)),
+          visibilityScore: Math.min(100, Math.round(35 + (30 - i) * 1.5)),
+          version: 'v2',
+          computedAt: snapshotDate,
+          createdAt: snapshotDate,
+          metadata: {
+            searchIntentFit: Math.min(100, 40 + (30 - i) * 1.2),
+            contentCommerceSignals: Math.min(100, 50 + (30 - i) * 1.0),
+            technicalIndexability: Math.min(100, 60 + (30 - i) * 0.8),
+            metadataSnippetQuality: Math.min(100, 35 + (30 - i) * 1.5),
+            mediaAccessibility: Math.min(100, 45 + (30 - i) * 1.1),
+            offsiteSignals: Math.min(100, 30 + (30 - i) * 1.3),
+            localDiscovery: Math.min(100, 55 + (30 - i) * 0.9),
+            competitivePositioning: Math.min(100, 40 + (30 - i) * 1.0),
+          },
+        },
+      });
+    }
+
+    const testPlaybookId = 'insights-test-playbook';
+    const testScopeId = `project:${project.id}`;
+    const testRulesHash = 'insights-test-hash';
+
+    // Create AI preview runs (some reused for efficiency metrics)
+    for (let i = 0; i < 8; i++) {
+      await this.prisma.automationPlaybookRun.create({
+        data: {
+          project: { connect: { id: project.id } },
+          createdBy: { connect: { id: user.id } },
+          playbookId: testPlaybookId,
+          scopeId: testScopeId,
+          rulesHash: testRulesHash,
+          idempotencyKey: `insights-preview-ai-${i}-${Date.now()}`,
+          runType: 'PREVIEW_GENERATE',
+          status: 'SUCCEEDED',
+          aiUsed: true,
+          createdAt: new Date(now.getTime() - i * 2 * 60 * 60 * 1000),
+        },
+      });
+    }
+
+    // Create reused runs (no AI cost)
+    const originalRun = await this.prisma.automationPlaybookRun.findFirst({
+      where: { createdByUserId: user.id, aiUsed: true },
+    });
+
+    for (let i = 0; i < 5; i++) {
+      await this.prisma.automationPlaybookRun.create({
+        data: {
+          project: { connect: { id: project.id } },
+          createdBy: { connect: { id: user.id } },
+          playbookId: testPlaybookId,
+          scopeId: testScopeId,
+          rulesHash: testRulesHash,
+          idempotencyKey: `insights-preview-reuse-${i}-${Date.now()}`,
+          runType: 'PREVIEW_GENERATE',
+          status: 'SUCCEEDED',
+          aiUsed: false,
+          reusedFromRunId: originalRun?.id,
+          reused: true,
+          createdAt: new Date(now.getTime() - (8 + i) * 2 * 60 * 60 * 1000),
+        },
+      });
+    }
+
+    // Create APPLY runs across different pillars for fix tracking
+    const pillarPlaybooks = [
+      { playbookId: 'search_intent_fix', pillar: 'intent' },
+      { playbookId: 'media_accessibility_fix', pillar: 'media' },
+      { playbookId: 'competitive_fix', pillar: 'competitive' },
+      { playbookId: 'offsite_fix', pillar: 'offsite' },
+      { playbookId: 'local_fix', pillar: 'local' },
+      { playbookId: 'shopify_product_seo_update', pillar: 'metadata' },
+    ];
+
+    for (let i = 0; i < pillarPlaybooks.length; i++) {
+      const { playbookId, pillar } = pillarPlaybooks[i];
+      await this.prisma.automationPlaybookRun.create({
+        data: {
+          project: { connect: { id: project.id } },
+          createdBy: { connect: { id: user.id } },
+          playbookId,
+          scopeId: `product:test-product-${i}`,
+          rulesHash: `${pillar}-hash`,
+          idempotencyKey: `insights-apply-${pillar}-${Date.now()}`,
+          runType: 'APPLY',
+          status: 'SUCCEEDED',
+          aiUsed: false, // APPLY never uses AI
+          createdAt: new Date(now.getTime() - i * 24 * 60 * 60 * 1000),
+          meta: {
+            pillar,
+            source: 'insights-test',
+          },
+        },
+      });
+    }
+
+    // Create cached offsite coverage for read-only computation
+    // Schema: id, projectId, coverageData (Json), overallScore (Float), status (enum), computedAt
+    await this.prisma.projectOffsiteCoverage.create({
+      data: {
+        projectId: project.id,
+        coverageData: {
+          backlinks: 5,
+          uniqueDomains: 3,
+          socialMentions: 2,
+          brandSearchVolume: 100,
+          competitorGap: 50,
+        },
+        overallScore: 45.0,
+        status: 'LOW',
+        computedAt: now,
+      },
+    });
+
+    // Create cached local coverage for read-only computation
+    // Schema: id, projectId, applicabilityStatus, applicabilityReasons, score, status, signalCounts, missingLocalSignalsCount, computedAt
+    await this.prisma.projectLocalCoverage.create({
+      data: {
+        projectId: project.id,
+        applicabilityStatus: 'APPLICABLE',
+        applicabilityReasons: ['HAS_PHYSICAL_LOCATION'],
+        score: 65.0,
+        status: 'NEEDS_IMPROVEMENT',
+        signalCounts: {
+          gbp_connected: 1,
+          nap_consistent: 0,
+          local_reviews: 25,
+          citations: 10,
+        },
+        missingLocalSignalsCount: 2,
+        computedAt: now,
+      },
+    });
+
+    // Generate JWT
+    const session = await this.prisma.userSession.create({
+      data: {
+        userId: user.id,
+        lastSeenAt: new Date(),
+      },
+    });
+
+    const accessToken = this.jwtService.sign({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      sessionId: session.id,
+    });
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+      },
+      projectId: project.id,
+      shopDomain: integration.externalId,
+      accessToken,
+    };
+  }
 }

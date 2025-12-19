@@ -429,6 +429,33 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 
 ---
 
+### CP-016: Project Insights Dashboard
+
+**Description:** Read-only derived insights dashboard showing DEO progress, AI efficiency metrics, issue resolution, and opportunity signals. Never triggers AI or mutations.
+
+| Field | Value |
+|-------|-------|
+| **Manual Testing Doc(s)** | `docs/manual-testing/INSIGHTS-1.md`, `docs/IMPLEMENTATION_PLAN.md` |
+| **Automated Tests** | Planned |
+| **Last Verified (Manual)** | [YYYY-MM-DD] |
+| **Last Verified (Automated)** | N/A |
+| **Owner** | Core Team |
+
+**Key Scenarios:**
+- [ ] Insights endpoint returns ProjectInsightsResponse (read-only)
+- [ ] DEO score trend visualization with sparklines
+- [ ] AI efficiency metrics (runs used, avoided, reuse rate)
+- [ ] Trust invariant display: "Apply never uses AI" (applyAiRuns = 0)
+- [ ] Issue resolution by pillar (open/resolved counts)
+- [ ] High-impact open issues list
+- [ ] Opportunity signals prioritized by impact
+- [ ] Read-only methods do not trigger AI or recomputation
+- [ ] Cached-only issue computation for offsite/local pillars
+- [ ] Navigation via ProjectSideNav links correctly
+- [ ] Subnav tabs navigate between insight pages
+
+---
+
 ## Coverage Summary
 
 | Critical Path | Manual Docs | Auto Tests | Status |
@@ -448,6 +475,7 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 | CP-013: Admin Operations | ✅ | ✅ | 🟢 Full Coverage |
 | CP-014: Self-Service Control Plane | ✅ | ✅ | 🟢 Full Coverage |
 | CP-015: Guided Onboarding | ✅ | Planned | 🟡 Manual Only (Impl Pending) |
+| CP-016: Project Insights | ✅ | Planned | 🟡 Manual Only |
 
 **Legend:**
 - 🟢 Full Coverage (Manual + Automated)
@@ -501,3 +529,4 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 | 2.6 | 2025-12-19 | Added CP-013: Admin Operations Dashboard (ADMIN-OPS-1) with internal admin roles, impersonation, quota reset, and audit logging |
 | 2.7 | 2025-12-19 | Added CP-014: Customer Self-Service Control Plane (SELF-SERVICE-1) with profile, preferences, sessions, and role-based access; updated CP-001 and CP-002 with SELF-SERVICE-1 scenarios |
 | 2.8 | 2025-12-19 | Added CP-015: Guided Onboarding & First DEO Win (GTM-ONBOARD-1) - Docs Complete; Implementation Pending. Added manual testing guide and spec documentation. |
+| 2.9 | 2025-12-19 | Added CP-016: Project Insights Dashboard (INSIGHTS-1) - Read-only derived insights with DEO progress, AI efficiency, issue resolution, and opportunity signals. |

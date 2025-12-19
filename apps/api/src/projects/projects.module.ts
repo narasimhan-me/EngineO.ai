@@ -27,6 +27,7 @@ import { LocalDiscoveryService } from './local-discovery.service';
 import { LocalDiscoveryController } from './local-discovery.controller';
 import { MediaAccessibilityService } from './media-accessibility.service';
 import { MediaAccessibilityController } from './media-accessibility.controller';
+import { ProjectInsightsService } from './project-insights.service';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { MediaAccessibilityController } from './media-accessibility.controller';
     DeoSignalsService,
     DeoScoreProcessor,
     DeoIssuesService,
+    ProjectInsightsService,
     AutomationService,
     AnswerEngineService,
     SeoScanService,

@@ -365,6 +365,35 @@ export class OffsiteSignalsService {
     };
   }
 
+  /**
+   * INSIGHTS-1: Read-only coverage accessor (never computes or persists).
+   * Returns null when no cached coverage exists.
+   */
+  async getCachedProjectCoverage(projectId: string): Promise<ProjectOffsiteCoverage | null> {
+    const row = await this.prisma.projectOffsiteCoverage.findFirst({
+      where: { projectId },
+      orderBy: { computedAt: 'desc' },
+    });
+
+    if (!row) return null;
+
+    const coverageData = row.coverageData as {
+      signalCounts: Record<OffsiteSignalType, number>;
+      highImpactGaps: number;
+      totalSignals: number;
+    };
+
+    return {
+      projectId,
+      overallScore: row.overallScore,
+      status: this.fromPrismaStatus(row.status),
+      signalCounts: coverageData.signalCounts,
+      highImpactGaps: coverageData.highImpactGaps,
+      totalSignals: coverageData.totalSignals,
+      computedAt: row.computedAt.toISOString(),
+    };
+  }
+
   // ============================================================================
   // Gap Analysis
   // ============================================================================
@@ -551,6 +580,74 @@ export class OffsiteSignalsService {
     }
 
     // Add competitor-based issues for trust proof and authoritative listings
+    if (coverage.signalCounts.trust_proof === 0) {
+      issues.push({
+        id: `offsite_competitor_trust_proof_${projectId}`,
+        title: 'Competitors Have Third-Party Reviews',
+        description: 'Competitors in your industry typically have third-party reviews, which you appear to be missing.',
+        severity: 'critical',
+        count: 1,
+        pillarId: 'offsite_signals',
+        actionability: 'manual',
+        signalType: 'trust_proof',
+        offsiteGapType: 'competitor_has_offsite_signal',
+        competitorCount: 2,
+        recommendedAction: 'Request reviews from customers to build third-party trust proof.',
+        whyItMatters: 'Third-party reviews are high-trust signals that AI models and discovery engines rely on to verify brand legitimacy.',
+      });
+    }
+
+    if (coverage.signalCounts.authoritative_listing === 0) {
+      issues.push({
+        id: `offsite_competitor_listing_${projectId}`,
+        title: 'Competitors Appear in Industry Directories',
+        description: 'Competitors typically appear in industry directories and marketplace listings.',
+        severity: 'warning',
+        count: 1,
+        pillarId: 'offsite_signals',
+        actionability: 'manual',
+        signalType: 'authoritative_listing',
+        offsiteGapType: 'competitor_has_offsite_signal',
+        competitorCount: 2,
+        recommendedAction: 'Submit your business to relevant directories and marketplace platforms.',
+        whyItMatters: 'Directory listings provide authoritative backlinks and help discovery engines validate your business.',
+      });
+    }
+
+    return issues;
+  }
+
+  /**
+   * INSIGHTS-1: Read-only issue generation (never computes or persists coverage).
+   * Returns [] when no cached coverage exists yet.
+   */
+  async buildOffsiteIssuesForProjectReadOnly(projectId: string): Promise<DeoIssue[]> {
+    const coverage = await this.getCachedProjectCoverage(projectId);
+    if (!coverage) return [];
+
+    const issues: DeoIssue[] = [];
+
+    for (const signalType of OFFSITE_SIGNAL_TYPES) {
+      if (coverage.signalCounts[signalType] === 0) {
+        const gapType = getGapTypeForMissingSignal(signalType);
+        const severity: DeoIssueSeverity = calculateOffsiteSeverity(signalType, gapType);
+
+        issues.push({
+          id: `offsite_${gapType}_${projectId}`,
+          title: `Missing ${OFFSITE_SIGNAL_LABELS[signalType]}`,
+          description: this.getGapExample(signalType),
+          severity,
+          count: 1,
+          pillarId: 'offsite_signals',
+          actionability: 'manual',
+          signalType,
+          offsiteGapType: gapType,
+          recommendedAction: this.getRecommendedAction(signalType),
+          whyItMatters: `${OFFSITE_SIGNAL_LABELS[signalType]} signals help discovery engines and AI models understand your brand authority and trustworthiness.`,
+        });
+      }
+    }
+
     if (coverage.signalCounts.trust_proof === 0) {
       issues.push({
         id: `offsite_competitor_trust_proof_${projectId}`,

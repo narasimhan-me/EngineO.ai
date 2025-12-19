@@ -26,6 +26,7 @@ import type {
   ProductMediaStats,
   ProductImageView,
 } from '@/lib/media-accessibility';
+import type { ProjectInsightsResponse } from '@/lib/insights';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -629,6 +630,10 @@ export const projectsApi = {
 
   mediaScorecard: (projectId: string): Promise<MediaAccessibilityScorecard> =>
     fetchWithAuth(`/projects/${projectId}/media/scorecard`),
+
+  // INSIGHTS-1: Project insights (read-only derived data)
+  insights: (projectId: string): Promise<ProjectInsightsResponse> =>
+    fetchWithAuth(`/projects/${projectId}/insights`),
 };
 
 export const integrationsApi = {

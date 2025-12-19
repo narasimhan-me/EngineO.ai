@@ -491,6 +491,32 @@ export class LocalDiscoveryService {
     };
   }
 
+  /**
+   * INSIGHTS-1: Read-only scorecard accessor (never computes or persists).
+   * Returns null when no cached scorecard exists.
+   */
+  async getCachedProjectScorecard(projectId: string): Promise<LocalDiscoveryScorecard | null> {
+    const row = await this.prisma.projectLocalCoverage.findFirst({
+      where: { projectId },
+      orderBy: { computedAt: 'desc' },
+    });
+
+    if (!row) return null;
+
+    const signalCounts = row.signalCounts as Record<LocalSignalType, number>;
+
+    return {
+      projectId,
+      applicabilityStatus: this.fromPrismaApplicabilityStatus(row.applicabilityStatus),
+      applicabilityReasons: row.applicabilityReasons as LocalApplicabilityReason[],
+      score: row.score ?? undefined,
+      status: row.status ? this.fromPrismaCoverageStatus(row.status) : undefined,
+      signalCounts,
+      missingLocalSignalsCount: row.missingLocalSignalsCount,
+      computedAt: row.computedAt.toISOString(),
+    };
+  }
+
   // ============================================================================
   // Gap Analysis
   // ============================================================================
@@ -648,6 +674,46 @@ export class LocalDiscoveryService {
     }
 
     // Generate issues based on coverage gaps
+    for (const signalType of LOCAL_SIGNAL_TYPES) {
+      if (scorecard.signalCounts[signalType] === 0) {
+        const gapType = getLocalGapTypeForMissingSignal(signalType);
+        const severity: DeoIssueSeverity = calculateLocalSeverity(signalType, gapType);
+
+        issues.push({
+          id: `local_${gapType}_${projectId}`,
+          title: `Missing ${LOCAL_SIGNAL_LABELS[signalType]}`,
+          description: this.getGapExample(signalType),
+          severity,
+          count: 1,
+          pillarId: 'local_discovery',
+          actionability: 'manual',
+          localSignalType: signalType,
+          localGapType: gapType,
+          localApplicabilityStatus: scorecard.applicabilityStatus,
+          localApplicabilityReasons: scorecard.applicabilityReasons,
+          recommendedAction: this.getRecommendedAction(signalType),
+          whyItMatters: `${LOCAL_SIGNAL_LABELS[signalType]} helps local customers and discovery engines find your business for location-specific searches.`,
+        });
+      }
+    }
+
+    return issues;
+  }
+
+  /**
+   * INSIGHTS-1: Read-only issue generation (never computes or persists scorecard).
+   * Returns [] when no cached scorecard exists yet.
+   */
+  async buildLocalIssuesForProjectReadOnly(projectId: string): Promise<DeoIssue[]> {
+    const scorecard = await this.getCachedProjectScorecard(projectId);
+    if (!scorecard) return [];
+
+    const issues: DeoIssue[] = [];
+
+    if (scorecard.applicabilityStatus !== 'applicable') {
+      return [];
+    }
+
     for (const signalType of LOCAL_SIGNAL_TYPES) {
       if (scorecard.signalCounts[signalType] === 0) {
         const gapType = getLocalGapTypeForMissingSignal(signalType);

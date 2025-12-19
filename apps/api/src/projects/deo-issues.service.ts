@@ -34,6 +34,28 @@ export class DeoIssuesService {
    * product data, and aggregated DEO signals.
    */
   async getIssuesForProject(projectId: string, userId: string): Promise<DeoIssuesResponse> {
+    return this.computeIssuesForProject(projectId, userId, { mode: 'full' });
+  }
+
+  /**
+   * [INSIGHTS-1] Read-only version of getIssuesForProject.
+   * Uses cached data only and does NOT trigger any side effects (no automation triggers).
+   * Used by the insights dashboard for issue counts without mutating state.
+   */
+  async getIssuesForProjectReadOnly(projectId: string, userId: string): Promise<DeoIssuesResponse> {
+    return this.computeIssuesForProject(projectId, userId, { mode: 'readOnly' });
+  }
+
+  /**
+   * Internal method that computes issues with mode-based behavior.
+   * - 'full': Standard computation with side effects (automation triggers)
+   * - 'readOnly': Uses cached data only, no side effects
+   */
+  private async computeIssuesForProject(
+    projectId: string,
+    userId: string,
+    opts: { mode: 'full' | 'readOnly' },
+  ): Promise<DeoIssuesResponse> {
     const prisma = this.prisma as any;
 
     const project = await prisma.project.findUnique({
@@ -188,8 +210,11 @@ export class DeoIssuesService {
     }
 
     // OFFSITE-1: Add Off-site Signals pillar issues
+    // [INSIGHTS-1] In readOnly mode, use cached-only method (no recomputation)
     try {
-      const offsiteIssues = await this.offsiteSignalsService.buildOffsiteIssuesForProject(projectId);
+      const offsiteIssues = opts.mode === 'readOnly'
+        ? await this.offsiteSignalsService.buildOffsiteIssuesForProjectReadOnly(projectId)
+        : await this.offsiteSignalsService.buildOffsiteIssuesForProject(projectId);
       issues.push(...offsiteIssues);
     } catch (error) {
       // Log but don't fail the entire issues request
@@ -199,8 +224,11 @@ export class DeoIssuesService {
 
     // LOCAL-1: Add Local Discovery pillar issues
     // CRITICAL: Non-applicable projects get NO issues (no penalty for global stores)
+    // [INSIGHTS-1] In readOnly mode, use cached-only method (no recomputation)
     try {
-      const localIssues = await this.localDiscoveryService.buildLocalIssuesForProject(projectId);
+      const localIssues = opts.mode === 'readOnly'
+        ? await this.localDiscoveryService.buildLocalIssuesForProjectReadOnly(projectId)
+        : await this.localDiscoveryService.buildLocalIssuesForProject(projectId);
       issues.push(...localIssues);
     } catch (error) {
       // Log but don't fail the entire issues request
@@ -220,12 +248,15 @@ export class DeoIssuesService {
 
     // Fire-and-forget Answer Block automations for relevant answerability issues.
     // This treats "not_answer_ready" and "weak_intent_match" as issue_detected triggers.
-    this.triggerAnswerBlockAutomationsForIssues(projectId, userId, issues).catch(
-      () => {
-        // Intentionally swallow errors here so DEO issues computation is never blocked
-        // by automation failures; logs and automation logs provide visibility.
-      },
-    );
+    // [INSIGHTS-1] Only trigger automations in 'full' mode, never in 'readOnly' mode
+    if (opts.mode === 'full') {
+      this.triggerAnswerBlockAutomationsForIssues(projectId, userId, issues).catch(
+        () => {
+          // Intentionally swallow errors here so DEO issues computation is never blocked
+          // by automation failures; logs and automation logs provide visibility.
+        },
+      );
+    }
 
     return {
       projectId,
