@@ -93,7 +93,20 @@ export default function GeoInsightsPage() {
         </ol>
       </nav>
 
-      <h1 className="mb-4 text-2xl font-bold text-gray-900">GEO Insights</h1>
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">GEO Insights</h1>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/projects/${projectId}/insights/geo-insights/export`}
+            className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Export Report
+          </Link>
+        </div>
+      </div>
 
       <InsightsSubnav projectId={projectId} activeTab="geo-insights" />
 
@@ -152,9 +165,9 @@ export default function GeoInsightsPage() {
           )}
         </section>
 
-        {/* Confidence Distribution */}
+        {/* Attribution Readiness Distribution */}
         <section>
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">Confidence Distribution</h2>
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">Attribution Readiness</h2>
           <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
@@ -170,6 +183,10 @@ export default function GeoInsightsPage() {
                 <span className="text-sm text-gray-700">Low: {geo?.overview.confidenceDistribution.low ?? 0}</span>
               </div>
             </div>
+            <p className="mt-3 text-xs text-gray-500">
+              Attribution readiness reflects how well your content is structured for potential extraction by answer engines.
+              These are internal signals, not guarantees of external citation.
+            </p>
           </div>
         </section>
 
@@ -182,12 +199,12 @@ export default function GeoInsightsPage() {
                 <div key={intent.intentType} className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-700">{intent.label}</span>
                   <div className="flex items-center gap-4">
-                    <span className="text-sm text-gray-600">{intent.answersCount} answers</span>
-                    {intent.productsWithGaps > 0 && (
-                      <span className="text-xs text-amber-600">
-                        {intent.productsWithGaps} products with gaps
-                      </span>
-                    )}
+                    <span className="text-sm text-gray-600">
+                      {intent.productsCovered}/{intent.productsTotal} products
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {intent.coveragePercent}% coverage
+                    </span>
                   </div>
                 </div>
               ))}
@@ -196,22 +213,19 @@ export default function GeoInsightsPage() {
             {geo?.coverage.gaps && geo.coverage.gaps.length > 0 && (
               <div className="mt-4 border-t border-gray-100 pt-4">
                 <h3 className="text-sm font-medium text-gray-700">Coverage Gaps</h3>
-                <ul className="mt-2 space-y-2">
-                  {geo.coverage.gaps.map((gap, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-sm">
-                      <span
-                        className={`mt-0.5 inline-block h-2 w-2 rounded-full ${
-                          gap.severity === 'critical'
-                            ? 'bg-red-500'
-                            : gap.severity === 'warning'
-                              ? 'bg-yellow-500'
-                              : 'bg-blue-500'
-                        }`}
-                      ></span>
-                      <span className="text-gray-600">{gap.message}</span>
-                    </li>
+                <p className="mt-1 text-xs text-gray-500">
+                  Intent types with no product coverage yet:
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {geo.coverage.gaps.map((gap) => (
+                    <span
+                      key={gap}
+                      className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800"
+                    >
+                      {gap.replace(/_/g, ' ')}
+                    </span>
                   ))}
-                </ul>
+                </div>
               </div>
             )}
 
@@ -229,15 +243,25 @@ export default function GeoInsightsPage() {
               <div className="space-y-3">
                 <h3 className="text-sm font-medium text-gray-700">Top Reused Answers</h3>
                 {geo.reuse.topReusedAnswers.map((answer) => (
-                  <div key={answer.questionId} className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700">{answer.label}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">
-                        {answer.intentsServed.length} intents
+                  <div key={answer.answerBlockId} className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={answer.href}
+                        className="text-sm font-medium text-blue-600 hover:underline"
+                      >
+                        {answer.productTitle}
+                      </Link>
+                      <p className="mt-0.5 text-xs text-gray-500 truncate">{answer.questionText}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-xs text-gray-600">
+                        {answer.mappedIntents.length} intents served
                       </span>
-                      <span className="text-xs text-gray-500">
-                        {answer.productCount} products
-                      </span>
+                      {answer.potentialIntents.length > answer.mappedIntents.length && (
+                        <span className="text-xs text-amber-600">
+                          +{answer.potentialIntents.length - answer.mappedIntents.length} potential
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -249,10 +273,22 @@ export default function GeoInsightsPage() {
             {geo?.reuse.couldBeReusedButArent && geo.reuse.couldBeReusedButArent.length > 0 && (
               <div className="mt-4 border-t border-gray-100 pt-4">
                 <h3 className="text-sm font-medium text-gray-700">Could Be Reused</h3>
+                <p className="mt-1 text-xs text-gray-500">
+                  These answers have potential but are blocked by readiness signals:
+                </p>
                 <ul className="mt-2 space-y-2">
                   {geo.reuse.couldBeReusedButArent.map((answer) => (
-                    <li key={answer.questionId} className="text-sm text-gray-600">
-                      <span className="font-medium">{answer.label}</span>: {answer.reason}
+                    <li key={answer.answerBlockId} className="text-sm text-gray-600">
+                      <Link
+                        href={answer.href}
+                        className="font-medium text-blue-600 hover:underline"
+                      >
+                        {answer.productTitle}
+                      </Link>
+                      <span className="ml-1">—</span>
+                      <span className="ml-1 text-xs text-gray-500">
+                        Blocked by: {answer.blockedBySignals.join(', ')}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -275,7 +311,7 @@ export default function GeoInsightsPage() {
                 <ul className="mt-2 space-y-2">
                   {geo.trustSignals.topBlockers.map((blocker, idx) => (
                     <li key={idx} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-700">{blocker.issueType.replace(/_/g, ' ')}</span>
+                      <span className="text-gray-700">{blocker.label}</span>
                       <span className="text-gray-500">{blocker.affectedProducts} products</span>
                     </li>
                   ))}
@@ -283,11 +319,11 @@ export default function GeoInsightsPage() {
               </div>
             )}
 
-            {geo?.trustSignals.avgTimeToImproveHours !== null && (
+            {geo?.trustSignals.avgTimeToImproveHours != null && (
               <div className="mb-4">
                 <span className="text-sm text-gray-700">
                   Avg. time to improve:{' '}
-                  <span className="font-medium">{geo.trustSignals.avgTimeToImproveHours}h</span>
+                  <span className="font-medium">{geo?.trustSignals.avgTimeToImproveHours}h</span>
                 </span>
               </div>
             )}
@@ -299,13 +335,13 @@ export default function GeoInsightsPage() {
                   {geo.trustSignals.mostImproved.map((product) => (
                     <li key={product.productId} className="flex items-center justify-between text-sm">
                       <Link
-                        href={`/projects/${projectId}/products/${product.productId}`}
+                        href={product.href}
                         className="text-blue-600 hover:underline"
                       >
                         {product.productTitle}
                       </Link>
                       <span className="text-gray-500">
-                        {product.beforeConfidence} → {product.afterConfidence}
+                        {product.issuesResolvedCount} issues resolved
                       </span>
                     </li>
                   ))}
@@ -332,7 +368,20 @@ export default function GeoInsightsPage() {
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="text-sm font-medium text-gray-900">{opp.title}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-medium text-gray-900">{opp.title}</h3>
+                        <span
+                          className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-xs ${
+                            opp.category === 'coverage'
+                              ? 'bg-blue-100 text-blue-700'
+                              : opp.category === 'reuse'
+                                ? 'bg-purple-100 text-purple-700'
+                                : 'bg-amber-100 text-amber-700'
+                          }`}
+                        >
+                          {opp.category}
+                        </span>
+                      </div>
                       <p className="mt-1 text-sm text-gray-600">{opp.why}</p>
                     </div>
                     <span

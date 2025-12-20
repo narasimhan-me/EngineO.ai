@@ -74,8 +74,8 @@ curl -H "Authorization: Bearer $TOKEN" \
 |------|--------|-----------------|
 | 1 | View intent coverage chart | All 5 intents displayed |
 | 2 | Verify intent labels | Transactional, Comparative, Problem/Use Case, Trust Validation, Informational |
-| 3 | Check gaps list | Missing intents shown with severity |
-| 4 | Click on a gap | Links to relevant fix action |
+| 3 | Verify coverage metrics | Shows `productsCovered/productsTotal` and `coveragePercent` |
+| 4 | Check gaps list | Missing intent types shown as tags (no severity) |
 
 **Expected Intents:**
 - `transactional`
@@ -84,6 +84,20 @@ curl -H "Authorization: Bearer $TOKEN" \
 - `trust_validation`
 - `informational`
 
+**Expected coverage.byIntent shape:**
+```json
+{
+  "intentType": "transactional",
+  "label": "Transactional",
+  "productsCovered": 5,
+  "productsTotal": 10,
+  "coveragePercent": 50
+}
+```
+
+**Expected gaps shape:**
+`gaps` is an array of intent type strings (e.g., `["problem_use_case"]`), not objects with severity.
+
 ---
 
 ### 4. Reuse Metrics Section
@@ -91,9 +105,39 @@ curl -H "Authorization: Bearer $TOKEN" \
 | Step | Action | Expected Result |
 |------|--------|-----------------|
 | 1 | View reuse rate | Shows percentage of multi-intent answers |
-| 2 | View top reused answers | Lists question IDs serving multiple intents |
-| 3 | View "could be reused" list | Shows answers with improvement potential |
-| 4 | Verify reason text | Explains why answer isn't multi-intent yet |
+| 2 | View top reused answers | Lists products/questions serving multiple intents with links |
+| 3 | View "could be reused" list | Shows answers blocked by readiness signals |
+| 4 | Verify blocked signals | Shows `blockedBySignals` array (clarity, structure, etc.) |
+
+**Expected topReusedAnswers shape:**
+```json
+{
+  "productId": "...",
+  "productTitle": "Product Name",
+  "answerBlockId": "...",
+  "questionId": "what_is_it",
+  "questionText": "What is it?",
+  "mappedIntents": ["transactional", "informational"],
+  "potentialIntents": ["transactional", "informational", "comparative"],
+  "why": "Explanation of intent mapping",
+  "href": "/projects/.../products/...?focus=geo"
+}
+```
+
+**Expected couldBeReusedButArent shape:**
+```json
+{
+  "productId": "...",
+  "productTitle": "Product Name",
+  "answerBlockId": "...",
+  "questionId": "why_choose_this",
+  "questionText": "Why choose this?",
+  "potentialIntents": ["comparative", "trust_validation"],
+  "blockedBySignals": ["clarity", "structure"],
+  "why": "Blocked by clarity and structure issues",
+  "href": "/projects/.../products/...?focus=geo"
+}
+```
 
 ---
 
@@ -101,10 +145,29 @@ curl -H "Authorization: Bearer $TOKEN" \
 
 | Step | Action | Expected Result |
 |------|--------|-----------------|
-| 1 | View top blockers | Lists GEO issues blocking improvement |
+| 1 | View top blockers | Lists GEO issues with label and affected count |
 | 2 | View avg time to improve | Shows hours (or null if no data) |
-| 3 | View most improved products | Lists products with confidence upgrades |
-| 4 | Verify before/after confidence | Shows LOW→MEDIUM, MEDIUM→HIGH, etc. |
+| 3 | View most improved products | Lists products with issuesResolvedCount and links |
+| 4 | Verify product links | Each product has a working href |
+
+**Expected topBlockers shape:**
+```json
+{
+  "issueType": "missing_clarity",
+  "label": "Missing Clarity",
+  "affectedProducts": 5
+}
+```
+
+**Expected mostImproved shape:**
+```json
+{
+  "productId": "...",
+  "productTitle": "Product Name",
+  "issuesResolvedCount": 3,
+  "href": "/projects/.../products/...?focus=geo"
+}
+```
 
 ---
 

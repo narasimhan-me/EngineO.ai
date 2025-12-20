@@ -477,7 +477,7 @@ export class ProjectInsightsService {
     ].map((i) => {
       const impact =
         i.severity === 'critical' ? 'high' : i.severity === 'warning' ? 'medium' : 'low';
-      const fixType = i.actionability === 'automation' ? 'automation' : 'manual';
+      const fixType: 'automation' | 'manual' = i.actionability === 'automation' ? 'automation' : 'manual';
       const pillarId = (i.pillarId as string) || 'unknown';
       return {
         id: `issue:${i.id}`,

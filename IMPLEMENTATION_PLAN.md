@@ -12583,6 +12583,22 @@ geoInsights: {
 | `docs/manual-testing/INSIGHTS-1.md` | Updated with GEO Insights tab reference |
 | `docs/testing/CRITICAL_PATH_MAP.md` | Updated CP-016 and CP-017 with GEO-INSIGHTS-2 scenarios |
 
+### GEO-INSIGHTS-2 Decision Locks (v1)
+
+The following decisions are locked for v1 and must not be changed without explicit approval:
+
+| Category | Decision |
+|----------|----------|
+| **Mental Model** | GEO Insights measure *internal readiness signals*, not external citation guarantees |
+| **Language** | All copy must use hedged language ("may," "can help," "supports" – never "will," "guarantees," "ensures") |
+| **Competitor Handling** | Opt-in only; when displayed, use aggregated anonymized form (e.g., "Competitors average: Medium") |
+| **Required Sections** | Every metric card includes "Why this matters" + "What to do next" |
+| **Export Labeling** | "Attribution readiness" instead of "citation confidence" in exports |
+| **Vendor Naming** | "Answer engines" instead of specific vendor names (ChatGPT, Perplexity) |
+| **Disclaimer** | Include: "These metrics reflect internal content readiness signals. Actual citations by AI systems depend on many factors outside your control." |
+
+Full Decision Locks documentation: `docs/GEO_INSIGHTS.md` (Decision Locks section)
+
 ### GEO-INSIGHTS-2 Acceptance Criteria (Completed)
 
 - [x] `deriveGeoAnswerIntentMapping` derives intent from factsUsed, areaId, questionId patterns

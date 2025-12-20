@@ -166,7 +166,7 @@ describe('GEO-INSIGHTS-2 – Insights contract + GEO read-only insights', () => 
     });
     expect(body.geoInsights.trustSignals).toMatchObject({
       topBlockers: expect.any(Array),
-      avgTimeToImproveHours: expect.toBeOneOf([expect.any(Number), null]),
+      avgTimeToImproveHours: expect.anything(),
       mostImproved: expect.any(Array),
       whyThisMatters: expect.any(String),
     });

@@ -30,6 +30,9 @@ import { MediaAccessibilityController } from './media-accessibility.controller';
 import { ProjectInsightsService } from './project-insights.service';
 import { GeoService } from './geo.service';
 import { GeoController } from './geo.controller';
+import { GeoReportsService } from './geo-reports.service';
+import { GeoReportsController } from './geo-reports.controller';
+import { GeoReportsPublicController } from './geo-reports-public.controller';
 
 @Module({
   imports: [
@@ -38,7 +41,7 @@ import { GeoController } from './geo.controller';
     ProductsModule,
     forwardRef(() => ShopifyModule),
   ],
-  controllers: [ProjectsController, ProductAutomationController, SearchIntentController, CompetitorsController, OffsiteSignalsController, LocalDiscoveryController, MediaAccessibilityController, GeoController],
+  controllers: [ProjectsController, ProductAutomationController, SearchIntentController, CompetitorsController, OffsiteSignalsController, LocalDiscoveryController, MediaAccessibilityController, GeoController, GeoReportsController, GeoReportsPublicController],
   providers: [
     ProjectsService,
     PrismaService,
@@ -60,6 +63,7 @@ import { GeoController } from './geo.controller';
     LocalDiscoveryService,
     MediaAccessibilityService,
     GeoService,
+    GeoReportsService,
   ],
   exports: [ProjectsService, DeoScoreService, AutomationService, AnswerEngineService, AutomationPlaybookRunsService, SearchIntentService, CompetitorsService, OffsiteSignalsService, LocalDiscoveryService, MediaAccessibilityService],
 })

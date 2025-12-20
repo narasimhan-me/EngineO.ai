@@ -1,6 +1,34 @@
 # GEO Insights – Derivation & Display
 
 > Read-only GEO metrics derived from Answer Units and fix applications.
+>
+> **Mental Model**: GEO Insights measure *internal readiness* – how well your content is structured for potential extraction by answer engines. These are explainable, auditable signals, **not** external citation guarantees.
+
+---
+
+## Decision Locks (v1)
+
+The following decisions are locked for v1 and must not be changed without explicit approval:
+
+### Mental Model
+- GEO Insights measure **internal readiness signals**, not external citation guarantees
+- All copy must avoid implying causation between readiness scores and actual citations
+- Use "may," "can help," "supports" – never "will," "guarantees," "ensures"
+
+### Competitor Handling
+- Competitor visibility is opt-in only
+- When displayed, use aggregated anonymized form (e.g., "Competitors average: Medium")
+- Never expose specific competitor product names in dashboards
+
+### Required Micro-Sections
+- Every metric card includes a "Why this matters" explanation
+- Every section includes a "What to do next" action or link
+- Explainer text uses hedged language (see Mental Model)
+
+### Trust Language
+- "Attribution readiness" instead of "citation confidence" in exports
+- "Answer engines" instead of specific vendor names (ChatGPT, Perplexity)
+- Include disclaimer: "These metrics reflect internal content readiness signals. Actual citations by AI systems depend on many factors outside your control."
 
 ---
 
@@ -31,6 +59,8 @@ interface GeoInsights {
     trustTrajectory: {
       improvedProducts: number;
       improvedEvents: number;
+      windowDays: number;
+      why: string;
     };
     whyThisMatters: string;
   };
@@ -39,45 +69,53 @@ interface GeoInsights {
     byIntent: Array<{
       intentType: SearchIntentType;
       label: string;
-      answersCount: number;
-      productsWithGaps: number;
+      productsCovered: number;
+      productsTotal: number;
+      coveragePercent: number;
     }>;
-    gaps: Array<{
-      intentType: SearchIntentType;
-      severity: 'critical' | 'warning' | 'info';
-      message: string;
-    }>;
+    /** Intent types with zero product coverage */
+    gaps: SearchIntentType[];
     whyThisMatters: string;
   };
 
   reuse: {
     topReusedAnswers: Array<{
+      productId: string;
+      productTitle: string;
+      answerBlockId: string;
       questionId: string;
-      label: string;
-      intentsServed: SearchIntentType[];
-      productCount: number;
+      questionText: string;
+      mappedIntents: SearchIntentType[];
+      potentialIntents: SearchIntentType[];
+      why: string;
+      href: string;
     }>;
     couldBeReusedButArent: Array<{
+      productId: string;
+      productTitle: string;
+      answerBlockId: string;
       questionId: string;
-      label: string;
+      questionText: string;
       potentialIntents: SearchIntentType[];
-      reason: string;
+      blockedBySignals: GeoReadinessSignalType[];
+      why: string;
+      href: string;
     }>;
     whyThisMatters: string;
   };
 
   trustSignals: {
     topBlockers: Array<{
-      issueType: string;
+      issueType: GeoIssueType;
+      label: string;
       affectedProducts: number;
-      severity: 'critical' | 'warning' | 'info';
     }>;
     avgTimeToImproveHours: number | null;
     mostImproved: Array<{
       productId: string;
       productTitle: string;
-      beforeConfidence: 'LOW' | 'MEDIUM' | 'HIGH';
-      afterConfidence: 'LOW' | 'MEDIUM' | 'HIGH';
+      issuesResolvedCount: number;
+      href: string;
     }>;
     whyThisMatters: string;
   };
@@ -88,6 +126,7 @@ interface GeoInsights {
     why: string;
     estimatedImpact: 'high' | 'medium' | 'low';
     href: string;
+    category: 'coverage' | 'reuse' | 'trust';
   }>;
 }
 ```
@@ -159,12 +198,12 @@ No AI calls, no mutations, no recomputation during view.
 
 ### Trust Messaging
 
-Each section includes `whyThisMatters` explaining the metric's value:
+Each section includes `whyThisMatters` explaining the metric's value using hedged language (per Decision Locks):
 
-- **Overview**: "Products with High citation confidence are more likely to be cited by AI engines."
-- **Coverage**: "Covering multiple search intents increases the chances of appearing in AI-generated answers."
-- **Reuse**: "Answers that serve multiple intents reduce duplication and improve consistency."
-- **Trust Signals**: "Improving trust blockers directly increases citation confidence."
+- **Overview**: "Answer readiness and intent coverage help your content be more extractable in AI answer experiences. These are internal, explainable signals — not ranking or citation guarantees."
+- **Coverage**: "Coverage shows whether your answer-ready content maps to key intent types. Gaps indicate where engines may not find a suitable on-site answer."
+- **Reuse**: "Reusable answers reduce duplication across intents. Multi-intent reuse is only counted when clarity and structure are strong enough to support reliable extraction."
+- **Trust Signals**: "Trust signals summarize common GEO blockers and how quickly improvements are applied. These are internal readiness indicators, not external citation tracking."
 
 ---
 

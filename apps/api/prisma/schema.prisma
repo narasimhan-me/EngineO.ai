@@ -183,6 +183,9 @@ model Project {
 
   // [ADMIN-OPS-1] Admin audit log relation
   adminAuditLogsTargeted     AdminAuditLog[] @relation("TargetProject")
+
+  // [GEO-EXPORT-1] GEO report share links
+  geoReportShareLinks        GeoReportShareLink[]
 }
 
 model Integration {
@@ -1127,4 +1130,43 @@ model UserAccountAuditLog {
 
   @@index([actorUserId, createdAt(sort: Desc)])
   @@index([actionType, createdAt(sort: Desc)])
+}
+
+// [GEO-EXPORT-1] GEO Report Share Link status
+enum GeoReportShareLinkStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+// [GEO-EXPORT-1] Shareable link for GEO reports
+// Public, time-bound (14-day default), revocable, "anyone with the link" access model
+model GeoReportShareLink {
+  id          String                   @id @default(cuid())
+  project     Project                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId   String
+
+  // Non-discoverable token for public URL
+  shareToken  String                   @unique @default(cuid())
+
+  // Title/label for the share (optional)
+  title       String?
+
+  // Time window: 14-day expiry by default
+  createdAt   DateTime                 @default(now())
+  expiresAt   DateTime                 // Set to createdAt + 14 days
+
+  // Revocation support
+  status      GeoReportShareLinkStatus @default(ACTIVE)
+  revokedAt   DateTime?
+
+  // Snapshot timestamp for "generated at" display
+  generatedAt DateTime                 @default(now())
+
+  // Who created this share link (for audit)
+  createdByUserId String
+
+  @@index([projectId, status])
+  @@index([shareToken])
+  @@index([expiresAt])
 }

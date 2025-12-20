@@ -121,6 +121,68 @@ interface MediaFixApplyResponse {
   issuesResolvedCount: number;
 }
 
+// GEO-EXPORT-1: GEO Report types
+export interface GeoReportData {
+  projectId: string;
+  projectName: string;
+  generatedAt: string;
+  overview: {
+    productsAnswerReadyPercent: number;
+    productsAnswerReadyCount: number;
+    productsTotal: number;
+    answersTotal: number;
+    reuseRatePercent: number;
+    confidenceDistribution: {
+      high: number;
+      medium: number;
+      low: number;
+    };
+  };
+  coverage: {
+    byIntent: Array<{
+      intentType: string;
+      label: string;
+      productsCovered: number;
+      productsTotal: number;
+      coveragePercent: number;
+    }>;
+    gaps: string[];
+    summary: string;
+  };
+  trustSignals: {
+    topBlockers: Array<{
+      label: string;
+      affectedProducts: number;
+    }>;
+    avgTimeToImproveHours: number | null;
+    summary: string;
+  };
+  opportunities: Array<{
+    title: string;
+    why: string;
+    estimatedImpact: 'high' | 'medium' | 'low';
+    category: 'coverage' | 'reuse' | 'trust';
+  }>;
+  disclaimer: string;
+}
+
+export interface GeoReportShareLinkResponse {
+  id: string;
+  shareToken: string;
+  shareUrl: string;
+  title: string | null;
+  expiresAt: string;
+  createdAt: string;
+  status: 'ACTIVE' | 'EXPIRED' | 'REVOKED';
+}
+
+export interface GeoReportPublicShareViewResponse {
+  status: 'valid' | 'expired' | 'revoked' | 'not_found';
+  report?: GeoReportData;
+  expiresAt?: string;
+  generatedAt?: string;
+}
+
 /**
  * Custom API error with optional error code for special handling
  */
@@ -639,6 +701,34 @@ export const projectsApi = {
   // INSIGHTS-1: Project insights (read-only derived data)
   insights: (projectId: string): Promise<ProjectInsightsResponse> =>
     fetchWithAuth(`/projects/${projectId}/insights`),
+
+  // GEO-EXPORT-1: GEO Reports API
+  /** Assemble GEO report data for export/print */
+  assembleGeoReport: (projectId: string): Promise<GeoReportData> =>
+    fetchWithAuth(`/projects/${projectId}/geo-reports/assemble`),
+
+  /** Create a shareable link for the GEO report */
+  createGeoReportShareLink: (
+    projectId: string,
+    title?: string,
+  ): Promise<GeoReportShareLinkResponse> =>
+    fetchWithAuth(`/projects/${projectId}/geo-reports/share-links`, {
+      method: 'POST',
+      body: JSON.stringify({ title }),
+    }),
+
+  /** List all share links for a project */
+  listGeoReportShareLinks: (projectId: string): Promise<GeoReportShareLinkResponse[]> =>
+    fetchWithAuth(`/projects/${projectId}/geo-reports/share-links`),
+
+  /** Revoke a share link */
+  revokeGeoReportShareLink: (
+    projectId: string,
+    linkId: string,
+  ): Promise<{ success: true }> =>
+    fetchWithAuth(`/projects/${projectId}/geo-reports/share-links/${linkId}`, {
+      method: 'DELETE',
+    }),
 };
 
 export const integrationsApi = {
@@ -1515,4 +1605,20 @@ export const accountApi = {
     fetchWithAuth('/account/sessions/sign-out-all', {
       method: 'POST',
     }),
+};
+
+/**
+ * [GEO-EXPORT-1] Public API (no auth required)
+ */
+export const publicApi = {
+  /** Get public GEO report share view */
+  getGeoReportShareView: async (shareToken: string): Promise<GeoReportPublicShareViewResponse> => {
+    const response = await fetch(`${API_URL}/public/geo-reports/${shareToken}`, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch share view');
+    }
+    return response.json();
+  },
 };

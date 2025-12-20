@@ -150,9 +150,11 @@ export interface ProjectInsightsResponse {
         medium: number;
         low: number;
       };
-      trustTrajectory?: {
+      trustTrajectory: {
         improvedProducts: number;
         improvedEvents: number;
+        windowDays: number;
+        why: string;
       };
       whyThisMatters: string;
     };
@@ -161,29 +163,37 @@ export interface ProjectInsightsResponse {
       byIntent: Array<{
         intentType: string;
         label: string;
-        answersCount: number;
-        productsWithGaps: number;
+        productsCovered: number;
+        productsTotal: number;
+        coveragePercent: number;
       }>;
-      gaps: Array<{
-        intentType: string;
-        severity: 'critical' | 'warning' | 'info';
-        message: string;
-      }>;
+      /** Intent types with zero product coverage */
+      gaps: string[];
       whyThisMatters: string;
     };
 
     reuse: {
       topReusedAnswers: Array<{
+        productId: string;
+        productTitle: string;
+        answerBlockId: string;
         questionId: string;
-        label: string;
-        intentsServed: string[];
-        productCount: number;
+        questionText: string;
+        mappedIntents: string[];
+        potentialIntents: string[];
+        why: string;
+        href: string;
       }>;
       couldBeReusedButArent: Array<{
+        productId: string;
+        productTitle: string;
+        answerBlockId: string;
         questionId: string;
-        label: string;
+        questionText: string;
         potentialIntents: string[];
-        reason: string;
+        blockedBySignals: string[];
+        why: string;
+        href: string;
       }>;
       whyThisMatters: string;
     };
@@ -191,15 +201,15 @@ export interface ProjectInsightsResponse {
     trustSignals: {
       topBlockers: Array<{
         issueType: string;
+        label: string;
         affectedProducts: number;
-        severity: 'critical' | 'warning' | 'info';
       }>;
       avgTimeToImproveHours: number | null;
       mostImproved: Array<{
         productId: string;
         productTitle: string;
-        beforeConfidence: 'LOW' | 'MEDIUM' | 'HIGH';
-        afterConfidence: 'LOW' | 'MEDIUM' | 'HIGH';
+        issuesResolvedCount: number;
+        href: string;
       }>;
       whyThisMatters: string;
     };
@@ -210,6 +220,7 @@ export interface ProjectInsightsResponse {
       why: string;
       estimatedImpact: 'high' | 'medium' | 'low';
       href: string;
+      category: 'coverage' | 'reuse' | 'trust';
     }>;
   };
 }
