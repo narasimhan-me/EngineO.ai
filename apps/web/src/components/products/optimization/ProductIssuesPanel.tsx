@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 import type { DeoIssue } from '@/lib/deo-issues';
 import type { DeoPillarId } from '@/lib/deo-pillars';
-import { DEO_PILLARS, getDeoPillarById } from '@/lib/deo-pillars';
+import { DEO_PILLARS } from '@/lib/deo-pillars';
 
 interface ProductIssuesPanelProps {
   productId: string;
@@ -122,7 +122,7 @@ export function ProductIssuesPanel({
             </div>
             <div className="divide-y divide-gray-100">
               {group.issues.map((issue) => (
-                <IssueRow key={issue.id} issue={issue} projectId={projectId} productId={productId} />
+                <IssueRow key={issue.id} issue={issue} />
               ))}
             </div>
           </div>
@@ -182,22 +182,14 @@ function FixNextBadge({
 
 function IssueRow({
   issue,
-  projectId,
-  productId,
 }: {
   issue: DeoIssue;
-  projectId: string;
-  productId: string;
 }) {
   const severityColors = {
     critical: 'bg-red-100 text-red-800 border-red-200',
     warning: 'bg-orange-100 text-orange-800 border-orange-200',
     info: 'bg-blue-100 text-blue-800 border-blue-200',
   };
-
-  const pillar = issue.pillarId
-    ? getDeoPillarById(issue.pillarId as DeoPillarId)
-    : null;
 
   return (
     <div className="px-4 py-3 flex items-start gap-3">

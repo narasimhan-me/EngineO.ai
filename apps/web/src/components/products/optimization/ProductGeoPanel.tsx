@@ -8,7 +8,6 @@ import type {
   GeoReadinessSignal,
   GeoIssue,
   GeoFixDraft,
-  GeoCitationConfidenceLevel,
 } from '@/lib/geo';
 import { getQuestionLabel, getConfidenceBadgeClass } from '@/lib/geo';
 import { useFeedback } from '@/components/feedback/FeedbackProvider';

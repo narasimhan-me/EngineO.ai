@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 
-import { publicApi, type GeoReportPublicShareViewResponse, type GeoReportData } from '@/lib/api';
+import { publicApi, type GeoReportPublicShareViewResponse } from '@/lib/api';
 
 /**
  * [GEO-EXPORT-1] Public GEO Report Share View

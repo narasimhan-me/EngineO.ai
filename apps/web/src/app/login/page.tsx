@@ -17,7 +17,7 @@ const TEMP_2FA_TOKEN_KEY = 'engineo_temp_2fa_token';
 // Sensitive query params that should never appear in URLs
 const SENSITIVE_PARAMS = ['password', 'pass', 'pwd', 'email'];
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
@@ -98,34 +98,33 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full">
-        {/* [DEO-UX-REFRESH-1] Premium branded header */}
-        <div className="text-center mb-8">
-          {/* Logo/Wordmark */}
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <svg
-              className="h-10 w-10 text-blue-600"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-            >
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-            </svg>
-            <span className="text-3xl font-bold text-gray-900">EngineO.ai</span>
-          </div>
-          <p className="text-sm text-gray-500">
-            Digital Engine Optimization for AI-Powered Discovery
-          </p>
+    <div className="max-w-md w-full">
+      {/* [DEO-UX-REFRESH-1] Premium branded header */}
+      <div className="text-center mb-8">
+        {/* Logo/Wordmark */}
+        <div className="flex items-center justify-center gap-3 mb-4">
+          <svg
+            className="h-10 w-10 text-blue-600"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+          </svg>
+          <span className="text-3xl font-bold text-gray-900">EngineO.ai</span>
         </div>
+        <p className="text-sm text-gray-500">
+          Digital Engine Optimization for AI-Powered Discovery
+        </p>
+      </div>
 
-        {/* [DEO-UX-REFRESH-1] Premium card styling */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-lg p-8">
-          {/* Accessible heading */}
-          <h1 className="text-2xl font-semibold text-gray-900 text-center mb-6">
-            Sign in
-          </h1>
+      {/* [DEO-UX-REFRESH-1] Premium card styling */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-lg p-8">
+        {/* Accessible heading */}
+        <h1 className="text-2xl font-semibold text-gray-900 text-center mb-6">
+          Sign in
+        </h1>
 
-          <form className="space-y-5" onSubmit={handleSubmit}>
+        <form className="space-y-5" onSubmit={handleSubmit}>
           {securityMessage && (
             <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded">
               {securityMessage}
@@ -195,20 +194,35 @@ export default function LoginPage() {
               {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </div>
+        </form>
 
-          </form>
-
-          {/* Sign up link */}
-          <div className="text-center mt-6 pt-6 border-t border-gray-100">
-            <p className="text-sm text-gray-600">
-              Don&apos;t have an account?{' '}
-              <Link href="/signup" className="font-medium text-blue-600 hover:text-blue-500">
-                Sign up
-              </Link>
-            </p>
-          </div>
+        {/* Sign up link */}
+        <div className="text-center mt-6 pt-6 border-t border-gray-100">
+          <p className="text-sm text-gray-600">
+            Don&apos;t have an account?{' '}
+            <Link href="/signup" className="font-medium text-blue-600 hover:text-blue-500">
+              Sign up
+            </Link>
+          </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <Suspense fallback={
+        <div className="max-w-md w-full text-center">
+          <div className="animate-pulse">
+            <div className="h-10 bg-gray-200 rounded w-48 mx-auto mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded w-64 mx-auto"></div>
+          </div>
+        </div>
+      }>
+        <LoginForm />
+      </Suspense>
     </div>
   );
 }

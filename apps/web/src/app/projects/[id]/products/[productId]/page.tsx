@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 import type { DeoIssue } from '@/lib/deo-issues';
@@ -23,7 +23,6 @@ import {
   useActiveProductTab,
   type ProductMetadataSuggestion,
   type AutomationSuggestion,
-  type ProductDetailsTabId,
 } from '@/components/products/optimization';
 import { ProductAnswersPanel, type ProductAnswersResponse } from '@/components/products/optimization/ProductAnswersPanel';
 import {
@@ -35,7 +34,6 @@ import { useFeedback } from '@/components/feedback/FeedbackProvider';
 export default function ProductOptimizationPage() {
   const router = useRouter();
   const params = useParams();
-  const searchParams = useSearchParams();
   const projectId = params.id as string;
   const productId = params.productId as string;
   const feedback = useFeedback();
