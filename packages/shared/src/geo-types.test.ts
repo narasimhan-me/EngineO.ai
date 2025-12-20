@@ -4,6 +4,9 @@ import {
   evaluateGeoAnswerUnit,
   evaluateGeoProduct,
   computeGeoFixWorkKey,
+  deriveGeoAnswerIntentMapping,
+  computeGeoReuseStats,
+  computeGeoIntentCoverageCounts,
 } from './geo';
 
 describe('GEO-FOUNDATION-1: Answer readiness & citation confidence', () => {
@@ -73,5 +76,77 @@ describe('GEO-FOUNDATION-1: Answer readiness & citation confidence', () => {
       '2025-01-01T00:00:00.000Z',
     );
     expect(k1).toBe(k2);
+  });
+});
+
+describe('GEO-INSIGHTS-2: Answer–intent mapping & reuse metrics', () => {
+  it('derives intent from factsUsed intent:<type> tag', () => {
+    const mapping = deriveGeoAnswerIntentMapping({
+      questionId: 'intent_TRANSACTIONAL_123',
+      factsUsed: ['intent:transactional', 'query:buy acme widget'],
+      signals: [{ signal: 'clarity', status: 'pass', why: '' }],
+    });
+    expect(mapping.mappedIntents).toEqual(['transactional']);
+    expect(mapping.source).toBe('explicit_intent');
+  });
+
+  it('maps canonical multi-intent answer only when clarity+structure pass', () => {
+    const poor = evaluateGeoAnswerUnit({
+      unitId: 'u1',
+      questionId: 'why_choose_this',
+      answer:
+        'This is a long, hard-to-scan paragraph that keeps going without structure. ' +
+        'It has many sentences so it should fail structure in the heuristic. ' +
+        'It continues with more filler content to push the word count above the threshold. ' +
+        'Another sentence adds length and ambiguity without giving a clear structure. ' +
+        'Yet another sentence adds more words and makes the block harder to scan. ' +
+        'Finally, this ends after enough words to exceed the limit.',
+      factsUsed: [],
+    });
+    const poorMapping = deriveGeoAnswerIntentMapping({
+      questionId: poor.questionId,
+      factsUsed: [],
+      signals: poor.signals,
+    });
+    expect(poorMapping.potentialIntents.length).toBeGreaterThanOrEqual(2);
+    expect(poorMapping.mappedIntents.length).toBe(1);
+
+    const good = evaluateGeoAnswerUnit({
+      unitId: 'u2',
+      questionId: 'why_choose_this',
+      answer:
+        'Choose this when you need a clear, comparable option for a specific use case.\n\n' +
+        '- Works well for common scenarios\n' +
+        '- Uses plain language and concrete details (e.g., 2-step setup)\n',
+      factsUsed: ['e.g.'],
+    });
+    const goodMapping = deriveGeoAnswerIntentMapping({
+      questionId: good.questionId,
+      factsUsed: [],
+      signals: good.signals,
+    });
+    expect(goodMapping.mappedIntents.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('computes reuse stats from mapped intent counts', () => {
+    const stats = computeGeoReuseStats([
+      { mappedIntents: ['informational'] },
+      { mappedIntents: ['comparative', 'trust_validation'] },
+      { mappedIntents: ['transactional', 'informational'] },
+    ]);
+    expect(stats.totalAnswers).toBe(3);
+    expect(stats.multiIntentAnswers).toBe(2);
+    expect(stats.reuseRatePercent).toBe(67);
+  });
+
+  it('computes intent coverage counts and missing intents', () => {
+    const cov = computeGeoIntentCoverageCounts([
+      { mappedIntents: ['informational'] },
+      { mappedIntents: ['comparative', 'trust_validation'] },
+    ]);
+    expect(cov.byIntent.informational).toBe(1);
+    expect(cov.byIntent.comparative).toBe(1);
+    expect(cov.byIntent.trust_validation).toBe(1);
+    expect(cov.missingIntents).toContain('transactional');
   });
 });

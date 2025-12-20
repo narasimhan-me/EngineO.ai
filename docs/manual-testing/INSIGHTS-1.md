@@ -65,7 +65,7 @@ curl -H "Authorization: Bearer $TOKEN" \
 | 3 | Verify "Saved" card | Shows AI runs used/avoided and reuse rate |
 | 4 | Verify "Resolved" card | Shows actions count with explanation |
 | 5 | Verify "Next Opportunity" card | Shows recommended next action with link |
-| 6 | Verify subnav tabs | Shows Overview, DEO Progress, AI Efficiency, Issue Resolution, Opportunities |
+| 6 | Verify subnav tabs | Shows Overview, DEO Progress, AI Efficiency, Issue Resolution, Opportunities, GEO Insights |
 
 ---
 
@@ -179,6 +179,8 @@ The E2E seed endpoint creates:
 - [IMPLEMENTATION_PLAN.md](../IMPLEMENTATION_PLAN.md) - INSIGHTS-1 phase details
 - [CRITICAL_PATH_MAP.md](../testing/CRITICAL_PATH_MAP.md) - CP-016 entry
 - [insights.ts](../../apps/web/src/lib/insights.ts) - TypeScript types
+- [GEO-INSIGHTS-2.md](./GEO-INSIGHTS-2.md) - GEO Insights testing guide
+- [GEO_FOUNDATION.md](../GEO_FOUNDATION.md) - GEO concepts
 
 ---
 
@@ -187,3 +189,4 @@ The E2E seed endpoint creates:
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2025-12-19 | Initial manual testing guide for INSIGHTS-1 |
+| 1.1 | 2025-12-19 | Added GEO Insights tab to subnav, linked GEO documentation |

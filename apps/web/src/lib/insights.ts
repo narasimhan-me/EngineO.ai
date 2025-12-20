@@ -135,4 +135,81 @@ export interface ProjectInsightsResponse {
     href: string;
     fixType: 'automation' | 'manual';
   }>;
+
+  /** [GEO-INSIGHTS-2] GEO Insights section */
+  geoInsights: {
+    overview: {
+      productsAnswerReadyPercent: number;
+      productsAnswerReadyCount: number;
+      productsTotal: number;
+      answersTotal: number;
+      answersMultiIntentCount: number;
+      reuseRatePercent: number;
+      confidenceDistribution: {
+        high: number;
+        medium: number;
+        low: number;
+      };
+      trustTrajectory?: {
+        improvedProducts: number;
+        improvedEvents: number;
+      };
+      whyThisMatters: string;
+    };
+
+    coverage: {
+      byIntent: Array<{
+        intentType: string;
+        label: string;
+        answersCount: number;
+        productsWithGaps: number;
+      }>;
+      gaps: Array<{
+        intentType: string;
+        severity: 'critical' | 'warning' | 'info';
+        message: string;
+      }>;
+      whyThisMatters: string;
+    };
+
+    reuse: {
+      topReusedAnswers: Array<{
+        questionId: string;
+        label: string;
+        intentsServed: string[];
+        productCount: number;
+      }>;
+      couldBeReusedButArent: Array<{
+        questionId: string;
+        label: string;
+        potentialIntents: string[];
+        reason: string;
+      }>;
+      whyThisMatters: string;
+    };
+
+    trustSignals: {
+      topBlockers: Array<{
+        issueType: string;
+        affectedProducts: number;
+        severity: 'critical' | 'warning' | 'info';
+      }>;
+      avgTimeToImproveHours: number | null;
+      mostImproved: Array<{
+        productId: string;
+        productTitle: string;
+        beforeConfidence: 'LOW' | 'MEDIUM' | 'HIGH';
+        afterConfidence: 'LOW' | 'MEDIUM' | 'HIGH';
+      }>;
+      whyThisMatters: string;
+    };
+
+    opportunities: Array<{
+      id: string;
+      title: string;
+      why: string;
+      estimatedImpact: 'high' | 'medium' | 'low';
+      href: string;
+    }>;
+  };
 }

@@ -27,6 +27,11 @@ import type {
   ProductImageView,
 } from '@/lib/media-accessibility';
 import type { ProjectInsightsResponse } from '@/lib/insights';
+import type {
+  ProductGeoReadinessResponse,
+  GeoFixPreviewResponse,
+  GeoFixApplyResponse,
+} from '@/lib/geo';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -783,6 +788,28 @@ export const productsApi = {
     params: MediaFixApplyRequest,
   ): Promise<MediaFixApplyResponse> =>
     fetchWithAuth(`/products/${productId}/media/apply`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    }),
+
+  // GEO-FOUNDATION-1: GEO Readiness endpoints
+  getGeoReadiness: (productId: string): Promise<ProductGeoReadinessResponse> =>
+    fetchWithAuth(`/products/${productId}/geo`),
+
+  previewGeoFix: (
+    productId: string,
+    params: { questionId: string; issueType: string },
+  ): Promise<GeoFixPreviewResponse> =>
+    fetchWithAuth(`/products/${productId}/geo/preview`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    }),
+
+  applyGeoFix: (
+    productId: string,
+    params: { draftId: string },
+  ): Promise<GeoFixApplyResponse> =>
+    fetchWithAuth(`/products/${productId}/geo/apply`, {
       method: 'POST',
       body: JSON.stringify(params),
     }),

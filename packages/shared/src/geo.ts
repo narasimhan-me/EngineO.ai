@@ -7,6 +7,9 @@
  *   - Citation Confidence is derived from readiness signals (not predicted).
  *   - GEO never scrapes or simulates AI engine outputs.
  */
+import type { SearchIntentType } from './search-intent';
+import { SEARCH_INTENT_LABELS, SEARCH_INTENT_TYPES } from './search-intent';
+import { getIntentTypeFromAreaId } from './competitors';
 
 export type GeoReadinessSignalType =
   | 'clarity'
@@ -409,4 +412,248 @@ export function computeGeoFixWorkKey(
   answerBlockUpdatedAtIso: string,
 ): string {
   return `geo-fix:${projectId}:${productId}:${questionId}:${issueType}:${answerBlockUpdatedAtIso}`;
+}
+
+// =============================================================================
+// GEO-INSIGHTS-2: Answer–Intent mapping & reuse metrics (derived-only)
+// =============================================================================
+
+/**
+ * Canonical mapping of Answer Engine question IDs to SEARCH-INTENT intent types.
+ * Explainability note: This mapping is deterministic and internal; it is not based on
+ * external engine outputs and does not imply ranking/citation guarantees.
+ */
+export const GEO_CANONICAL_ANSWER_INTENT_MAP: Record<string, SearchIntentType[]> = {
+  what_is_it: ['informational'],
+  who_is_it_for: ['problem_use_case', 'informational'],
+  why_choose_this: ['comparative', 'trust_validation'],
+  key_features: ['transactional', 'informational'],
+  how_is_it_used: ['problem_use_case', 'informational'],
+  problems_it_solves: ['problem_use_case', 'informational'],
+  what_makes_it_different: ['comparative', 'trust_validation'],
+  whats_included: ['transactional', 'informational'],
+  materials_and_specs: ['trust_validation', 'informational'],
+  care_safety_instructions: ['trust_validation', 'informational'],
+};
+
+export type GeoAnswerIntentMappingSource =
+  | 'explicit_intent'
+  | 'competitive_area'
+  | 'intent_question_id'
+  | 'canonical_answer_question'
+  | 'unknown';
+
+export interface GeoAnswerIntentMapping {
+  baseIntent: SearchIntentType | null;
+  potentialIntents: SearchIntentType[];
+  mappedIntents: SearchIntentType[];
+  blockedBySignals: GeoReadinessSignalType[];
+  source: GeoAnswerIntentMappingSource;
+  why: string;
+}
+
+function uniqIntents(intents: SearchIntentType[]): SearchIntentType[] {
+  const seen = new Set<SearchIntentType>();
+  const out: SearchIntentType[] = [];
+  for (const i of intents) {
+    if (seen.has(i)) continue;
+    seen.add(i);
+    out.push(i);
+  }
+  return out;
+}
+
+function normalizeSearchIntentType(value: string): SearchIntentType | null {
+  const t = String(value || '').trim().toLowerCase();
+  if (t === 'informational') return 'informational';
+  if (t === 'comparative') return 'comparative';
+  if (t === 'transactional') return 'transactional';
+  if (t === 'problem_use_case') return 'problem_use_case';
+  if (t === 'trust_validation') return 'trust_validation';
+  return null;
+}
+
+function findFactValue(factsUsed: string[] | undefined, prefix: string): string | null {
+  if (!Array.isArray(factsUsed)) return null;
+  const found = factsUsed.find((f) => typeof f === 'string' && f.startsWith(prefix));
+  if (!found) return null;
+  return found.slice(prefix.length).trim() || null;
+}
+
+function getSignalStatus(
+  signals: GeoReadinessSignalResult[] | undefined,
+  signal: GeoReadinessSignalType,
+): GeoSignalStatus | null {
+  if (!Array.isArray(signals)) return null;
+  const found = signals.find((s) => s.signal === signal);
+  return (found?.status as GeoSignalStatus | undefined) ?? null;
+}
+
+/**
+ * Derive Answer Unit → intent mapping using internal metadata only.
+ * Sources (in priority order):
+ *   1. factsUsed marker: intent:<type> (SEARCH-INTENT apply)
+ *   2. factsUsed marker: areaId:<..._intent> (COMPETITORS apply)
+ *   3. questionId prefix: intent_<PRISMA_INTENT>_<timestamp> (SEARCH-INTENT apply)
+ *   4. Canonical Answer Engine question IDs (Answer Blocks)
+ * Multi-intent reuse rule (explainable):
+ *   If an Answer Unit has multiple potential intents (canonical mapping),
+ *   we only count it as covering multiple intents when clarity and structure pass.
+ */
+export function deriveGeoAnswerIntentMapping(input: {
+  questionId?: string;
+  factsUsed?: string[];
+  signals?: GeoReadinessSignalResult[];
+}): GeoAnswerIntentMapping {
+  const questionId = input.questionId;
+  const factsUsed = input.factsUsed ?? [];
+  const signals = input.signals;
+
+  // 1) SEARCH-INTENT marker: intent:<type>
+  const intentFact = findFactValue(factsUsed, 'intent:');
+  if (intentFact) {
+    const parsed = normalizeSearchIntentType(intentFact);
+    if (parsed) {
+      return {
+        baseIntent: parsed,
+        potentialIntents: [parsed],
+        mappedIntents: [parsed],
+        blockedBySignals: [],
+        source: 'explicit_intent',
+        why: `Mapped to ${SEARCH_INTENT_LABELS[parsed]} because this Answer Unit is tagged with intent:${parsed}.`,
+      };
+    }
+  }
+
+  // 2) COMPETITORS marker: areaId:<..._intent>
+  const areaId = findFactValue(factsUsed, 'areaId:');
+  if (areaId) {
+    const parsed = getIntentTypeFromAreaId(areaId as any) ?? null;
+    if (parsed) {
+      return {
+        baseIntent: parsed,
+        potentialIntents: [parsed],
+        mappedIntents: [parsed],
+        blockedBySignals: [],
+        source: 'competitive_area',
+        why: `Mapped to ${SEARCH_INTENT_LABELS[parsed]} because this Answer Unit came from a competitive intent area (${areaId}).`,
+      };
+    }
+  }
+
+  // 3) SEARCH-INTENT questionId: intent_<PRISMA_INTENT>_<timestamp>
+  if (typeof questionId === 'string' && questionId.startsWith('intent_')) {
+    const m = questionId.match(/^intent_([^_]+)/);
+    const raw = m?.[1] ?? null;
+    const parsed = raw ? normalizeSearchIntentType(raw) : null;
+    if (parsed) {
+      return {
+        baseIntent: parsed,
+        potentialIntents: [parsed],
+        mappedIntents: [parsed],
+        blockedBySignals: [],
+        source: 'intent_question_id',
+        why: `Mapped to ${SEARCH_INTENT_LABELS[parsed]} because questionId encodes intent (${questionId}).`,
+      };
+    }
+  }
+
+  // 4) Canonical Answer Engine question IDs
+  if (typeof questionId === 'string' && GEO_CANONICAL_ANSWER_INTENT_MAP[questionId]) {
+    const potentialIntents = uniqIntents(GEO_CANONICAL_ANSWER_INTENT_MAP[questionId]);
+    const baseIntent = potentialIntents[0] ?? null;
+
+    // If it is a multi-intent canonical answer, only count multi-intent mapping when clarity+structure pass.
+    const isMultiIntent = potentialIntents.length >= 2;
+    const clarity = getSignalStatus(signals, 'clarity');
+    const structure = getSignalStatus(signals, 'structure');
+
+    if (isMultiIntent && clarity && structure) {
+      const blocked: GeoReadinessSignalType[] = [];
+      if (clarity === 'needs_improvement') blocked.push('clarity');
+      if (structure === 'needs_improvement') blocked.push('structure');
+
+      if (blocked.length > 0) {
+        const mapped = baseIntent ? [baseIntent] : potentialIntents.slice(0, 1);
+        return {
+          baseIntent,
+          potentialIntents,
+          mappedIntents: mapped,
+          blockedBySignals: blocked,
+          source: 'canonical_answer_question',
+          why: `Mapped to a single intent because ${blocked.join(' and ')} need improvement for multi-intent reuse.`,
+        };
+      }
+
+      return {
+        baseIntent,
+        potentialIntents,
+        mappedIntents: potentialIntents,
+        blockedBySignals: [],
+        source: 'canonical_answer_question',
+        why: `Mapped to multiple intents because clarity and structure pass for this canonical Answer Block.`,
+      };
+    }
+
+    return {
+      baseIntent,
+      potentialIntents,
+      mappedIntents: baseIntent ? [baseIntent] : potentialIntents,
+      blockedBySignals: [],
+      source: 'canonical_answer_question',
+      why: `Mapped using canonical Answer Block → intent mapping for ${questionId}.`,
+    };
+  }
+
+  return {
+    baseIntent: null,
+    potentialIntents: [],
+    mappedIntents: [],
+    blockedBySignals: [],
+    source: 'unknown',
+    why: 'No internal intent mapping could be derived for this Answer Unit.',
+  };
+}
+
+export interface GeoReuseStats {
+  totalAnswers: number;
+  multiIntentAnswers: number;
+  reuseRate: number; // 0..1
+  reuseRatePercent: number; // 0..100
+}
+
+export function computeGeoReuseStats(
+  mappings: Array<{ mappedIntents: SearchIntentType[] }>,
+): GeoReuseStats {
+  const totalAnswers = Array.isArray(mappings) ? mappings.length : 0;
+  const multiIntentAnswers = (mappings ?? []).filter((m) => (m.mappedIntents?.length ?? 0) >= 2).length;
+  const reuseRate = totalAnswers > 0 ? multiIntentAnswers / totalAnswers : 0;
+  return {
+    totalAnswers,
+    multiIntentAnswers,
+    reuseRate,
+    reuseRatePercent: Math.round(reuseRate * 100),
+  };
+}
+
+export interface GeoIntentCoverageCounts {
+  byIntent: Record<SearchIntentType, number>;
+  missingIntents: SearchIntentType[];
+}
+
+export function computeGeoIntentCoverageCounts(
+  mappings: Array<{ mappedIntents: SearchIntentType[] }>,
+): GeoIntentCoverageCounts {
+  const byIntent = Object.fromEntries(
+    SEARCH_INTENT_TYPES.map((t) => [t, 0]),
+  ) as Record<SearchIntentType, number>;
+
+  for (const m of mappings ?? []) {
+    for (const intent of m.mappedIntents ?? []) {
+      byIntent[intent] = (byIntent[intent] ?? 0) + 1;
+    }
+  }
+
+  const missingIntents = SEARCH_INTENT_TYPES.filter((t) => (byIntent[t] ?? 0) === 0);
+  return { byIntent, missingIntents };
 }

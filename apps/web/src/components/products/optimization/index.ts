@@ -7,3 +7,4 @@ export { ProductAnswerBlocksPanel } from './ProductAnswerBlocksPanel';
 export { ProductAutomationHistoryPanel } from './ProductAutomationHistoryPanel';
 export { ProductSearchIntentPanel } from './ProductSearchIntentPanel';
 export { ProductCompetitorsPanel } from './ProductCompetitorsPanel';
+export { ProductGeoPanel } from './ProductGeoPanel';

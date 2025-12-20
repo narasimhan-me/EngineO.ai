@@ -12454,3 +12454,153 @@ Implements a comprehensive customer self-service control plane with:
 - [x] CRITICAL_PATH_MAP.md updated with CP-014
 
 **Manual Testing:** `docs/manual-testing/SELF-SERVICE-1.md`
+
+---
+
+## Phase GEO-INSIGHTS-2 – GEO Read-Only Insights for Project Dashboard (Completed)
+
+This phase extends the INSIGHTS-1 Project Insights endpoint with read-only GEO (Generative Engine Optimization) insights derived from Answer Units (Answer Blocks), GEO issues, and GEO fix applications. All GEO insights are computed on-the-fly without AI calls or mutations.
+
+### GEO-INSIGHTS-2 Overview
+
+| Aspect | Detail |
+|--------|--------|
+| Goal | Add explainable GEO insights to project insights endpoint |
+| Scope | Answer–intent mapping, reuse metrics, coverage, trust trajectory |
+| Key Principle | Read-only derived signals only; no ranking/citation guarantees |
+| Files Modified | 5 files (geo.ts, geo-types.test.ts, project-insights.service.ts, e2e-testkit.controller.ts) |
+| New Files | 1 test file (geo-insights-2.test.ts) |
+
+### GEO-INSIGHTS-2 Features
+
+| Feature | Description |
+|---------|-------------|
+| Answer–Intent Mapping | Maps Answer Units to SearchIntentTypes using canonical question IDs, explicit intent tags, or competitive area markers |
+| Multi-Intent Reuse | Counts Answer Units covering multiple intents only when clarity+structure pass |
+| Coverage by Intent | Shows per-intent coverage across all products with gap detection |
+| Trust Trajectory | Tracks confidence improvements from ProductGeoFixApplication (before→after) |
+| Top Blockers | Identifies most common GEO issues affecting products |
+| Opportunities | Surfaces reuse, coverage, and trust improvement opportunities |
+
+### GEO-INSIGHTS-2 Canonical Intent Mapping
+
+| Question ID | Mapped Intents |
+|-------------|----------------|
+| `what_is_it` | informational |
+| `who_is_it_for` | problem_use_case, informational |
+| `why_choose_this` | comparative, trust_validation |
+| `key_features` | transactional, informational |
+| `how_is_it_used` | problem_use_case, informational |
+| `problems_it_solves` | problem_use_case, informational |
+| `what_makes_it_different` | comparative, trust_validation |
+| `whats_included` | transactional, informational |
+| `materials_and_specs` | trust_validation, informational |
+| `care_safety_instructions` | trust_validation, informational |
+
+### GEO-INSIGHTS-2 Files Modified
+
+| File | Changes |
+|------|---------|
+| `packages/shared/src/geo.ts` | Added imports, GEO_CANONICAL_ANSWER_INTENT_MAP, deriveGeoAnswerIntentMapping, computeGeoReuseStats, computeGeoIntentCoverageCounts |
+| `packages/shared/src/geo-types.test.ts` | Added GEO-INSIGHTS-2 test suite for intent mapping, reuse stats, coverage counts |
+| `apps/api/src/projects/project-insights.service.ts` | Extended ProjectInsightsResponse with geoInsights, updated INSIGHTS-1 shape (trend, pillarId, componentId), added GEO computation logic |
+| `apps/api/src/testkit/e2e-testkit.controller.ts` | Added v2 metadata to seedInsights1, added seedGeoInsights2 endpoint |
+| `apps/api/test/integration/geo-insights-2.test.ts` | New integration test for INSIGHTS contract + geoInsights shape |
+
+### GEO-INSIGHTS-2 Response Shape
+
+```typescript
+geoInsights: {
+  overview: {
+    productsAnswerReadyPercent: number;
+    productsAnswerReadyCount: number;
+    productsTotal: number;
+    answersTotal: number;
+    answersMultiIntentCount: number;
+    reuseRatePercent: number;
+    confidenceDistribution: { high: number; medium: number; low: number };
+    trustTrajectory: { improvedProducts: number; improvedEvents: number; windowDays: number; why: string };
+    whyThisMatters: string;
+  };
+  coverage: {
+    byIntent: Array<{ intentType: SearchIntentType; label: string; productsCovered: number; productsTotal: number; coveragePercent: number }>;
+    gaps: SearchIntentType[];
+    whyThisMatters: string;
+  };
+  reuse: {
+    topReusedAnswers: Array<{ productId: string; productTitle: string; answerBlockId: string; questionId: string; questionText: string; mappedIntents: SearchIntentType[]; potentialIntents: SearchIntentType[]; why: string; href: string }>;
+    couldBeReusedButArent: Array<{ productId: string; productTitle: string; answerBlockId: string; questionId: string; questionText: string; potentialIntents: SearchIntentType[]; blockedBySignals: GeoReadinessSignalType[]; why: string; href: string }>;
+    whyThisMatters: string;
+  };
+  trustSignals: {
+    topBlockers: Array<{ issueType: GeoIssueType; label: string; affectedProducts: number }>;
+    avgTimeToImproveHours: number | null;
+    mostImproved: Array<{ productId: string; productTitle: string; issuesResolvedCount: number; href: string }>;
+    whyThisMatters: string;
+  };
+  opportunities: Array<{ id: string; title: string; why: string; href: string; estimatedImpact: 'high' | 'medium' | 'low'; category: 'coverage' | 'reuse' | 'trust' }>;
+}
+```
+
+### GEO-INSIGHTS-2 INSIGHTS-1 Contract Updates
+
+| Field | Before | After |
+|-------|--------|-------|
+| `deoScore` | `current/previous/delta/why` | `current/previous/delta/trend` |
+| `componentDeltas` | `key, why` | `componentId, trend` |
+| `quota` | `monthlyLimit, why` | `limit` (no why) |
+| `trust` | `applyNeverUsesAi, message` | `applyAiRuns, invariantMessage` |
+| `deoScoreTrend` | `at, overall` | `date, score` |
+| `fixesAppliedTrend` | `day, count` | `date, count` |
+| `openIssuesNow` | `total, critical, warning, info` | `critical, warning, info, total` |
+| `byPillar` | `pillar, count` | `pillarId, label, open, resolved, total` |
+| `topRecent` | `title, at, pillar, why, href` | `issueId, title, resolvedAt, pillarId` |
+| `openHighImpact` | `id, title, severity, pillarId, why, href` | `issueId, title, severity, pillarId, affectedCount` |
+| `opportunities` | `id, title, why, href, severity, pillarId` | `id, title, why, pillarId, estimatedImpact, href, fixType` |
+
+### GEO-INSIGHTS-2 Frontend Files
+
+| File | Changes |
+|------|---------|
+| `apps/web/src/lib/insights.ts` | Added geoInsights types to ProjectInsightsResponse |
+| `apps/web/src/lib/geo.ts` | New file with GEO types for web app (GeoCitationConfidenceLevel, GeoReadinessSignal, etc.) |
+| `apps/web/src/lib/api.ts` | Added getGeoReadiness, previewGeoFix, applyGeoFix to productsApi |
+| `apps/web/src/components/projects/InsightsSubnav.tsx` | Added 'geo-insights' tab to activeTab type and tabs array |
+| `apps/web/src/app/projects/[id]/insights/geo-insights/page.tsx` | New GEO Insights page with overview cards, confidence distribution, intent coverage, reuse, trust signals |
+| `apps/web/src/components/products/optimization/ProductGeoPanel.tsx` | New component for product-level GEO readiness, signals, issues, and Preview/Apply flow |
+| `apps/web/src/components/products/optimization/index.ts` | Added ProductGeoPanel export |
+| `apps/web/src/app/projects/[id]/products/[productId]/page.tsx` | Added GEO section with ProductGeoPanel, added GEO jump-to button |
+| `apps/web/tests/geo-insights-2.spec.ts` | New Playwright test for GEO Insights dashboard |
+
+### GEO-INSIGHTS-2 Documentation Files
+
+| File | Description |
+|------|-------------|
+| `docs/GEO_FOUNDATION.md` | Core GEO concepts, readiness signals, trust contracts |
+| `docs/GEO_INSIGHTS.md` | GEO Insights derivation and response shape documentation |
+| `docs/manual-testing/GEO-FOUNDATION-1.md` | Manual testing guide for GEO readiness and citation confidence |
+| `docs/manual-testing/GEO-INSIGHTS-2.md` | Manual testing guide for GEO Insights dashboard |
+| `docs/manual-testing/INSIGHTS-1.md` | Updated with GEO Insights tab reference |
+| `docs/testing/CRITICAL_PATH_MAP.md` | Updated CP-016 and CP-017 with GEO-INSIGHTS-2 scenarios |
+
+### GEO-INSIGHTS-2 Acceptance Criteria (Completed)
+
+- [x] `deriveGeoAnswerIntentMapping` derives intent from factsUsed, areaId, questionId patterns
+- [x] Canonical multi-intent answers only count multiple intents when clarity+structure pass
+- [x] `computeGeoReuseStats` computes totalAnswers, multiIntentAnswers, reuseRatePercent
+- [x] `computeGeoIntentCoverageCounts` computes byIntent counts and missingIntents
+- [x] ProjectInsightsResponse includes geoInsights with overview, coverage, reuse, trustSignals, opportunities
+- [x] Trust trajectory tracks improvedProducts and improvedEvents from ProductGeoFixApplication
+- [x] Opportunities include coverage gaps for transactional/comparative, reuse blockers, and top GEO blockers
+- [x] Integration tests verify INSIGHTS-1 shape updates and geoInsights presence
+- [x] E2E seed endpoint (seed-geo-insights-2) creates test data for GEO insights
+- [x] Frontend GEO Insights page displays all geoInsights sections
+- [x] InsightsSubnav includes GEO Insights tab
+- [x] Product detail page includes GEO Readiness section with ProductGeoPanel
+- [x] ProductGeoPanel supports Preview/Apply flow for GEO fixes
+- [x] Playwright tests verify GEO Insights page loads correctly
+- [x] Documentation created (docs/GEO_FOUNDATION.md, docs/GEO_INSIGHTS.md)
+- [x] Manual testing guides created (docs/manual-testing/GEO-FOUNDATION-1.md, docs/manual-testing/GEO-INSIGHTS-2.md)
+- [x] CRITICAL_PATH_MAP.md updated with GEO-INSIGHTS-2 scenarios
+
+**Manual Testing:** `docs/manual-testing/GEO-INSIGHTS-2.md`, `docs/manual-testing/GEO-FOUNDATION-1.md`

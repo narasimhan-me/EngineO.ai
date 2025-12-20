@@ -401,6 +401,16 @@ export class E2eTestkitController {
             offsiteSignals: Math.min(100, 30 + (30 - i) * 1.3),
             localDiscovery: Math.min(100, 55 + (30 - i) * 0.9),
             competitivePositioning: Math.min(100, 40 + (30 - i) * 1.0),
+            v2: {
+              components: {
+                entityStrength: Math.min(100, 40 + (30 - i) * 1.2),
+                intentMatch: Math.min(100, 45 + (30 - i) * 1.1),
+                answerability: Math.min(100, 35 + (30 - i) * 1.3),
+                aiVisibility: Math.min(100, 30 + (30 - i) * 1.4),
+                contentCompleteness: Math.min(100, 50 + (30 - i) * 1.0),
+                technicalQuality: Math.min(100, 60 + (30 - i) * 0.8),
+              },
+            },
           },
         },
       });
@@ -543,6 +553,151 @@ export class E2eTestkitController {
         email: user.email,
       },
       projectId: project.id,
+      shopDomain: integration.externalId,
+      accessToken,
+    };
+  }
+
+  /**
+   * POST /testkit/e2e/seed-geo-insights-2
+   *
+   * Seed a Pro-plan user with:
+   * - A Shopify-connected project
+   * - A small set of products with Answer Blocks
+   * - A GEO fix application to power trust trajectory metrics
+   * - DEO snapshots for Insights charts
+   *
+   * This seed is intentionally AI-free (no preview calls).
+   */
+  @Post('seed-geo-insights-2')
+  async seedGeoInsights2() {
+    this.ensureE2eMode();
+
+    const { user } = await createTestUser(this.prisma as any, { plan: 'pro' });
+    const project = await createTestProject(this.prisma as any, { userId: user.id });
+    const integration = await createTestShopifyStoreConnection(this.prisma as any, { projectId: project.id });
+    const products = await createTestProducts(this.prisma as any, {
+      projectId: project.id,
+      count: 3,
+      withSeo: true,
+      withIssues: false,
+    });
+
+    const p1 = products[0];
+    const now = new Date();
+
+    // DEO snapshots (v2 metadata shape expected by Insights)
+    for (let i = 30; i >= 0; i -= 10) {
+      const snapshotDate = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const score = Math.min(100, Math.round(55 + (30 - i) * 1.0));
+      await this.prisma.deoScoreSnapshot.create({
+        data: {
+          projectId: project.id,
+          overallScore: score,
+          contentScore: Math.min(100, 60),
+          entityScore: Math.min(100, 55),
+          technicalScore: Math.min(100, 70),
+          visibilityScore: Math.min(100, 50),
+          version: 'v2',
+          computedAt: snapshotDate,
+          createdAt: snapshotDate,
+          metadata: {
+            v2: {
+              components: {
+                entityStrength: 55,
+                intentMatch: 58,
+                answerability: 52,
+                aiVisibility: 49,
+                contentCompleteness: 60,
+                technicalQuality: 70,
+              },
+            },
+          },
+        },
+      });
+    }
+
+    // Seed Answer Blocks (canonical question IDs)
+    await this.prisma.answerBlock.createMany({
+      data: [
+        {
+          productId: p1.id,
+          questionId: 'why_choose_this',
+          questionText: 'Why choose this?',
+          answerText:
+            'This is a long, hard-to-scan paragraph that keeps going without structure. ' +
+            'It has many sentences so it should fail structure in the heuristic. ' +
+            'It continues with more filler content to push the word count above the threshold. ' +
+            'Another sentence adds length and ambiguity without giving a clear structure. ' +
+            'Yet another sentence adds more words and makes the block harder to scan. ' +
+            'Finally, this ends after enough words to exceed the limit.',
+          confidenceScore: 0.6,
+          sourceType: 'generated',
+          sourceFieldsUsed: [],
+          version: 'ae_v1',
+        },
+        {
+          productId: products[1].id,
+          questionId: 'what_is_it',
+          questionText: 'What is this?',
+          answerText: 'A concise, factual description with a clear first sentence and a concrete detail (e.g., 2-step setup).',
+          confidenceScore: 0.8,
+          sourceType: 'generated',
+          sourceFieldsUsed: ['e.g.'],
+          version: 'ae_v1',
+        },
+      ],
+    });
+
+    // Create a draft + apply-like audit row for GEO trust trajectory (no AI)
+    const draft = await this.prisma.productGeoFixDraft.create({
+      data: {
+        productId: p1.id,
+        questionId: 'why_choose_this',
+        issueType: 'POOR_ANSWER_STRUCTURE',
+        draftPayload: {
+          improvedAnswer:
+            'Choose this when you need a clear, comparable option for a specific use case.\n\n' +
+            '- Works well for common scenarios\n' +
+            '- Includes concrete details (e.g., 2-step setup)\n',
+        },
+        aiWorkKey: `e2e:geo:${project.id}:${p1.id}`,
+        generatedWithAi: false,
+      },
+    });
+
+    // Apply the improved answer to the Answer Block so current GEO reflects post-fix state
+    await this.prisma.answerBlock.update({
+      where: { productId_questionId: { productId: p1.id, questionId: 'why_choose_this' } },
+      data: {
+        answerText: (draft.draftPayload as any).improvedAnswer,
+        sourceType: 'geo_fix_ai',
+        confidenceScore: 0.85,
+      },
+    });
+
+    await this.prisma.productGeoFixApplication.create({
+      data: {
+        productId: p1.id,
+        draftId: draft.id,
+        appliedByUserId: user.id,
+        questionId: 'why_choose_this',
+        issueType: 'POOR_ANSWER_STRUCTURE',
+        beforeConfidence: 'LOW',
+        afterConfidence: 'HIGH',
+        beforeIssuesCount: 3,
+        afterIssuesCount: 0,
+        issuesResolvedCount: 3,
+        resolvedIssueTypes: ['poor_answer_structure:why_choose_this'],
+        appliedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    const accessToken = this.jwtService.sign({ sub: user.id });
+    return {
+      user: { id: user.id, email: user.email },
+      projectId: project.id,
+      productId: p1.id,
       shopDomain: integration.externalId,
       accessToken,
     };

@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 interface InsightsSubnavProps {
   projectId: string;
-  activeTab: 'overview' | 'deo-progress' | 'ai-efficiency' | 'issue-resolution' | 'opportunity-signals';
+  activeTab: 'overview' | 'deo-progress' | 'ai-efficiency' | 'issue-resolution' | 'opportunity-signals' | 'geo-insights';
 }
 
 /**
@@ -19,6 +19,7 @@ export function InsightsSubnav({ projectId, activeTab }: InsightsSubnavProps) {
     { id: 'ai-efficiency', label: 'AI Efficiency', href: `/projects/${projectId}/insights/ai-efficiency` },
     { id: 'issue-resolution', label: 'Issue Resolution', href: `/projects/${projectId}/insights/issue-resolution` },
     { id: 'opportunity-signals', label: 'Opportunities', href: `/projects/${projectId}/insights/opportunity-signals` },
+    { id: 'geo-insights', label: 'GEO Insights', href: `/projects/${projectId}/insights/geo-insights` },
   ] as const;
 
   return (

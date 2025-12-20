@@ -17,6 +17,7 @@ import {
   ProductDeoInsightsPanel,
   ProductSearchIntentPanel,
   ProductCompetitorsPanel,
+  ProductGeoPanel,
   type ProductMetadataSuggestion,
   type AutomationSuggestion,
 } from '@/components/products/optimization';
@@ -496,6 +497,13 @@ export default function ProductOptimizationPage() {
               </button>
               <button
                 type="button"
+                onClick={() => scrollToSection('geo-section')}
+                className="rounded-full px-2 py-1 text-xs hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              >
+                GEO
+              </button>
+              <button
+                type="button"
                 onClick={() => scrollToSection('automations-section')}
                 className="rounded-full px-2 py-1 text-xs hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
               >
@@ -666,6 +674,14 @@ export default function ProductOptimizationPage() {
                     Address gaps in intent coverage, content sections, and trust signals.
                   </p>
                   <ProductCompetitorsPanel productId={product.id} />
+                </section>
+                <section id="geo-section" aria-label="GEO Readiness">
+                  <h2 className="mb-4 text-base font-semibold text-gray-900">GEO Readiness</h2>
+                  <p className="mb-3 text-xs text-gray-500">
+                    Evaluate how AI-engine-ready your product content is. GEO readiness signals
+                    measure clarity, specificity, structure, context, and accessibility.
+                  </p>
+                  <ProductGeoPanel productId={product.id} />
                 </section>
                 <section id="automations-section" aria-label="Automations">
                   <h2 className="mb-4 text-base font-semibold text-gray-900">Automations</h2>
