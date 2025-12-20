@@ -145,8 +145,8 @@ export function ProductGeoPanel({ productId }: ProductGeoPanelProps) {
   }
 
   const { evaluation, openDrafts } = data;
-  const confidenceLevel = evaluation.citationConfidence.level;
-  const confidenceReason = evaluation.citationConfidence.reason;
+  const confidenceLevel = evaluation?.citationConfidence?.level ?? 'low';
+  const confidenceReason = evaluation?.citationConfidence?.reason ?? 'No evaluation data available';
 
   return (
     <div className="space-y-6">
@@ -166,7 +166,7 @@ export function ProductGeoPanel({ productId }: ProductGeoPanelProps) {
       </div>
 
       {/* Readiness Signals */}
-      {evaluation.answerUnits.length > 0 && (
+      {evaluation?.answerUnits && evaluation.answerUnits.length > 0 && (
         <div className="rounded-lg border border-gray-200 bg-white p-4">
           <h3 className="mb-3 text-sm font-medium text-gray-700">Readiness Signals</h3>
           <div className="space-y-4">
@@ -187,7 +187,7 @@ export function ProductGeoPanel({ productId }: ProductGeoPanelProps) {
       )}
 
       {/* GEO Issues */}
-      {evaluation.issues.length > 0 && (
+      {evaluation?.issues && evaluation.issues.length > 0 && (
         <div className="rounded-lg border border-gray-200 bg-white p-4">
           <h3 className="mb-3 text-sm font-medium text-gray-700">GEO Issues</h3>
           <div className="space-y-3">
@@ -234,7 +234,7 @@ export function ProductGeoPanel({ productId }: ProductGeoPanelProps) {
       )}
 
       {/* No Issues State */}
-      {evaluation.issues.length === 0 && evaluation.answerUnits.length > 0 && (
+      {evaluation?.issues?.length === 0 && evaluation?.answerUnits?.length > 0 && (
         <div className="rounded-lg border border-green-200 bg-green-50 p-4">
           <p className="text-sm text-green-700">
             All readiness signals pass. This product has high citation confidence.
@@ -323,7 +323,7 @@ export function ProductGeoPanel({ productId }: ProductGeoPanelProps) {
       )}
 
       {/* Open Drafts (if any) */}
-      {openDrafts.length > 0 && !selectedDraft && (
+      {openDrafts && openDrafts.length > 0 && !selectedDraft && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
           <h3 className="mb-2 text-sm font-medium text-blue-800">Pending Drafts</h3>
           <p className="mb-3 text-xs text-blue-700">
