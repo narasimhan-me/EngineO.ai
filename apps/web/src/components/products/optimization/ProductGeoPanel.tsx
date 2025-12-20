@@ -224,7 +224,7 @@ export function ProductGeoPanel({ productId }: ProductGeoPanelProps) {
                   >
                     {previewLoading === `${issue.questionId}:${issue.issueType}`
                       ? 'Loading...'
-                      : 'Preview Fix'}
+                      : 'Preview Fix (uses AI)'}
                   </button>
                 )}
               </div>

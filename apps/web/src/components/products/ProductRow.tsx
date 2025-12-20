@@ -1,12 +1,20 @@
-import { useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { useState, type MouseEvent } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 
 import type { DeoIssueSeverity } from '@/lib/deo-issues';
+import type { DeoPillarId } from '@/lib/deo-pillars';
 import type { Product, ProductStatus } from '@/lib/products';
 import { ProductDetailPanel } from './ProductDetailPanel';
-import { IssueBadge } from '@/components/issues/IssueBadge';
+
+/**
+ * [DEO-UX-REFRESH-1] Issue summary by pillar for display in products list
+ */
+export interface PillarIssueSummary {
+  pillarId: DeoPillarId;
+  label: string;
+  count: number;
+}
 
 interface ProductRowProps {
   product: Product;
@@ -20,6 +28,8 @@ interface ProductRowProps {
   isScanning: boolean;
   issueCount?: number;
   maxIssueSeverity?: DeoIssueSeverity | null;
+  /** [DEO-UX-REFRESH-1] Issue breakdown by pillar */
+  issuesByPillar?: PillarIssueSummary[];
 }
 
 export function ProductRow({
@@ -32,75 +42,37 @@ export function ProductRow({
   onSyncProject,
   isSyncing,
   isScanning,
-  issueCount,
+  issueCount: _issueCount, // [DEO-UX-REFRESH-1] Kept for API compat, replaced by pillar chips
   maxIssueSeverity,
+  issuesByPillar,
 }: ProductRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const router = useRouter();
-
   const workspacePath = `/projects/${projectId}/products/${product.id}`;
 
-  const openWorkspace = () => {
-    router.push(workspacePath);
-  };
-
-  const handleRowClick = (event: MouseEvent<HTMLDivElement>) => {
-    const target = event.target as HTMLElement | null;
-    if (
-      target &&
-      (target.closest('button') ||
-        target.closest('[data-no-row-click]') ||
-        target.closest('a'))
-    ) {
-      return;
-    }
-
-    openWorkspace();
-  };
-
-  const handleRowKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'Enter' && event.key !== ' ') {
-      return;
-    }
-
-    const target = event.target as HTMLElement | null;
-    if (
-      target &&
-      (target.closest('button') ||
-        target.closest('[data-no-row-click]') ||
-        target.closest('a'))
-    ) {
-      return;
-    }
-
-    event.preventDefault();
-    openWorkspace();
-  };
-
-  const stopAnd = (event: MouseEvent, fn: () => void) => {
-    event.stopPropagation();
-    fn();
-  };
+  // [DEO-UX-REFRESH-1] Row is no longer clickable - single primary CTA only
 
   const handleMenuToggle = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     setMenuOpen((open) => !open);
   };
 
-  const handleViewDetails = (event: MouseEvent<HTMLButtonElement>) => {
-    stopAnd(event, () => {
-      setMenuOpen(false);
-      openWorkspace();
-    });
+  const handleScan = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    onScan();
+    setMenuOpen(false);
   };
 
   const handleSync = (event: MouseEvent<HTMLButtonElement>) => {
-    stopAnd(event, () => {
-      onSyncProject();
-      setMenuOpen(false);
-    });
+    event.stopPropagation();
+    onSyncProject();
+    setMenuOpen(false);
   };
+
+  // [DEO-UX-REFRESH-1] Prepare pillar chips (max 3 shown, rest collapsed)
+  const MAX_PILLAR_CHIPS = 3;
+  const visiblePillars = (issuesByPillar ?? []).slice(0, MAX_PILLAR_CHIPS);
+  const hiddenPillarCount = (issuesByPillar ?? []).length - MAX_PILLAR_CHIPS;
 
   // Status labels explicitly reference metadata status (not overall DEO health)
   const statusLabel =
@@ -122,13 +94,8 @@ export function ProductRow({
 
   return (
     <div className="relative">
-      <div
-        className="flex cursor-pointer flex-col gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 transition-all hover:bg-gray-50 hover:shadow-sm active:bg-gray-100 sm:flex-row sm:items-center sm:justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
-        onClick={handleRowClick}
-        onKeyDown={handleRowKeyDown}
-        role="button"
-        tabIndex={0}
-      >
+      {/* [DEO-UX-REFRESH-1] Row is NOT clickable - use the "Open" button as the single primary CTA */}
+      <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         {/* Header section – image + title + handle + status (mobile) */}
         <div className="flex min-w-0 flex-1 items-start gap-3">
           {product.imageUrls && product.imageUrls.length > 0 ? (
@@ -164,29 +131,18 @@ export function ProductRow({
             <div className="mt-0.5 truncate text-xs text-gray-500">
               {product.handle ?? product.externalId}
             </div>
-            {/* Status chip (mobile) + Open Workspace link */}
-            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            {/* [DEO-UX-REFRESH-1] Status chip (mobile only) - removed inline "Open Workspace" link */}
+            <div className="mt-1.5 flex flex-wrap items-center gap-2 sm:hidden">
               <span
-                className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium sm:hidden ${statusClasses}`}
+                className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${statusClasses}`}
               >
                 {statusLabel}
               </span>
-              <Link
-                href={workspacePath}
-                className="inline-flex items-center text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                data-no-row-click
-                onClick={(event) => event.stopPropagation()}
-              >
-                Open Workspace
-                <span aria-hidden="true" className="ml-0.5">
-                  &rarr;
-                </span>
-              </Link>
             </div>
           </div>
         </div>
 
-        {/* Middle section – status (desktop) + micro indicators */}
+        {/* Middle section – status (desktop) + micro indicators + pillar chips */}
         <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div className="hidden items-center gap-2 sm:flex">
             {/* Status chip - desktop only */}
@@ -197,8 +153,7 @@ export function ProductRow({
             </span>
             {/* Scan SEO button - desktop only */}
             <button
-              data-no-row-click
-              onClick={(event) => stopAnd(event, onScan)}
+              onClick={handleScan}
               disabled={isScanning}
               className="inline-flex items-center rounded-full border border-blue-100 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -246,7 +201,7 @@ export function ProductRow({
             </button>
           </div>
 
-          {/* Metadata indicators */}
+          {/* Metadata indicators + [DEO-UX-REFRESH-1] Pillar issue chips */}
           <div className="mt-1 flex flex-wrap gap-2 text-xs text-gray-500 sm:mt-0">
             <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1">
               <span
@@ -268,48 +223,54 @@ export function ProductRow({
               <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
               <span>Alt text</span>
             </span>
-            {issueCount && issueCount > 0 && (
-              <IssueBadge
-                count={issueCount}
-                severity={maxIssueSeverity}
-                onClick={() => {
-                  router.push(`${workspacePath}?from=products&focus=deo-issues`);
-                }}
-              />
+
+            {/* [DEO-UX-REFRESH-1] Issue-by-pillar summary chips */}
+            {visiblePillars.length > 0 && (
+              <>
+                {visiblePillars.map((pillar) => (
+                  <Link
+                    key={pillar.pillarId}
+                    href={`${workspacePath}?tab=issues&pillar=${pillar.pillarId}`}
+                    className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
+                      maxIssueSeverity === 'critical'
+                        ? 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
+                        : maxIssueSeverity === 'warning'
+                          ? 'bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100'
+                          : 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
+                    }`}
+                  >
+                    <span>{pillar.label}</span>
+                    <span className="font-semibold">{pillar.count}</span>
+                  </Link>
+                ))}
+                {hiddenPillarCount > 0 && (
+                  <Link
+                    href={`${workspacePath}?tab=issues`}
+                    className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200"
+                  >
+                    +{hiddenPillarCount} more
+                  </Link>
+                )}
+              </>
             )}
           </div>
         </div>
 
-        {/* Actions section */}
+        {/* [DEO-UX-REFRESH-1] Actions section - single primary CTA (Open button) */}
         <div className="mt-2 flex flex-col gap-2 sm:ml-4 sm:mt-0 sm:flex-row sm:items-center sm:justify-end">
-          {/* Optimize button - full width on mobile */}
-          <button
-            data-no-row-click
-            onClick={(event) => stopAnd(event, openWorkspace)}
-            className="inline-flex w-full items-center justify-center rounded-md border border-transparent bg-purple-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 sm:w-auto sm:py-1.5"
+          {/* [DEO-UX-REFRESH-1] Single primary CTA: "Open" button */}
+          <Link
+            href={workspacePath}
+            className="inline-flex w-full items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:w-auto sm:py-1.5"
           >
-            <svg
-              className="mr-2 h-3.5 w-3.5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-              />
-            </svg>
-            Optimize
-          </button>
+            Open
+          </Link>
 
           {/* Secondary actions row - Scan SEO (mobile) + Overflow menu */}
           <div className="flex items-center justify-between gap-2 sm:justify-end">
             {/* Scan SEO button - mobile only */}
             <button
-              data-no-row-click
-              onClick={(event) => stopAnd(event, onScan)}
+              onClick={handleScan}
               disabled={isScanning}
               className="inline-flex items-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50 sm:hidden"
             >
@@ -356,11 +317,10 @@ export function ProductRow({
               )}
             </button>
 
-            {/* Overflow menu */}
+            {/* Overflow menu - [DEO-UX-REFRESH-1] "View details" REMOVED */}
             <div className="relative">
               <button
                 type="button"
-                data-no-row-click
                 onClick={handleMenuToggle}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-gray-50"
               >
@@ -380,17 +340,9 @@ export function ProductRow({
               </button>
               {menuOpen && (
                 <div className="absolute right-0 z-20 mt-2 w-44 rounded-md border border-gray-200 bg-white py-1 text-sm text-gray-700 shadow-lg">
+                  {/* [DEO-UX-REFRESH-1] Removed "View details" - single primary CTA only */}
                   <button
                     type="button"
-                    data-no-row-click
-                    onClick={handleViewDetails}
-                    className="block w-full px-3 py-1.5 text-left hover:bg-gray-50"
-                  >
-                    View details
-                  </button>
-                  <button
-                    type="button"
-                    data-no-row-click
                     onClick={handleSync}
                     disabled={isSyncing}
                     className="block w-full px-3 py-1.5 text-left hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
@@ -400,7 +352,6 @@ export function ProductRow({
                   <button
                     type="button"
                     disabled
-                    data-no-row-click
                     className="block w-full cursor-not-allowed px-3 py-1.5 text-left text-gray-400"
                     title="Editing coming soon"
                   >
@@ -409,7 +360,6 @@ export function ProductRow({
                   <button
                     type="button"
                     disabled
-                    data-no-row-click
                     className="block w-full cursor-not-allowed px-3 py-1.5 text-left text-gray-400"
                     title="Remove coming soon"
                   >

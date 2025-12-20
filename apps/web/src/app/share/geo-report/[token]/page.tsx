@@ -62,31 +62,47 @@ export default function PublicGeoReportPage() {
   const report = viewData.report!;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header with share badge */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="mx-auto max-w-5xl px-6 py-4">
+    <div className="min-h-screen bg-gray-50 print:bg-white">
+      {/* [DEO-UX-REFRESH-1] Header with EngineO.ai branding + share badges */}
+      <div className="bg-white border-b border-gray-200 print:border-b-0">
+        <div className="mx-auto max-w-5xl px-6 py-4 print:px-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
-                Shared Report
-              </span>
-              <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
-                Read-only
-              </span>
+            <div className="flex items-center gap-4">
+              {/* [DEO-UX-REFRESH-1] EngineO.ai Logo/Wordmark */}
+              <div className="flex items-center gap-2">
+                <svg
+                  className="h-6 w-6 text-blue-600"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                </svg>
+                <span className="text-lg font-bold text-gray-900">EngineO.ai</span>
+              </div>
+              <div className="flex items-center gap-2 print:hidden">
+                <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+                  Shared Report
+                </span>
+                <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
+                  Read-only
+                </span>
+              </div>
             </div>
             <div className="text-sm text-gray-500">
               {viewData.expiresAt && (
-                <span>Expires: {new Date(viewData.expiresAt).toLocaleDateString()}</span>
+                <span className="print:hidden">Expires: {new Date(viewData.expiresAt).toLocaleDateString()}</span>
               )}
+              <span className="hidden print:inline text-xs text-gray-400">
+                Generated: {viewData.generatedAt ? new Date(viewData.generatedAt).toLocaleDateString() : 'N/A'}
+              </span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Report Content */}
-      <div className="mx-auto max-w-5xl px-6 py-8">
-        <div className="bg-white rounded-lg shadow-sm">
+      <div className="mx-auto max-w-5xl px-6 py-8 print:px-4 print:py-4">
+        <div className="bg-white rounded-lg shadow-sm print:shadow-none print:rounded-none">
           {/* Report Header */}
           <div className="border-b border-gray-200 px-8 py-6">
             <div className="flex items-start justify-between">
@@ -103,10 +119,10 @@ export default function PublicGeoReportPage() {
           </div>
 
           {/* Overview Section */}
-          <div className="border-b border-gray-200 px-8 py-6">
+          <div className="border-b border-gray-200 px-8 py-6 print:px-4 print:break-inside-avoid">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Overview</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="rounded-md border border-gray-200 p-4">
+              <div className="rounded-md border border-gray-200 p-4 print:break-inside-avoid">
                 <div className="text-sm text-gray-500">Answer Ready</div>
                 <div className="mt-1 text-2xl font-bold text-gray-900">
                   {report.overview.productsAnswerReadyPercent}%
@@ -115,19 +131,19 @@ export default function PublicGeoReportPage() {
                   {report.overview.productsAnswerReadyCount} of {report.overview.productsTotal} products
                 </div>
               </div>
-              <div className="rounded-md border border-gray-200 p-4">
+              <div className="rounded-md border border-gray-200 p-4 print:break-inside-avoid">
                 <div className="text-sm text-gray-500">Total Answers</div>
                 <div className="mt-1 text-2xl font-bold text-gray-900">
                   {report.overview.answersTotal}
                 </div>
               </div>
-              <div className="rounded-md border border-gray-200 p-4">
+              <div className="rounded-md border border-gray-200 p-4 print:break-inside-avoid">
                 <div className="text-sm text-gray-500">Reuse Rate</div>
                 <div className="mt-1 text-2xl font-bold text-gray-900">
                   {report.overview.reuseRatePercent}%
                 </div>
               </div>
-              <div className="rounded-md border border-gray-200 p-4">
+              <div className="rounded-md border border-gray-200 p-4 print:break-inside-avoid">
                 <div className="text-sm text-gray-500">Attribution Readiness</div>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <span className="flex items-center gap-1">
@@ -148,7 +164,7 @@ export default function PublicGeoReportPage() {
           </div>
 
           {/* Intent Coverage */}
-          <div className="border-b border-gray-200 px-8 py-6">
+          <div className="border-b border-gray-200 px-8 py-6 print:px-4 print:break-inside-avoid">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Intent Coverage</h2>
             <div className="space-y-3">
               {report.coverage.byIntent.map((intent) => (
@@ -175,7 +191,7 @@ export default function PublicGeoReportPage() {
 
           {/* Trust Signals */}
           {report.trustSignals.topBlockers.length > 0 && (
-            <div className="border-b border-gray-200 px-8 py-6">
+            <div className="border-b border-gray-200 px-8 py-6 print:px-4 print:break-inside-avoid">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Trust Signals</h2>
               <div className="space-y-2">
                 {report.trustSignals.topBlockers.map((blocker, idx) => (
@@ -196,7 +212,7 @@ export default function PublicGeoReportPage() {
 
           {/* Opportunities */}
           {report.opportunities.length > 0 && (
-            <div className="border-b border-gray-200 px-8 py-6">
+            <div className="border-b border-gray-200 px-8 py-6 print:px-4 print:break-inside-avoid">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Opportunities</h2>
               <div className="space-y-3">
                 {report.opportunities.map((opp, idx) => (
@@ -238,9 +254,29 @@ export default function PublicGeoReportPage() {
           )}
 
           {/* Disclaimer */}
-          <div className="px-8 py-6 bg-gray-50 rounded-b-lg">
+          <div className="px-8 py-6 print:px-4 bg-gray-50 rounded-b-lg print:rounded-none print:bg-white print:border-t print:border-gray-200">
             <p className="text-xs text-gray-500 italic">{report.disclaimer}</p>
           </div>
+        </div>
+
+        {/* [DEO-UX-REFRESH-1] Footer with EngineO.ai branding */}
+        <div className="mt-6 text-center print:mt-8 print:border-t print:border-gray-200 print:pt-4">
+          <p className="text-xs text-gray-400">
+            Generated by{' '}
+            <span className="font-medium text-gray-600">EngineO.ai</span>
+            {' · '}
+            <span className="print:hidden">
+              <a
+                href="https://engineo.ai"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline"
+              >
+                engineo.ai
+              </a>
+            </span>
+            <span className="hidden print:inline">engineo.ai</span>
+          </p>
         </div>
       </div>
     </div>

@@ -99,17 +99,33 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h1 className="text-center text-3xl font-bold text-gray-900">
-            EngineO.ai
-          </h1>
-          <h2 className="mt-6 text-center text-2xl font-semibold text-gray-700">
-            Sign in to your EngineO.ai account
-          </h2>
+      <div className="max-w-md w-full">
+        {/* [DEO-UX-REFRESH-1] Premium branded header */}
+        <div className="text-center mb-8">
+          {/* Logo/Wordmark */}
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <svg
+              className="h-10 w-10 text-blue-600"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+            </svg>
+            <span className="text-3xl font-bold text-gray-900">EngineO.ai</span>
+          </div>
+          <p className="text-sm text-gray-500">
+            Digital Engine Optimization for AI-Powered Discovery
+          </p>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+        {/* [DEO-UX-REFRESH-1] Premium card styling */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-lg p-8">
+          {/* Accessible heading */}
+          <h1 className="text-2xl font-semibold text-gray-900 text-center mb-6">
+            Sign in
+          </h1>
+
+          <form className="space-y-5" onSubmit={handleSubmit}>
           {securityMessage && (
             <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded">
               {securityMessage}
@@ -180,7 +196,10 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <div className="text-center">
+          </form>
+
+          {/* Sign up link */}
+          <div className="text-center mt-6 pt-6 border-t border-gray-100">
             <p className="text-sm text-gray-600">
               Don&apos;t have an account?{' '}
               <Link href="/signup" className="font-medium text-blue-600 hover:text-blue-500">
@@ -188,7 +207,7 @@ export default function LoginPage() {
               </Link>
             </p>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

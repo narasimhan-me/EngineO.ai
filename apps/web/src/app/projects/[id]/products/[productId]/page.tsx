@@ -18,8 +18,12 @@ import {
   ProductSearchIntentPanel,
   ProductCompetitorsPanel,
   ProductGeoPanel,
+  ProductDetailsTabs,
+  ProductIssuesPanel,
+  useActiveProductTab,
   type ProductMetadataSuggestion,
   type AutomationSuggestion,
+  type ProductDetailsTabId,
 } from '@/components/products/optimization';
 import { ProductAnswersPanel, type ProductAnswersResponse } from '@/components/products/optimization/ProductAnswersPanel';
 import {
@@ -35,6 +39,9 @@ export default function ProductOptimizationPage() {
   const projectId = params.id as string;
   const productId = params.productId as string;
   const feedback = useFeedback();
+
+  // [DEO-UX-REFRESH-1] Tab state from URL
+  const activeTab = useActiveProductTab();
 
   // Loading and error states
   const [loading, setLoading] = useState(true);
@@ -306,15 +313,7 @@ export default function ProductOptimizationPage() {
     []
   );
 
-  const scrollToSection = useCallback((sectionId: string) => {
-    if (typeof window === 'undefined') return;
-    const element = document.getElementById(sectionId);
-    if (!element) return;
-    const stickyOffset = 96;
-    const rect = element.getBoundingClientRect();
-    const offset = rect.top + window.scrollY - stickyOffset;
-    window.scrollTo({ top: offset, behavior: 'smooth' });
-  }, []);
+  // [DEO-UX-REFRESH-1] Scroll removed - now using tab-based navigation
 
   useEffect(() => {
     // Reset AI diagnostic preview visibility when navigating between products
@@ -328,49 +327,6 @@ export default function ProductOptimizationPage() {
     }
     fetchData();
   }, [router, fetchData]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!product) return;
-    const focus = searchParams.get('focus');
-
-    // Handle different focus query params for deep-linking
-    if (focus === 'metadata') {
-      const timeoutId = window.setTimeout(() => {
-        scrollToSection('metadata-section');
-      }, 200);
-      return () => {
-        window.clearTimeout(timeoutId);
-      };
-    }
-
-    if (focus === 'deo-issues') {
-      const timeoutId = window.setTimeout(() => {
-        scrollToSection('deo-issues-section');
-      }, 200);
-      return () => {
-        window.clearTimeout(timeoutId);
-      };
-    }
-
-    if (focus === 'search-intent') {
-      const timeoutId = window.setTimeout(() => {
-        scrollToSection('search-intent-section');
-      }, 200);
-      return () => {
-        window.clearTimeout(timeoutId);
-      };
-    }
-
-    if (focus === 'competitors') {
-      const timeoutId = window.setTimeout(() => {
-        scrollToSection('competitors-section');
-      }, 200);
-      return () => {
-        window.clearTimeout(timeoutId);
-      };
-    }
-  }, [product, searchParams, scrollToSection]);
 
   if (loading) {
     return (
@@ -425,8 +381,8 @@ export default function ProductOptimizationPage() {
       {/* Main content */}
       {product && (
         <>
-          {/* Sticky workspace header + section anchors */}
-          <div className="sticky top-0 z-20 border-b border-gray-200 bg-white/90 backdrop-blur shadow-sm">
+          {/* [DEO-UX-REFRESH-1] Sticky workspace header + tab bar */}
+          <div className="sticky top-0 z-20 bg-white/90 backdrop-blur shadow-sm">
             <div className="flex items-center justify-between gap-4 px-1 py-3 sm:px-2">
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 <Link
@@ -453,6 +409,15 @@ export default function ProductOptimizationPage() {
                         {new Date(product.lastOptimizedAt).toLocaleDateString()}
                       </span>
                     )}
+                    {/* [DEO-UX-REFRESH-1] DEO Issues indicator in header */}
+                    {productIssues.length > 0 && (
+                      <Link
+                        href={`/projects/${projectId}/products/${productId}?tab=issues`}
+                        className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 font-medium text-red-700 hover:bg-red-100"
+                      >
+                        <span>{productIssues.length} DEO {productIssues.length === 1 ? 'issue' : 'issues'}</span>
+                      </Link>
+                    )}
                   </div>
                 </div>
               </div>
@@ -465,58 +430,13 @@ export default function ProductOptimizationPage() {
                 {applyingToShopify ? 'Applying…' : 'Apply to Shopify'}
               </button>
             </div>
-            <div className="flex items-center gap-3 border-t border-gray-100 px-1 py-2 text-xs text-gray-600 sm:px-2">
-              <span className="font-medium text-gray-700">Jump to:</span>
-              <button
-                type="button"
-                onClick={() => scrollToSection('metadata-section')}
-                className="rounded-full px-2 py-1 text-xs hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-              >
-                Metadata
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollToSection('answers-section')}
-                className="rounded-full px-2 py-1 text-xs hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-              >
-                Answers
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollToSection('search-intent-section')}
-                className="rounded-full px-2 py-1 text-xs hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-              >
-                Search &amp; Intent
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollToSection('competitors-section')}
-                className="rounded-full px-2 py-1 text-xs hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-              >
-                Competitors
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollToSection('geo-section')}
-                className="rounded-full px-2 py-1 text-xs hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-              >
-                GEO
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollToSection('automations-section')}
-                className="rounded-full px-2 py-1 text-xs hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-              >
-                Automations
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollToSection('deo-issues-section')}
-                className="rounded-full px-2 py-1 text-xs hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-              >
-                Issues
-              </button>
-            </div>
+            {/* [DEO-UX-REFRESH-1] Tab bar replacing "Jump to:" anchors */}
+            <ProductDetailsTabs
+              projectId={projectId}
+              productId={productId}
+              activeTab={activeTab}
+              issueCount={productIssues.length}
+            />
           </div>
 
           {/* CNAB-1: Product optimization banner */}
@@ -578,115 +498,154 @@ export default function ProductOptimizationPage() {
             </div>
           )}
 
+          {/* [DEO-UX-REFRESH-1] Tab-based content - only active tab renders */}
           <ProductOptimizationLayout
             overview={<ProductOverviewPanel product={product} status={status} />}
             center={
-              <div className="space-y-10">
-                <section id="metadata-section" aria-label="Metadata">
-                  <h2 className="mb-4 text-base font-semibold text-gray-900">Metadata</h2>
-                  <div className="space-y-6">
-                    <ProductAiSuggestionsPanel
-                      suggestion={suggestion}
-                      automationSuggestion={automationSuggestion}
-                      loading={loadingSuggestion}
-                      onGenerate={fetchSuggestion}
-                      onApply={handleApplySuggestion}
-                    />
-                    <ProductSeoEditor
-                      title={editorTitle}
-                      description={editorDescription}
-                      handle={product.handle ?? product.externalId}
-                      onTitleChange={setEditorTitle}
-                      onDescriptionChange={setEditorDescription}
-                      onReset={handleReset}
-                      onApplyToShopify={handleApplyToShopify}
-                      applying={applyingToShopify}
-                    />
-                  </div>
-                </section>
-                <section id="answers-section" aria-label="Answers">
-                  <h2 className="mb-4 text-base font-semibold text-gray-900">Answers (AEO)</h2>
-                  <p className="mb-2 text-xs text-gray-500">
-                    Answer Blocks are your canonical, persistent AEO answers. When enabled in{' '}
-                    <Link
-                      href={`/projects/${projectId}/settings`}
-                      className="underline hover:text-indigo-700"
-                    >
-                      Settings
-                    </Link>
-                    , these canonical answers can be synced to Shopify as metafields.
-                  </p>
-                  {hasAnswerBlocks && (
-                    <div className="mb-3 flex flex-col gap-2 rounded-md border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="max-w-md">
-                        <p className="font-medium text-gray-700">
-                          {showAiDiagnosticPreviews
-                            ? 'AI Answer previews are visible for diagnostics.'
-                            : 'AI Answer previews are hidden because canonical Answer Blocks already exist for this product.'}
-                        </p>
-                        <p className="mt-0.5">
-                          For advanced inspection only. Does not affect published content or DEO
-                          Score.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setShowAiDiagnosticPreviews((previous) => !previous)
-                        }
-                        className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
-                      >
-                        {showAiDiagnosticPreviews
-                          ? 'Hide AI diagnostic previews'
-                          : 'Show AI diagnostic previews'}
-                      </button>
-                    </div>
-                  )}
-                  <div className="space-y-6">
-                    {(!hasAnswerBlocks || showAiDiagnosticPreviews) && (
-                      <ProductAnswersPanel
-                        response={answersResponse}
-                        loading={loadingAnswers}
-                        error={answersError}
-                        onGenerate={fetchAnswers}
+              <div className="space-y-6">
+                {/* Metadata Tab */}
+                {activeTab === 'metadata' && (
+                  <section aria-label="Metadata">
+                    <h2 className="mb-4 text-base font-semibold text-gray-900">Metadata</h2>
+                    <div className="space-y-6">
+                      <ProductAiSuggestionsPanel
+                        suggestion={suggestion}
+                        automationSuggestion={automationSuggestion}
+                        loading={loadingSuggestion}
+                        onGenerate={fetchSuggestion}
+                        onApply={handleApplySuggestion}
                       />
+                      <ProductSeoEditor
+                        title={editorTitle}
+                        description={editorDescription}
+                        handle={product.handle ?? product.externalId}
+                        onTitleChange={setEditorTitle}
+                        onDescriptionChange={setEditorDescription}
+                        onReset={handleReset}
+                        onApplyToShopify={handleApplyToShopify}
+                        applying={applyingToShopify}
+                      />
+                    </div>
+                  </section>
+                )}
+
+                {/* Answers Tab */}
+                {activeTab === 'answers' && (
+                  <section aria-label="Answers">
+                    <h2 className="mb-4 text-base font-semibold text-gray-900">Answers (AEO)</h2>
+                    <p className="mb-2 text-xs text-gray-500">
+                      Answer Blocks are your canonical, persistent AEO answers. When enabled in{' '}
+                      <Link
+                        href={`/projects/${projectId}/settings`}
+                        className="underline hover:text-indigo-700"
+                      >
+                        Settings
+                      </Link>
+                      , these canonical answers can be synced to Shopify as metafields.
+                    </p>
+                    {hasAnswerBlocks && (
+                      <div className="mb-3 flex flex-col gap-2 rounded-md border border-dashed border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="max-w-md">
+                          <p className="font-medium text-gray-700">
+                            {showAiDiagnosticPreviews
+                              ? 'AI Answer previews are visible for diagnostics.'
+                              : 'AI Answer previews are hidden because canonical Answer Blocks already exist for this product.'}
+                          </p>
+                          <p className="mt-0.5">
+                            For advanced inspection only. Does not affect published content or DEO
+                            Score.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowAiDiagnosticPreviews((previous) => !previous)
+                          }
+                          className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+                        >
+                          {showAiDiagnosticPreviews
+                            ? 'Hide AI diagnostic previews'
+                            : 'Show AI diagnostic previews'}
+                        </button>
+                      </div>
                     )}
-                    <ProductAnswerBlocksPanel
-                      productId={product.id}
-                      planId={planId}
-                      aeoSyncToShopifyMetafields={aeoSyncToShopifyMetafields}
-                      onBlocksLoaded={setHasAnswerBlocks}
+                    <div className="space-y-6">
+                      {(!hasAnswerBlocks || showAiDiagnosticPreviews) && (
+                        <ProductAnswersPanel
+                          response={answersResponse}
+                          loading={loadingAnswers}
+                          error={answersError}
+                          onGenerate={fetchAnswers}
+                        />
+                      )}
+                      <ProductAnswerBlocksPanel
+                        productId={product.id}
+                        planId={planId}
+                        aeoSyncToShopifyMetafields={aeoSyncToShopifyMetafields}
+                        onBlocksLoaded={setHasAnswerBlocks}
+                      />
+                    </div>
+                  </section>
+                )}
+
+                {/* Search & Intent Tab */}
+                {activeTab === 'search-intent' && (
+                  <section aria-label="Search & Intent">
+                    <h2 className="mb-4 text-base font-semibold text-gray-900">Search & Intent</h2>
+                    <p className="mb-3 text-xs text-gray-500">
+                      Analyze how well this product covers common search intents.
+                      High-value intents (transactional, comparative) have the most impact on conversions.
+                    </p>
+                    <ProductSearchIntentPanel productId={product.id} />
+                  </section>
+                )}
+
+                {/* Competitors Tab */}
+                {activeTab === 'competitors' && (
+                  <section aria-label="Competitive Positioning">
+                    <h2 className="mb-4 text-base font-semibold text-gray-900">Competitive Positioning</h2>
+                    <p className="mb-3 text-xs text-gray-500">
+                      See how this product compares to typical competitors in your category.
+                      Address gaps in intent coverage, content sections, and trust signals.
+                    </p>
+                    <ProductCompetitorsPanel productId={product.id} />
+                  </section>
+                )}
+
+                {/* GEO Tab */}
+                {activeTab === 'geo' && (
+                  <section aria-label="GEO Readiness">
+                    <h2 className="mb-4 text-base font-semibold text-gray-900">GEO Readiness</h2>
+                    <p className="mb-3 text-xs text-gray-500">
+                      Evaluate how AI-engine-ready your product content is. GEO readiness signals
+                      measure clarity, specificity, structure, context, and accessibility.
+                    </p>
+                    <ProductGeoPanel productId={product.id} />
+                  </section>
+                )}
+
+                {/* Automations Tab */}
+                {activeTab === 'automations' && (
+                  <section aria-label="Automations">
+                    <h2 className="mb-4 text-base font-semibold text-gray-900">Automations</h2>
+                    <ProductAutomationHistoryPanel productId={product.id} />
+                  </section>
+                )}
+
+                {/* [DEO-UX-REFRESH-1] Issues Tab */}
+                {activeTab === 'issues' && (
+                  <section aria-label="DEO Issues">
+                    <h2 className="mb-4 text-base font-semibold text-gray-900">DEO Issues</h2>
+                    <p className="mb-3 text-xs text-gray-500">
+                      Issues are grouped by pillar. Address them in priority order for the best DEO impact.
+                    </p>
+                    <ProductIssuesPanel
+                      productId={productId}
+                      projectId={projectId}
+                      issues={productIssues}
                     />
-                  </div>
-                </section>
-                <section id="search-intent-section" aria-label="Search & Intent">
-                  <h2 className="mb-4 text-base font-semibold text-gray-900">Search & Intent</h2>
-                  <p className="mb-3 text-xs text-gray-500">
-                    Analyze how well this product covers common search intents.
-                    High-value intents (transactional, comparative) have the most impact on conversions.
-                  </p>
-                  <ProductSearchIntentPanel productId={product.id} />
-                </section>
-                <section id="competitors-section" aria-label="Competitive Positioning">
-                  <h2 className="mb-4 text-base font-semibold text-gray-900">Competitive Positioning</h2>
-                  <p className="mb-3 text-xs text-gray-500">
-                    See how this product compares to typical competitors in your category.
-                    Address gaps in intent coverage, content sections, and trust signals.
-                  </p>
-                  <ProductCompetitorsPanel productId={product.id} />
-                </section>
-                <section id="geo-section" aria-label="GEO Readiness">
-                  <h2 className="mb-4 text-base font-semibold text-gray-900">GEO Readiness</h2>
-                  <p className="mb-3 text-xs text-gray-500">
-                    Evaluate how AI-engine-ready your product content is. GEO readiness signals
-                    measure clarity, specificity, structure, context, and accessibility.
-                  </p>
-                  <ProductGeoPanel productId={product.id} />
-                </section>
-                <section id="automations-section" aria-label="Automations">
-                  <h2 className="mb-4 text-base font-semibold text-gray-900">Automations</h2>
-                  <ProductAutomationHistoryPanel productId={product.id} />
-                </section>
+                  </section>
+                )}
               </div>
             }
             insights={<ProductDeoInsightsPanel product={product} productIssues={productIssues} />}

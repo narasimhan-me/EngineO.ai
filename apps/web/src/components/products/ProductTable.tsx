@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 
 import type { DeoIssue } from '@/lib/deo-issues';
+import type { DeoPillarId } from '@/lib/deo-pillars';
+import { getDeoPillarById } from '@/lib/deo-pillars';
 import type { Product, ProductStatus } from '@/lib/products';
 import { getProductStatus } from '@/lib/products';
-import { ProductRow } from './ProductRow';
+import { ProductRow, type PillarIssueSummary } from './ProductRow';
 
 type ProductFilter = 'all' | ProductStatus;
 
@@ -55,9 +57,13 @@ export function ProductTable({
     return products.filter((product) => getProductStatus(product) === filter);
   }, [products, filter]);
 
-  // Build a map of issues by product ID for quick lookup
+  // Build a map of issues by product ID for quick lookup, including pillar breakdown
   const issuesByProductId = useMemo(() => {
-    const map = new Map<string, { count: number; maxSeverity: 'critical' | 'warning' | 'info' | null }>();
+    const map = new Map<string, {
+      count: number;
+      maxSeverity: 'critical' | 'warning' | 'info' | null;
+      byPillar: PillarIssueSummary[];
+    }>();
     if (!productIssues) return map;
 
     for (const issue of productIssues) {
@@ -75,9 +81,31 @@ export function ProductTable({
           newMax = 'info';
         }
 
+        // Build pillar breakdown
+        const pillarId = issue.pillarId as DeoPillarId | undefined;
+        const byPillar = existing?.byPillar ?? [];
+
+        if (pillarId) {
+          const existingPillarIdx = byPillar.findIndex((p) => p.pillarId === pillarId);
+          if (existingPillarIdx >= 0) {
+            byPillar[existingPillarIdx] = {
+              ...byPillar[existingPillarIdx],
+              count: byPillar[existingPillarIdx].count + 1,
+            };
+          } else {
+            const pillar = getDeoPillarById(pillarId);
+            byPillar.push({
+              pillarId,
+              label: pillar?.shortName ?? pillarId,
+              count: 1,
+            });
+          }
+        }
+
         map.set(affectedProductId, {
           count: (existing?.count ?? 0) + 1,
           maxSeverity: newMax,
+          byPillar,
         });
       }
     }
@@ -158,6 +186,7 @@ export function ProductTable({
                 isScanning={scanningId === product.id}
                 issueCount={productIssueData?.count}
                 maxIssueSeverity={productIssueData?.maxSeverity}
+                issuesByPillar={productIssueData?.byPillar}
               />
             );
           })}
