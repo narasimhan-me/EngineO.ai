@@ -360,7 +360,11 @@ Enterprise-grade governance controls for GEO reports and content modifications.
 ### Related Documents
 
 - [ENTERPRISE_GEO_GOVERNANCE.md](./ENTERPRISE_GEO_GOVERNANCE.md) - Full specification and contracts
-- [GEO_EXPORT.md](./GEO_EXPORT.md) - GEO report export/sharing
+- [GEO_EXPORT.md](./GEO_EXPORT.md) - GEO report export/sharing (v1.1 with ENTERPRISE-GEO-1 updates)
+- [ENTERPRISE-GEO-1.md](./manual-testing/ENTERPRISE-GEO-1.md) - Manual testing guide
+- [GEO-EXPORT-1.md](./manual-testing/GEO-EXPORT-1.md) - GEO export manual testing guide
+- [ADMIN-OPS-1.md](./manual-testing/ADMIN-OPS-1.md) - Admin Operations manual testing guide (governance audit visibility)
+- [CRITICAL_PATH_MAP.md](./testing/CRITICAL_PATH_MAP.md) - CP-016 and CP-017 entries (enterprise governance scenarios)
 - [API_SPEC.md](../API_SPEC.md) - API documentation
 
 ---
@@ -380,13 +384,35 @@ Frontend-only redesign of the Products list to be decision-first with Health pil
 4. **No Always-Visible Scan SEO**: "Rescan" only visible when data is stale
 5. **Command Bar**: Shows "{N} products need attention" and "Fix in bulk" CTA
 6. **Health Filter**: All, Critical, Needs Attention, Healthy (replaces metadata status filter)
+7. **Sort by Impact**: Authoritative ladder with deterministic ordering and action-aligned clustering
 
 ### Implementation Details
 
 - **page.tsx**: Removed optimization banner, removed issues badge, added `isDeoDataStale` computation
-- **ProductTable.tsx**: New Health filter model, Command Bar, enriched `issuesByProductId` with `healthState` and `recommendedAction`
+- **ProductTable.tsx**: New Health filter model, Command Bar, enriched `issuesByProductId` with `healthState`, `recommendedAction`, and `impactCounts`; implements authoritative Sort by impact ladder
 - **ProductRow.tsx**: Health pill, recommended action line, progressive disclosure (clickable row), "View details" primary action, conditional "Rescan"
 - **ProductDetailPanel.tsx**: Shows Handle/ID, Last synced, Meta title/description, Issues by category with deep links
+
+### Sort by Impact Ladder
+
+**Primary Groups (in order):**
+1. Critical
+2. Needs Attention
+3. Healthy
+
+**Within Critical:**
+1. Missing required metadata (missing_seo_title, missing_seo_description)
+2. Blocking technical issues (technical pillar + critical severity)
+3. Combined metadata + search intent issues
+4. Other
+
+**Within Needs Attention:**
+1. Search & Intent issues
+2. Content issues
+3. Suboptimal metadata
+4. Other
+
+**Secondary sort:** Higher category-specific count first, then recommended action ascending, then title, then stable id
 
 ### Pillar Priority Order (for tie-breaking recommended action)
 
@@ -405,6 +431,8 @@ Frontend-only redesign of the Products list to be decision-first with Health pil
 2. **Single Recommended Action**: Deterministically chosen via severity > pillar priority > issue.id
 3. **Progressive Disclosure**: Default row shows only essential info; details require expansion
 4. **Pre-Crawl Safety**: Products with crawlCount === 0 show "Healthy" without implying issues were checked
+5. **Sort by Impact - Deterministic**: Uses only Health + Recommended Action + existing issue category counts + existing severity flags; no traffic/revenue/AI scoring
+6. **Sort by Impact - Stable**: Order is consistent across reloads (no jitter)
 
 ### Related Documents
 
@@ -427,3 +455,4 @@ Frontend-only redesign of the Products list to be decision-first with Health pil
 | 1.6 | 2025-12-19 | GEO-FOUNDATION-1: Updated shared package build configuration to exclude test files from dist output |
 | 1.7 | 2025-12-21 | Added ENTERPRISE-GEO-1: Enterprise Governance & Approvals (Complete) |
 | 1.8 | 2025-12-21 | Added PRODUCTS-LIST-2.0: Decision-First Products List (Complete) - Health pills, recommended actions, progressive disclosure, Command Bar |
+| 1.9 | 2025-12-21 | PRODUCTS-LIST-2.0: Added Sort by impact ladder (authoritative, deterministic, action-aligned clustering) |

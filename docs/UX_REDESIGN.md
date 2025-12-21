@@ -92,18 +92,27 @@ The panel uses a simple `grid` layout (`md:grid-cols-2`) with a soft gray backgr
 
 ## Filters
 
+> **Updated by PRODUCTS-LIST-2.0**: The filter model has changed from metadata status to Health filter. See note at top of document.
+
 The Products list now includes a simple filter bar implemented entirely on the client:
 
-- Filters:
+- Filters (PRODUCTS-LIST-2.0):
   - **All**
-  - **Needs Optimization**
-  - **Optimized**
-  - **Missing Metadata**
+  - **Critical**
+  - **Needs Attention**
+  - **Healthy**
 - Filter state is local to `ProductTable`.
-- Filter counts are computed from the loaded `products` array using the same status logic that drives the status chip.
+- Filter counts are computed from the loaded `products` array using issue-based health state logic.
 - The active filter is highlighted with a filled pill; others use a subtle gray background.
 
 No new API endpoints are introduced; filtering is done against the in-memory product list returned by `productsApi.list`.
+
+## Sort
+
+> **Updated by PRODUCTS-LIST-2.0**: Sort uses "Sort by impact" (authoritative ladder) as default.
+
+- **Sort by impact** (default): Uses a fixed authoritative ladder (Critical > Needs Attention > Healthy), with secondary ordering by issue category within each health group. No traffic/revenue/AI scoring; deterministic and stable.
+- **Sort by title**: Alphabetical by product title.
 
 ## Component Boundaries
 

@@ -105,10 +105,55 @@ PRODUCTS-LIST-2.0 redesigns the Products list to be decision-first:
 
 | Step | Action | Expected Result |
 |------|--------|-----------------|
-| 1 | Verify default sort | "Sort: Priority" selected by default |
-| 2 | Verify priority order | Critical first, then Needs Attention, then Healthy |
-| 3 | Select "Sort: Title" | Products sorted alphabetically by title |
-| 4 | Switch back to Priority | Products return to priority order |
+| 1 | Verify default sort | "Sort by impact" selected by default |
+| 2 | Verify impact order | Critical first, then Needs Attention, then Healthy |
+| 3 | Select "Sort by title" | Products sorted alphabetically by title |
+| 4 | Switch back to "Sort by impact" | Products return to impact order |
+
+---
+
+### 5a. Sort by Impact - Authoritative Ladder
+
+**URL:** `/projects/:projectId/products`
+
+This test verifies the deterministic impact-based sorting ladder.
+
+**Primary Groups (in order):**
+- Critical (Group 1)
+- Needs Attention (Group 2)
+- Healthy (Group 3)
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Verify Critical always first | All Critical products appear before any Needs Attention products |
+| 2 | Verify Needs Attention second | All Needs Attention products appear before any Healthy products |
+| 3 | Verify Healthy last | All Healthy products appear at the end of the list |
+
+**Within Critical (Group 1) - Secondary Ordering:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Find products with missing SEO title/description | These appear first within Critical |
+| 2 | Find products with blocking technical issues (critical severity, technical pillar) | These appear after missing metadata |
+| 3 | Find products with both metadata AND search intent issues | These appear after blocking technical |
+| 4 | Verify higher issue counts first | Within same category, products with more issues of that type appear first |
+
+**Within Needs Attention (Group 2) - Secondary Ordering:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Find products with search intent issues | These appear first within Needs Attention |
+| 2 | Find products with content issues | These appear after search intent |
+| 3 | Find products with suboptimal metadata issues | These appear after content |
+| 4 | Verify higher issue counts first | Within same category, products with more issues of that type appear first |
+
+**Stability Tests:**
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Reload the page multiple times | Order remains exactly the same (no jitter) |
+| 2 | Toggle filters and return to "All" | Order remains exactly the same |
+| 3 | Verify action clustering | Products with same recommended action appear consecutively when applicable |
 
 ---
 
@@ -217,7 +262,7 @@ PRODUCTS-LIST-2.0 redesigns the Products list to be decision-first:
 
 | Step | Action | Expected Result |
 |------|--------|-----------------|
-| 1 | Navigate to product workspace | AI-triggering buttons still show "(uses AI)" |
+| 1 | Navigate to product workspace | AI-triggering buttons show "(uses AI)" |
 | 2 | Verify "View details" | Does NOT have "(uses AI)" label |
 | 3 | Verify "Rescan" | Does NOT have "(uses AI)" label |
 
@@ -243,6 +288,8 @@ These invariants MUST be verified:
 5. **Command Bar Accuracy**: "{N} products need attention" count matches Critical + Needs Attention filter counts
 6. **Deep Links Work**: Pillar links in expanded details navigate to correct product workspace tab/filter
 7. **Pre-Crawl Safety**: Products with crawlCount === 0 show "Healthy" without implying issues were checked
+8. **Sort by Impact - Deterministic**: Sort uses only Health + existing issue category counts + existing severity flags; no traffic/revenue/AI scoring
+9. **Sort by Impact - Stable**: Order is consistent across reloads (no jitter)
 
 ---
 
@@ -259,3 +306,4 @@ These invariants MUST be verified:
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2025-12-21 | Initial manual testing guide for PRODUCTS-LIST-2.0 |
+| 1.1 | 2025-12-21 | Added Sort by impact authoritative ladder test scenarios (5a); updated labels from "Sort: Priority/Title" to "Sort by impact/title"; added deterministic/stable trust contracts |

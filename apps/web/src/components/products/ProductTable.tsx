@@ -13,8 +13,8 @@ export type HealthState = 'Healthy' | 'Needs Attention' | 'Critical';
 /** Health filter options */
 type HealthFilter = 'All' | HealthState;
 
-/** Sort options */
-type SortOption = 'Priority' | 'Title';
+/** Sort options - Impact is the authoritative default */
+type SortOption = 'Impact' | 'Title';
 
 /** Pillar priority order for tie-breaking recommended action */
 const PILLAR_PRIORITY: DeoPillarId[] = [
@@ -40,6 +40,112 @@ const PILLAR_TO_ACTION: Record<DeoPillarId, string> = {
   local_discovery: 'Improve local discovery',
 };
 
+/** Issue types that indicate missing required metadata */
+const MISSING_REQUIRED_METADATA_TYPES = ['missing_seo_title', 'missing_seo_description'];
+
+/**
+ * Category counts for impact-based sorting
+ */
+interface ImpactCategoryCounts {
+  missingRequiredMetadataCount: number;
+  technicalBlockingCount: number;
+  metadataIssueCount: number;
+  searchIntentIssueCount: number;
+  contentIssueCount: number;
+  combinedMetaAndIntentCount: number;
+  totalIssueCount: number;
+}
+
+/**
+ * Compute impact category counts from issues for a product
+ */
+function computeImpactCounts(issues: DeoIssue[]): ImpactCategoryCounts {
+  let missingRequiredMetadataCount = 0;
+  let technicalBlockingCount = 0;
+  let metadataIssueCount = 0;
+  let searchIntentIssueCount = 0;
+  let contentIssueCount = 0;
+
+  for (const issue of issues) {
+    // Missing required metadata (by issue type)
+    if (issue.type && MISSING_REQUIRED_METADATA_TYPES.includes(issue.type)) {
+      missingRequiredMetadataCount++;
+    }
+
+    // Technical blocking (pillar + critical severity)
+    if (issue.pillarId === 'technical_indexability' && issue.severity === 'critical') {
+      technicalBlockingCount++;
+    }
+
+    // Pillar-based counts
+    if (issue.pillarId === 'metadata_snippet_quality') {
+      metadataIssueCount++;
+    }
+    if (issue.pillarId === 'search_intent_fit') {
+      searchIntentIssueCount++;
+    }
+    if (issue.pillarId === 'content_commerce_signals') {
+      contentIssueCount++;
+    }
+  }
+
+  return {
+    missingRequiredMetadataCount,
+    technicalBlockingCount,
+    metadataIssueCount,
+    searchIntentIssueCount,
+    contentIssueCount,
+    combinedMetaAndIntentCount: metadataIssueCount + searchIntentIssueCount,
+    totalIssueCount: issues.length,
+  };
+}
+
+/**
+ * Get the impact category for Critical products (Group 1)
+ * Returns: 0 = missing metadata, 1 = blocking technical, 2 = combined meta+intent, 3 = other
+ */
+function getCriticalCategory(counts: ImpactCategoryCounts): number {
+  if (counts.missingRequiredMetadataCount > 0) return 0;
+  if (counts.technicalBlockingCount > 0) return 1;
+  if (counts.metadataIssueCount > 0 && counts.searchIntentIssueCount > 0) return 2;
+  return 3;
+}
+
+/**
+ * Get the primary count for the Critical category (for secondary sort)
+ */
+function getCriticalPrimaryCount(counts: ImpactCategoryCounts, category: number): number {
+  switch (category) {
+    case 0: return counts.missingRequiredMetadataCount;
+    case 1: return counts.technicalBlockingCount;
+    case 2: return counts.combinedMetaAndIntentCount;
+    default: return counts.totalIssueCount;
+  }
+}
+
+/**
+ * Get the impact category for Needs Attention products (Group 2)
+ * Returns: 0 = search intent, 1 = content, 2 = metadata, 3 = other
+ */
+function getNeedsAttentionCategory(counts: ImpactCategoryCounts): number {
+  if (counts.searchIntentIssueCount > 0) return 0;
+  if (counts.contentIssueCount > 0) return 1;
+  if (counts.metadataIssueCount > 0) return 2;
+  return 3;
+}
+
+/**
+ * Get the primary count for the Needs Attention category (for secondary sort)
+ */
+function getNeedsAttentionPrimaryCount(counts: ImpactCategoryCounts, category: number): number {
+  switch (category) {
+    case 0: return counts.searchIntentIssueCount;
+    case 1: return counts.contentIssueCount;
+    case 2: return counts.metadataIssueCount;
+    default: return counts.totalIssueCount;
+  }
+}
+
 interface ProductTableProps {
   products: Product[];
   projectId: string;
@@ -62,10 +168,10 @@ export function ProductTable({
   isDeoDataStale = false,
 }: ProductTableProps) {
   const [healthFilter, setHealthFilter] = useState<HealthFilter>('All');
-  const [sortOption, setSortOption] = useState<SortOption>('Priority');
+  const [sortOption, setSortOption] = useState<SortOption>('Impact');
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
 
-  // Build enriched issue map with healthState and recommendedAction per product
+  // Build enriched issue map with healthState, recommendedAction, and impact counts per product
   const issuesByProductId = useMemo(() => {
     const map = new Map<string, {
       count: number;
@@ -74,6 +180,7 @@ export function ProductTable({
       recommendedAction: string;
       byPillar: PillarIssueSummary[];
       issues: DeoIssue[];
+      impactCounts: ImpactCategoryCounts;
     }>();
 
     if (!productIssues) return map;
@@ -88,7 +195,7 @@ export function ProductTable({
       }
     }
 
-    // Second pass: compute health state, recommended action, and pillar breakdown
+    // Second pass: compute health state, recommended action, pillar breakdown, and impact counts
     for (const [productId, issues] of issuesByProduct) {
       // Determine health state
       const hasCritical = issues.some((i) => i.severity === 'critical');
@@ -154,6 +261,9 @@ export function ProductTable({
         });
       }
 
+      // Compute impact category counts
+      const impactCounts = computeImpactCounts(issues);
+
       map.set(productId, {
         count: issues.length,
         maxSeverity,
@@ -161,6 +271,7 @@ export function ProductTable({
         recommendedAction,
         byPillar,
         issues,
+        impactCounts,
       });
     }
 
@@ -196,18 +307,70 @@ export function ProductTable({
     // Apply sort
     const sorted = [...filtered].sort((a, b) => {
       if (sortOption === 'Title') {
-        return a.title.localeCompare(b.title);
+        // Sort by title, then stable fallback
+        const titleCmp = a.title.localeCompare(b.title);
+        if (titleCmp !== 0) return titleCmp;
+        return a.id.localeCompare(b.id);
       }
-      // Priority: Critical first, then Needs Attention, then Healthy
+
+      // Sort by impact (authoritative ladder)
+      const dataA = issuesByProductId.get(a.id);
+      const dataB = issuesByProductId.get(b.id);
+      const healthA = dataA?.healthState ?? 'Healthy';
+      const healthB = dataB?.healthState ?? 'Healthy';
+
+      // Primary: Health group (Critical=0, Needs Attention=1, Healthy=2)
       const healthOrder: Record<HealthState, number> = { Critical: 0, 'Needs Attention': 1, Healthy: 2 };
-      const healthA = issuesByProductId.get(a.id)?.healthState ?? 'Healthy';
-      const healthB = issuesByProductId.get(b.id)?.healthState ?? 'Healthy';
-      const orderDiff = healthOrder[healthA] - healthOrder[healthB];
-      if (orderDiff !== 0) return orderDiff;
-      // Secondary sort by issue count (descending)
-      const countA = issuesByProductId.get(a.id)?.count ?? 0;
-      const countB = issuesByProductId.get(b.id)?.count ?? 0;
-      return countB - countA;
+      const healthDiff = healthOrder[healthA] - healthOrder[healthB];
+      if (healthDiff !== 0) return healthDiff;
+
+      // Default impact counts for products with no issues
+      const defaultCounts: ImpactCategoryCounts = {
+        missingRequiredMetadataCount: 0,
+        technicalBlockingCount: 0,
+        metadataIssueCount: 0,
+        searchIntentIssueCount: 0,
+        contentIssueCount: 0,
+        combinedMetaAndIntentCount: 0,
+        totalIssueCount: 0,
+      };
+      const countsA = dataA?.impactCounts ?? defaultCounts;
+      const countsB = dataB?.impactCounts ?? defaultCounts;
+
+      // Within-group ordering based on health state
+      if (healthA === 'Critical') {
+        // Critical ordering: missing metadata > blocking technical > combined meta+intent > other
+        const catA = getCriticalCategory(countsA);
+        const catB = getCriticalCategory(countsB);
+        if (catA !== catB) return catA - catB;
+
+        // Secondary: higher category count first (descending)
+        const primaryCountA = getCriticalPrimaryCount(countsA, catA);
+        const primaryCountB = getCriticalPrimaryCount(countsB, catB);
+        if (primaryCountA !== primaryCountB) return primaryCountB - primaryCountA;
+      } else if (healthA === 'Needs Attention') {
+        // Needs Attention ordering: search intent > content > metadata > other
+        const catA = getNeedsAttentionCategory(countsA);
+        const catB = getNeedsAttentionCategory(countsB);
+        if (catA !== catB) return catA - catB;
+
+        // Secondary: higher category count first (descending)
+        const primaryCountA = getNeedsAttentionPrimaryCount(countsA, catA);
+        const primaryCountB = getNeedsAttentionPrimaryCount(countsB, catB);
+        if (primaryCountA !== primaryCountB) return primaryCountB - primaryCountA;
+      }
+      // Healthy: no category ordering, fall through to stable sort
+
+      // Stable fallback: recommended action (ascending), then title, then id
+      const actionA = dataA?.recommendedAction ?? 'No action needed';
+      const actionB = dataB?.recommendedAction ?? 'No action needed';
+      const actionCmp = actionA.localeCompare(actionB);
+      if (actionCmp !== 0) return actionCmp;
+
+      const titleCmp = a.title.localeCompare(b.title);
+      if (titleCmp !== 0) return titleCmp;
+
+      return a.id.localeCompare(b.id);
     });
 
     return sorted;
@@ -279,8 +442,8 @@ export function ProductTable({
             onChange={(e) => setSortOption(e.target.value as SortOption)}
             className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
-            <option value="Priority">Sort: Priority</option>
-            <option value="Title">Sort: Title</option>
+            <option value="Impact">Sort by impact</option>
+            <option value="Title">Sort by title</option>
           </select>
         </div>
       </div>
