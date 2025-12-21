@@ -459,6 +459,48 @@ export interface AutomationPlaybookRun {
   updatedAt?: string;
 }
 
+/**
+ * Result from generating automation playbook drafts (AI-powered).
+ */
+export interface AutomationPlaybookDraftGenerateResult {
+  projectId: string;
+  playbookId: AutomationPlaybookId;
+  scopeId: string;
+  rulesHash: string;
+  counts: {
+    affectedTotal: number;
+    draftGenerated: number;
+    noSuggestionCount: number;
+  };
+  aiCalled: boolean;
+  draftId?: string;
+}
+
+/**
+ * Draft status for automation playbooks.
+ */
+export type AutomationPlaybookDraftStatus = 'PENDING' | 'READY' | 'APPLIED' | 'EXPIRED' | 'STALE';
+
+/**
+ * Automation playbook draft metadata.
+ */
+export interface AutomationPlaybookDraft {
+  id: string;
+  projectId: string;
+  playbookId: AutomationPlaybookId;
+  scopeId: string;
+  rulesHash: string;
+  status: AutomationPlaybookDraftStatus;
+  counts: {
+    affectedTotal: number;
+    draftGenerated: number;
+    noSuggestionCount: number;
+  };
+  createdAt: string;
+  updatedAt?: string;
+  expiresAt?: string;
+}
+
 // AI-USAGE-1: AI Usage Ledger Types
 export type AutomationPlaybookAiUsageRunType = 'PREVIEW_GENERATE' | 'DRAFT_GENERATE' | 'APPLY';
 
@@ -676,6 +718,36 @@ export const projectsApi = {
       `/projects/${projectId}/automation-playbooks/runs${qs}`,
     );
   },
+
+  /**
+   * Generate a draft for an automation playbook (uses AI).
+   * Returns counts for affected products, drafts generated, and those needing attention.
+   */
+  generateAutomationPlaybookDraft: (
+    projectId: string,
+    playbookId: AutomationPlaybookId,
+    scopeId: string,
+    rulesHash: string,
+  ): Promise<AutomationPlaybookDraftGenerateResult> =>
+    fetchWithAuth(
+      `/projects/${projectId}/automation-playbooks/${playbookId}/draft/generate`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ scopeId, rulesHash }),
+      },
+    ),
+
+  /**
+   * Get the latest draft for an automation playbook.
+   * Used to detect existing READY drafts for resumable state.
+   */
+  getLatestAutomationPlaybookDraft: (
+    projectId: string,
+    playbookId: AutomationPlaybookId,
+  ): Promise<AutomationPlaybookDraft | null> =>
+    fetchWithAuth(
+      `/projects/${projectId}/automation-playbooks/${playbookId}/draft/latest`,
+    ),
 
   delete: (id: string) =>
     fetchWithAuth(`/projects/${id}`, {

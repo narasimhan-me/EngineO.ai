@@ -385,13 +385,16 @@ Frontend-only redesign of the Products list to be decision-first with Health pil
 5. **Command Bar**: Shows "{N} products need attention" and "Fix in bulk" CTA
 6. **Health Filter**: All, Critical, Needs Attention, Healthy (replaces metadata status filter)
 7. **Sort by Impact**: Authoritative ladder with deterministic ordering and action-aligned clustering
+8. **Bulk-Action Confirmation UX**: 3-step, draft-first flow with scope transparency, AI disclosure, and no one-click apply
 
 ### Implementation Details
 
 - **page.tsx**: Removed optimization banner, removed issues badge, added `isDeoDataStale` computation
-- **ProductTable.tsx**: New Health filter model, Command Bar, enriched `issuesByProductId` with `healthState`, `recommendedAction`, and `impactCounts`; implements authoritative Sort by impact ladder
+- **ProductTable.tsx**: New Health filter model, Command Bar, enriched `issuesByProductId` with `healthState`, `recommendedAction`, and `impactCounts`; implements authoritative Sort by impact ladder; bulk action modal with 3-step flow (selection → preview/generate → apply)
 - **ProductRow.tsx**: Health pill, recommended action line, progressive disclosure (clickable row), "View details" primary action, conditional "Rescan"
 - **ProductDetailPanel.tsx**: Shows Handle/ID, Last synced, Meta title/description, Issues by category with deep links
+- **api.ts**: Added `generateAutomationPlaybookDraft()` and `getLatestAutomationPlaybookDraft()` for draft lifecycle support
+- **Playbooks page.tsx**: Added `playbookId` URL param support for deep-linking from bulk action "Review changes"
 
 ### Sort by Impact Ladder
 
@@ -433,6 +436,9 @@ Frontend-only redesign of the Products list to be decision-first with Health pil
 4. **Pre-Crawl Safety**: Products with crawlCount === 0 show "Healthy" without implying issues were checked
 5. **Sort by Impact - Deterministic**: Uses only Health + Recommended Action + existing issue category counts + existing severity flags; no traffic/revenue/AI scoring
 6. **Sort by Impact - Stable**: Order is consistent across reloads (no jitter)
+7. **No Silent Bulk Apply**: Bulk apply requires explicit user confirmation; no one-click apply
+8. **AI Used Only on Generate Drafts**: Draft generation uses AI (with explicit disclosure); Apply does not use AI
+9. **Scope Transparency**: Bulk action modal shows full product list and affected fields before any action
 
 ### Related Documents
 
@@ -456,3 +462,4 @@ Frontend-only redesign of the Products list to be decision-first with Health pil
 | 1.7 | 2025-12-21 | Added ENTERPRISE-GEO-1: Enterprise Governance & Approvals (Complete) |
 | 1.8 | 2025-12-21 | Added PRODUCTS-LIST-2.0: Decision-First Products List (Complete) - Health pills, recommended actions, progressive disclosure, Command Bar |
 | 1.9 | 2025-12-21 | PRODUCTS-LIST-2.0: Added Sort by impact ladder (authoritative, deterministic, action-aligned clustering) |
+| 2.0 | 2025-12-21 | PRODUCTS-LIST-2.0: Added Bulk-action confirmation UX (3-step, draft-first, no one-click apply) with API client methods for draft lifecycle and deep-link support |

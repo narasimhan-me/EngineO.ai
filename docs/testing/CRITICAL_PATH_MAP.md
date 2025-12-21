@@ -108,6 +108,7 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 - [ ] PRODUCTS-LIST-2.0: No always-visible "Scan SEO"; "Rescan" only when data is stale
 - [ ] PRODUCTS-LIST-2.0: Command Bar with attention count and "Fix in bulk" CTA
 - [ ] PRODUCTS-LIST-2.0: Sort by impact uses fixed ladder (Critical: missing metadata > blocking technical > combined; Needs Attention: intent > content > metadata), deterministic and stable across reloads
+- [ ] PRODUCTS-LIST-2.0: Bulk action confirmation (3-step flow) — scope listed, AI disclosure on Generate drafts, Apply updates disabled until drafts exist, Apply uses no AI, partial failures handled with retry
 
 ---
 
@@ -614,3 +615,4 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 | 3.5 | 2025-12-21 | ENTERPRISE-GEO-1: Extended CP-016 and CP-017 with enterprise governance scenarios (passcode share links, mutation-free views, approval workflows, audit logging). No new CP introduced—governance extends existing GEO paths. |
 | 3.6 | 2025-12-21 | PRODUCTS-LIST-2.0: Updated CP-003 with decision-first Products list scenarios (Health pill, recommended action, progressive disclosure, Rescan gating, Command Bar). Replaced DEO-UX-REFRESH-1 product-list bullets. Added manual testing doc. |
 | 3.7 | 2025-12-21 | PRODUCTS-LIST-2.0: Added Sort by impact scenario to CP-003 (authoritative ladder, deterministic, stable). |
+| 3.8 | 2025-12-21 | PRODUCTS-LIST-2.0: Added Bulk action confirmation scenario to CP-003 (3-step flow, AI disclosure, Apply uses no AI, partial failure handling). |

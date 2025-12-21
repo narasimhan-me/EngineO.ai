@@ -152,14 +152,22 @@ export default function AutomationPlaybooksPage() {
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [cnabDismissed, setCnabDismissed] = useState(false);
 
+  // Deep-link support: read playbookId from URL query params
+  const urlPlaybookId = searchParams.get('playbookId') as PlaybookId | null;
+  const validUrlPlaybookId =
+    urlPlaybookId === 'missing_seo_title' || urlPlaybookId === 'missing_seo_description'
+      ? urlPlaybookId
+      : null;
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [projectName, setProjectName] = useState<string | null>(null);
   const [planId, setPlanId] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [issues, setIssues] = useState<DeoIssue[]>([]);
+  // Initialize from URL param if valid, otherwise default to 'missing_seo_title'
   const [selectedPlaybookId, setSelectedPlaybookId] =
-    useState<PlaybookId | null>('missing_seo_title');
+    useState<PlaybookId | null>(validUrlPlaybookId ?? 'missing_seo_title');
   const [flowState, setFlowState] = useState<PlaybookFlowState>('PREVIEW_READY');
   const [previewSamples, setPreviewSamples] = useState<PreviewSample[]>([]);
   const [loadingPreview, setLoadingPreview] = useState(false);

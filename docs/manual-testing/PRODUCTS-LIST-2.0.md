@@ -240,6 +240,127 @@ This test verifies the deterministic impact-based sorting ladder.
 
 ---
 
+## Bulk-Action Confirmation UX
+
+This section covers the 3-step bulk action flow for "Fix missing metadata".
+
+### 12. Bulk Action Entry Conditions
+
+**URL:** `/projects/:projectId/products`
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Verify bulk action button visibility | "Fix missing metadata (N products)" button only visible when needsAttentionCount > 0 AND sort is "Sort by impact" |
+| 2 | Switch to "Sort by title" | Bulk action button hidden; "View playbooks" link shown instead |
+| 3 | Switch back to "Sort by impact" | Bulk action button reappears |
+| 4 | Test with all healthy products | No bulk action button (needsAttentionCount = 0) |
+
+---
+
+### 13. Step 1 - Selection (No Execution)
+
+**URL:** `/projects/:projectId/products`
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Click "Fix missing metadata (N products)" | Selection context strip appears below Command Bar |
+| 2 | Verify context strip content | Shows action name and product count |
+| 3 | Verify "Review scope" button | Button visible in selection strip |
+| 4 | Verify "Clear" button | Button visible; clicking clears selection |
+| 5 | Verify no modal opened | Modal does NOT open on button click |
+| 6 | Verify no AI called | No network request to AI endpoints |
+
+---
+
+### 14. Step 2 - Preview Modal (Scope Confirmation)
+
+**URL:** `/projects/:projectId/products` (with selection active)
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Click "Review scope" | Modal opens |
+| 2 | Verify action summary | Shows "You're about to generate draft metadata for N products" |
+| 3 | Verify product list | Scrollable list of affected product names |
+| 4 | Verify fields disclosure | Shows "Title" and "Description" badges |
+| 5 | Verify field breakdown | Shows "Missing title: X products / Missing description: Y products" |
+| 6 | Verify AI disclosure | Shows lightning bolt icon + "This step uses AI to generate drafts. Nothing will be applied automatically." |
+| 7 | Verify "Generate drafts" button | Primary action button visible |
+| 8 | Verify "Cancel" button | Secondary button closes modal without action |
+| 9 | Cancel and verify state | Modal closes; selection persists |
+
+---
+
+### 15. Step 3a - Draft Generation (Uses AI)
+
+**URL:** `/projects/:projectId/products` (with modal open)
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Click "Generate drafts" | Loading spinner appears; button disabled |
+| 2 | Wait for completion | Success message: "X drafts created" (optionally ", Y need attention") |
+| 3 | Verify per-field breakdown | If both playbooks ran: "Titles: X generated" and "Descriptions: Y generated" |
+| 4 | Verify "Apply updates" button | Button now enabled |
+| 5 | Verify "Review changes" link | Link to `/projects/:projectId/automation/playbooks?playbookId=missing_seo_title` |
+| 6 | Verify apply disclosure | Shows checkmark + "Apply updates does not use AI." |
+
+---
+
+### 16. Step 3b - Apply (No AI)
+
+**URL:** `/projects/:projectId/products` (with drafts ready)
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Click "Apply updates" | Loading spinner appears |
+| 2 | Wait for completion | Success message: "Applied updates to N products" |
+| 3 | Verify no AI network calls | Apply request does not call AI endpoints |
+| 4 | Verify "Close" button | Button text changes from "Cancel" to "Close" |
+| 5 | Close modal | Modal closes; products list refreshes to reflect changes |
+
+---
+
+### 17. Cancel / Back Out Safely
+
+**URL:** `/projects/:projectId/products`
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Select bulk action, open modal | Modal visible |
+| 2 | Click "Cancel" before generating | Modal closes; no drafts generated |
+| 3 | Click X button | Same behavior as Cancel |
+| 4 | Verify no side effects | No AI calls made; no changes applied |
+| 5 | Re-open modal | Can start fresh |
+
+---
+
+### 18. Partial Failure Handling
+
+**URL:** `/projects/:projectId/products` (simulate partial failure)
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Generate drafts with some failures | Shows "X drafts created, Y need attention" |
+| 2 | Verify "Retry" button | Button available to retry failed items |
+| 3 | Click "Retry" | Re-runs draft generation for failed items only |
+| 4 | Verify "Apply updates" still works | Can apply successful drafts even if some failed |
+| 5 | Verify error details | Error message displayed in modal (not just toast) |
+
+---
+
+### 19. Copy Rules Compliance
+
+**URL:** `/projects/:projectId/products`
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Verify bulk button text | Exactly "Fix missing metadata (N products)" |
+| 2 | Verify generate button text | Exactly "Generate drafts" |
+| 3 | Verify review link text | Exactly "Review changes" |
+| 4 | Verify apply button text | Exactly "Apply updates" |
+| 5 | Verify no disallowed phrases | No "optimize", "boost", "supercharge", "magic" in UI copy |
+
+---
+
 ## Regression Checks
 
 ### RC-001: Product Workspace Still Loads
@@ -290,6 +411,9 @@ These invariants MUST be verified:
 7. **Pre-Crawl Safety**: Products with crawlCount === 0 show "Healthy" without implying issues were checked
 8. **Sort by Impact - Deterministic**: Sort uses only Health + existing issue category counts + existing severity flags; no traffic/revenue/AI scoring
 9. **Sort by Impact - Stable**: Order is consistent across reloads (no jitter)
+10. **No Silent Bulk Apply**: Bulk apply requires explicit user confirmation; no one-click apply
+11. **AI Used Only on Generate Drafts**: Draft generation uses AI (with explicit disclosure); Apply does not use AI
+12. **Scope Transparency**: Bulk action modal shows full product list and affected fields before any action
 
 ---
 
@@ -307,3 +431,4 @@ These invariants MUST be verified:
 |---------|------|---------|
 | 1.0 | 2025-12-21 | Initial manual testing guide for PRODUCTS-LIST-2.0 |
 | 1.1 | 2025-12-21 | Added Sort by impact authoritative ladder test scenarios (5a); updated labels from "Sort: Priority/Title" to "Sort by impact/title"; added deterministic/stable trust contracts |
+| 1.2 | 2025-12-21 | Added Bulk-Action Confirmation UX section (scenarios 12-19); added trust contracts for no silent bulk apply, AI disclosure, and scope transparency |
