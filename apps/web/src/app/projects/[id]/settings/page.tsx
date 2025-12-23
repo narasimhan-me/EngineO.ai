@@ -500,7 +500,7 @@ export default function ProjectSettingsPage() {
       {/* [ENTERPRISE-GEO-1] Governance Settings Section */}
       <GovernanceSettingsSection
         projectId={projectId}
-        onUnsavedChanges={(hasGovernanceChanges) => {
+        onUnsavedChanges={(_hasGovernanceChanges) => {
           // Governance section manages its own save button
         }}
       />

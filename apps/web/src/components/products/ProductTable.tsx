@@ -11,7 +11,6 @@ import {
   projectsApi,
   type AutomationPlaybookId,
   type AutomationPlaybookEstimate,
-  type AutomationPlaybookDraftGenerateResult,
   type AutomationPlaybookApplyResult,
 } from '@/lib/api';
 
@@ -400,19 +399,6 @@ export function ProductTable({
       `/projects/${projectId}/automation/playbooks/entry?source=products_bulk&intent=missing_metadata`,
     );
   }, [projectId, bulkMetadataEligible, router]);
-
-  // Handle bulk action selection (Step 1)
-  const handleSelectBulkAction = useCallback((actionType: BulkActionType) => {
-    if (actionType === 'Fix missing metadata') {
-      setBulkSelection({
-        actionType,
-        productIds: bulkMetadataEligible.map((p) => p.productId),
-        productNames: bulkMetadataEligible.map((p) => p.productName),
-        missingTitleCount: bulkMetadataMissingTitleCount,
-        missingDescriptionCount: bulkMetadataMissingDescCount,
-      });
-    }
-  }, [bulkMetadataEligible, bulkMetadataMissingTitleCount, bulkMetadataMissingDescCount]);
 
   // Clear bulk action selection
   const handleClearBulkSelection = useCallback(() => {

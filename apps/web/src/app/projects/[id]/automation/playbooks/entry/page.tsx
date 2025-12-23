@@ -344,7 +344,7 @@ export default function AutomationPlaybooksEntryPage() {
         <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
           <h2 className="text-sm font-semibold text-amber-900">Coming soon</h2>
           <p className="mt-1 text-sm text-amber-800">
-            This automation intent is not supported in v1. Only "Fix missing metadata" is available.
+            This automation intent is not supported in v1. Only &ldquo;Fix missing metadata&rdquo; is available.
           </p>
         </div>
       )}
