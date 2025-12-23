@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -39,6 +40,9 @@ import {
   AutomationPlaybookRunType,
 } from './automation-playbook-runs.service';
 import { ProjectInsightsService } from './project-insights.service';
+import { GovernanceService } from './governance.service';
+import { ApprovalsService } from './approvals.service';
+import { RoleResolutionService } from '../common/role-resolution.service';
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard)
@@ -55,6 +59,9 @@ export class ProjectsController {
     private readonly automationPlaybooksService: AutomationPlaybooksService,
     private readonly automationPlaybookRunsService: AutomationPlaybookRunsService,
     private readonly projectInsightsService: ProjectInsightsService,
+    private readonly governanceService: GovernanceService,
+    private readonly approvalsService: ApprovalsService,
+    private readonly roleResolutionService: RoleResolutionService,
   ) {}
 
   /**
@@ -443,6 +450,10 @@ export class ProjectsController {
    * Requires scopeId from the estimate response to ensure the apply targets
    * the exact same set of products that was previewed/estimated, and rulesHash
    * to bind apply to the rules snapshot used for draft generation.
+   *
+   * [ROLES-2] Added role and approval gating:
+   * - VIEWER role is blocked from apply
+   * - If governance policy requires approval, returns APPROVAL_REQUIRED error
    */
   @Post(':id/automation-playbooks/apply')
   async applyAutomationPlaybook(
@@ -454,6 +465,8 @@ export class ProjectsController {
       scopeId: string;
       rulesHash: string;
       scopeProductIds?: string[];
+      /** [ROLES-2] Optional approval ID for governance-gated apply */
+      approvalId?: string;
     },
   ) {
     if (!body?.playbookId) {
@@ -465,8 +478,54 @@ export class ProjectsController {
     if (!body?.rulesHash) {
       throw new BadRequestException('rulesHash is required');
     }
+
+    const userId = req.user.id as string;
+
+    // [ROLES-2] Role check: VIEWER cannot apply
+    const effectiveRole = await this.roleResolutionService.resolveEffectiveRole(
+      projectId,
+      userId,
+    );
+    const capabilities = this.roleResolutionService.getCapabilities(effectiveRole);
+
+    if (!capabilities.canApply) {
+      throw new ForbiddenException(
+        'Viewer role cannot apply automation playbooks. Preview and export remain available.',
+      );
+    }
+
+    // [ROLES-2] Governance approval check
+    const approvalRequired = await this.governanceService.isApprovalRequired(projectId);
+
+    if (approvalRequired) {
+      // Resource ID is scoped to the specific playbook apply operation
+      const resourceId = `${body.playbookId}:${body.scopeId}`;
+
+      // Check for valid approval
+      const hasApproval = await this.approvalsService.hasValidApproval(
+        projectId,
+        'AUTOMATION_PLAYBOOK_APPLY',
+        resourceId,
+      );
+
+      if (!hasApproval) {
+        // Return structured approval required error for UI
+        throw new ForbiddenException({
+          code: 'APPROVAL_REQUIRED',
+          message: 'Approval is required before applying this automation playbook.',
+          resourceType: 'AUTOMATION_PLAYBOOK_APPLY',
+          resourceId,
+        });
+      }
+
+      // Mark approval as consumed
+      if (body.approvalId) {
+        await this.approvalsService.markConsumed(body.approvalId);
+      }
+    }
+
     return this.automationPlaybooksService.applyPlaybook(
-      req.user.id,
+      userId,
       projectId,
       body.playbookId,
       body.scopeId,

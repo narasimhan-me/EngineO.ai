@@ -237,6 +237,69 @@ export interface AuditEventListResponse {
 }
 
 /**
+ * [ROLES-2] Effective project role for role-based access control.
+ * Single-user emulation: OWNER by default, can simulate VIEWER/EDITOR.
+ */
+export type EffectiveProjectRole = 'OWNER' | 'EDITOR' | 'VIEWER';
+
+/**
+ * [ROLES-2] Role capabilities for UI state derivation.
+ */
+export interface RoleCapabilities {
+  canView: boolean;
+  canRequestApproval: boolean;
+  canApprove: boolean;
+  canApply: boolean;
+  canModifySettings: boolean;
+}
+
+/**
+ * [ROLES-2] Get role capabilities for a given effective role.
+ */
+export function getRoleCapabilities(role: EffectiveProjectRole): RoleCapabilities {
+  switch (role) {
+    case 'OWNER':
+      return {
+        canView: true,
+        canRequestApproval: true,
+        canApprove: true,
+        canApply: true,
+        canModifySettings: true,
+      };
+    case 'EDITOR':
+      return {
+        canView: true,
+        canRequestApproval: true,
+        canApprove: false,
+        canApply: true,
+        canModifySettings: false,
+      };
+    case 'VIEWER':
+      return {
+        canView: true,
+        canRequestApproval: true,
+        canApprove: false,
+        canApply: false,
+        canModifySettings: false,
+      };
+  }
+}
+
+/**
+ * [ROLES-2] Get display label for a role.
+ */
+export function getRoleDisplayLabel(role: EffectiveProjectRole): string {
+  switch (role) {
+    case 'OWNER':
+      return 'Project Owner';
+    case 'EDITOR':
+      return 'Editor';
+    case 'VIEWER':
+      return 'Viewer';
+  }
+}
+
+/**
  * Custom API error with optional error code for special handling
  */
 export class ApiError extends Error {
@@ -913,10 +976,12 @@ export const projectsApi = {
       body: JSON.stringify(updates),
     }),
 
-  /** Create an approval request */
+  /** Create an approval request
+   * [ROLES-2] Added AUTOMATION_PLAYBOOK_APPLY resource type
+   */
   createApprovalRequest: (
     projectId: string,
-    params: { resourceType: 'GEO_FIX_APPLY' | 'ANSWER_BLOCK_SYNC'; resourceId: string },
+    params: { resourceType: 'GEO_FIX_APPLY' | 'ANSWER_BLOCK_SYNC' | 'AUTOMATION_PLAYBOOK_APPLY'; resourceId: string },
   ): Promise<ApprovalRequestResponse> =>
     fetchWithAuth(`/projects/${projectId}/governance/approvals`, {
       method: 'POST',

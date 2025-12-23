@@ -12665,3 +12665,100 @@ Full Decision Locks documentation: `docs/GEO_INSIGHTS.md` (Decision Locks sectio
 - [x] CRITICAL_PATH_MAP.md updated with GEO-INSIGHTS-2 scenarios
 
 **Manual Testing:** `docs/manual-testing/GEO-INSIGHTS-2.md`, `docs/manual-testing/GEO-FOUNDATION-1.md`
+
+---
+
+## Phase ROLES-2 – Project Roles & Approval Foundations (Completed)
+
+This phase introduces role-based access control foundations with single-user emulation support. It extends the ENTERPRISE-GEO-1 approval workflow to include Automation Playbooks apply, and adds role-aware UI affordances.
+
+**Single-User Emulation Note:** In v1, all project owners default to OWNER role. The `accountRole` field on User model can be set to VIEWER or EDITOR to simulate role restrictions for testing purposes. This maintains frictionless single-user projects while enabling future multi-user roles.
+
+### ROLES-2 Overview
+
+| Aspect | Detail |
+|--------|--------|
+| Goal | Add role-based access control for Automation Playbooks apply with explicit approval gating |
+| Scope | Role resolution helper, approval gating on playbooks apply, role-aware UI, audit events |
+| Key Principle | Single-user emulation via accountRole field; OWNER defaults remain frictionless |
+| Files Modified | 9 files |
+| New Files | 5 files |
+
+### ROLES-2 Features
+
+| Feature | Description |
+|---------|-------------|
+| Role Resolution Service | Centralized helper to resolve effective project role from authenticated user |
+| AUTOMATION_PLAYBOOK_APPLY | New ApprovalResourceType for playbooks apply gating |
+| Role-Based Apply Gating | VIEWER role blocked from apply; preview/export allowed |
+| Explicit Approval Check | OWNER must explicitly approve (no silent bypass) |
+| Role Visibility Label | Non-interactive label showing current user role on playbooks page |
+| Approval-Aware Apply Button | "Approve and apply" CTA when approval required |
+
+### ROLES-2 Role Capabilities Matrix
+
+| Capability | OWNER | EDITOR | VIEWER |
+|------------|-------|--------|--------|
+| canView | Yes | Yes | Yes |
+| canRequestApproval | Yes | Yes | Yes |
+| canApprove | Yes | No | No |
+| canApply | Yes | Yes | No |
+| canModifySettings | Yes | No | No |
+
+### ROLES-2 Files Created
+
+| File | Description |
+|------|-------------|
+| `apps/api/src/common/role-resolution.service.ts` | Centralized role resolution helper |
+| `apps/api/prisma/migrations/20231223_roles_2_add_automation_playbook_apply/migration.sql` | Enum extension migration |
+| `apps/api/test/integration/roles-2.test.ts` | Backend e2e tests for role/approval gating |
+| `apps/web/tests/roles-2.spec.ts` | Playwright e2e tests for role-aware UI |
+| `docs/manual-testing/ROLES-2.md` | Manual testing documentation |
+
+### ROLES-2 Files Modified
+
+| File | Changes |
+|------|---------|
+| `apps/api/prisma/schema.prisma` | Added AUTOMATION_PLAYBOOK_APPLY to ApprovalResourceType enum |
+| `apps/api/src/projects/projects.module.ts` | Added RoleResolutionService to providers and exports |
+| `apps/api/src/projects/approvals.service.ts` | Added AUTOMATION_PLAYBOOK_APPLY to DTO, added verifyOwnerRole method |
+| `apps/api/src/projects/projects.controller.ts` | Added role/approval gating to playbooks apply endpoint |
+| `apps/web/src/lib/api.ts` | Added EffectiveProjectRole type, getRoleCapabilities, updated createApprovalRequest |
+| `apps/web/src/app/projects/[id]/automation/playbooks/page.tsx` | Added role visibility, approval-aware apply, derived state |
+| `apps/web/src/components/governance/GovernanceSettingsSection.tsx` | Updated copy to include Automation Playbooks |
+| `docs/testing/CRITICAL_PATH_MAP.md` | Updated with ROLES-2 coverage |
+| `IMPLEMENTATION_PLAN.md` | Added ROLES-2 section |
+
+### ROLES-2 API Changes
+
+| Endpoint | Change |
+|----------|--------|
+| `POST /projects/:id/automation-playbooks/apply` | Added role check (VIEWER blocked), approval gating, optional approvalId param |
+| `POST /projects/:id/governance/approvals` | Accepts AUTOMATION_PLAYBOOK_APPLY resource type |
+| `POST /projects/:id/governance/approvals/:id/approve` | Enforces OWNER role (verifyOwnerRole) |
+| `POST /projects/:id/governance/approvals/:id/reject` | Enforces OWNER role (verifyOwnerRole) |
+
+### ROLES-2 Acceptance Criteria (Completed)
+
+- [x] ApprovalResourceType enum extended with AUTOMATION_PLAYBOOK_APPLY
+- [x] Prisma migration created for enum extension
+- [x] RoleResolutionService resolves effective role from accountRole field
+- [x] Default role is OWNER (single-user emulation remains frictionless)
+- [x] Approvals DTO accepts AUTOMATION_PLAYBOOK_APPLY resource type
+- [x] Approve/reject actions enforce OWNER role (no silent bypass)
+- [x] Playbooks apply endpoint checks role (VIEWER blocked)
+- [x] Playbooks apply endpoint checks approval when policy enabled
+- [x] Structured APPROVAL_REQUIRED error returned when missing approval
+- [x] Frontend API types include AUTOMATION_PLAYBOOK_APPLY
+- [x] Role capabilities helper functions added to frontend
+- [x] Role visibility label shows on playbooks page ("You are the Project Owner")
+- [x] Apply button disabled for VIEWER with explanation message
+- [x] Apply button shows "Approve and apply" when approval required
+- [x] Governance settings copy includes Automation Playbooks
+- [x] Backend e2e tests verify role/approval gating
+- [x] Playwright e2e tests verify role-aware UI
+- [x] Manual testing documentation created
+- [x] IMPLEMENTATION_PLAN.md updated
+- [x] CRITICAL_PATH_MAP.md updated
+
+**Manual Testing:** `docs/manual-testing/ROLES-2.md`

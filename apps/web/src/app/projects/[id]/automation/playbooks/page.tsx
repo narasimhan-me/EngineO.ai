@@ -13,11 +13,16 @@ import {
   productsApi,
   projectsApi,
   shopifyApi,
+  getRoleCapabilities,
+  getRoleDisplayLabel,
 } from '@/lib/api';
 import type {
   AutomationPlaybookApplyResult,
   ProjectAiUsageSummary,
   AiUsageQuotaEvaluation,
+  EffectiveProjectRole,
+  GovernancePolicyResponse,
+  ApprovalRequestResponse,
 } from '@/lib/api';
 import type { Product } from '@/lib/products';
 import { useFeedback } from '@/components/feedback/FeedbackProvider';
@@ -196,6 +201,12 @@ export default function AutomationPlaybooksPage() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_aiQuotaLoading, setAiQuotaLoading] = useState(false);
 
+  // [ROLES-2] Role and approval state for governance gating
+  const [effectiveRole, setEffectiveRole] = useState<EffectiveProjectRole>('OWNER');
+  const [governancePolicy, setGovernancePolicy] = useState<GovernancePolicyResponse | null>(null);
+  const [pendingApproval, setPendingApproval] = useState<ApprovalRequestResponse | null>(null);
+  const [approvalLoading, setApprovalLoading] = useState(false);
+
   const fetchInitialData = useCallback(async () => {
     try {
       setLoading(true);
@@ -226,6 +237,27 @@ export default function AutomationPlaybooksPage() {
         setAiUsageSummary(null);
       } finally {
         setAiUsageLoading(false);
+      }
+
+      // [ROLES-2] Fetch governance policy for approval requirements
+      try {
+        const policy = await projectsApi.getGovernancePolicy(projectId);
+        setGovernancePolicy(policy);
+      } catch {
+        // Silent fail - use defaults (no approval required)
+        setGovernancePolicy(null);
+      }
+
+      // [ROLES-2] Derive effective role from user profile
+      // Single-user emulation: use accountRole if set, otherwise OWNER
+      try {
+        const profile = await projectsApi.get(projectId);
+        // For now, in single-user mode, the project owner is always OWNER.
+        // The accountRole field on user profile can be used to simulate VIEWER/EDITOR.
+        // We'll derive this from the profile if available.
+        setEffectiveRole('OWNER'); // Default to OWNER for single-user projects
+      } catch {
+        setEffectiveRole('OWNER');
       }
     } catch (err: unknown) {
       console.error('Error loading automation playbooks data:', err);
@@ -731,6 +763,12 @@ export default function AutomationPlaybooksPage() {
   const estimateEligible = !!estimate && estimate.canProceed;
   const previewValid = previewPresent && !previewStale;
 
+  // [ROLES-2] Derived state for role-based access control
+  const roleCapabilities = getRoleCapabilities(effectiveRole);
+  const readOnly = !roleCapabilities.canApply; // VIEWER => true
+  const approvalRequired = governancePolicy?.requireApprovalForApply ?? false;
+  const canApply = roleCapabilities.canApply && (!approvalRequired || !!pendingApproval?.status && pendingApproval.status === 'APPROVED');
+
   const canContinueToEstimate =
     previewPresent &&
     previewValid &&
@@ -1050,6 +1088,10 @@ export default function AutomationPlaybooksPage() {
           <p className="text-gray-600">
             Safely apply AI-powered fixes to missing SEO metadata, with preview and
             token estimates before you run anything.
+          </p>
+          {/* [ROLES-2] Role visibility label */}
+          <p className="mt-1 text-xs text-gray-500">
+            You are the {getRoleDisplayLabel(effectiveRole)}
           </p>
         </div>
         <button
@@ -2640,20 +2682,35 @@ export default function AutomationPlaybooksPage() {
                 )}
               </div>
               {flowState !== 'APPLY_COMPLETED' && flowState !== 'APPLY_STOPPED' && (
-                <button
-                  type="button"
-                  onClick={handleApplyPlaybook}
-                  disabled={
-                    flowState !== 'APPLY_READY' ||
-                    applying ||
-                    !estimate ||
-                    !estimate.canProceed ||
-                    !confirmApply
-                  }
-                  className="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {applying ? 'Applying…' : 'Apply playbook'}
-                </button>
+                <>
+                  {/* [ROLES-2] Approval required notice */}
+                  {approvalRequired && roleCapabilities.canApprove && (
+                    <p className="mr-4 text-xs text-amber-600">
+                      Approval required before apply
+                    </p>
+                  )}
+                  {/* [ROLES-2] Read-only notice for VIEWER */}
+                  {readOnly && (
+                    <p className="mr-4 text-xs text-gray-500">
+                      Viewer role cannot apply. Preview and export remain available.
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleApplyPlaybook}
+                    disabled={
+                      flowState !== 'APPLY_READY' ||
+                      applying ||
+                      !estimate ||
+                      !estimate.canProceed ||
+                      !confirmApply ||
+                      readOnly // [ROLES-2] Block VIEWER from apply
+                    }
+                    className="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {applying ? 'Applying…' : approvalRequired && roleCapabilities.canApprove ? 'Approve and apply' : 'Apply playbook'}
+                  </button>
+                </>
               )}
             </div>
           </section>

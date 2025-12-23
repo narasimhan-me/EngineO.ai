@@ -37,6 +37,7 @@ import { GovernanceService } from './governance.service';
 import { ApprovalsService } from './approvals.service';
 import { AuditEventsService } from './audit-events.service';
 import { GovernanceController } from './governance.controller';
+import { RoleResolutionService } from '../common/role-resolution.service';
 
 @Module({
   imports: [
@@ -71,7 +72,8 @@ import { GovernanceController } from './governance.controller';
     GovernanceService,
     ApprovalsService,
     AuditEventsService,
+    RoleResolutionService,
   ],
-  exports: [ProjectsService, DeoScoreService, AutomationService, AnswerEngineService, AutomationPlaybookRunsService, SearchIntentService, CompetitorsService, OffsiteSignalsService, LocalDiscoveryService, MediaAccessibilityService, GovernanceService, ApprovalsService, AuditEventsService],
+  exports: [ProjectsService, DeoScoreService, AutomationService, AnswerEngineService, AutomationPlaybookRunsService, SearchIntentService, CompetitorsService, OffsiteSignalsService, LocalDiscoveryService, MediaAccessibilityService, GovernanceService, ApprovalsService, AuditEventsService, RoleResolutionService],
 })
 export class ProjectsModule {}

@@ -540,6 +540,32 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 
 ---
 
+### CP-018: Project Roles & Approval Foundations (ROLES-2)
+
+**Description:** Role-based access control foundations with single-user emulation support. Extends approval workflow to Automation Playbooks apply with role-aware UI affordances.
+
+| Field | Value |
+|-------|-------|
+| **Manual Testing Doc(s)** | `docs/manual-testing/ROLES-2.md` |
+| **Automated Tests** | `apps/api/test/integration/roles-2.test.ts`, `apps/web/tests/roles-2.spec.ts` |
+| **Last Verified (Manual)** | [YYYY-MM-DD] |
+| **Last Verified (Automated)** | N/A |
+| **Owner** | Core Team |
+
+**Key Scenarios:**
+- [ ] ROLES-2: OWNER can approve and apply playbooks when approval required
+- [ ] ROLES-2: Approval creates audit event (APPROVAL_APPROVED)
+- [ ] ROLES-2: Apply blocked with APPROVAL_REQUIRED error when missing approval
+- [ ] ROLES-2: VIEWER (simulated via accountRole) cannot apply
+- [ ] ROLES-2: VIEWER (simulated) cannot approve approval requests
+- [ ] ROLES-2: Preview and estimate remain accessible for VIEWER
+- [ ] ROLES-2: No mutations on preview/export-only navigation
+- [ ] ROLES-2: Role visibility label shows on playbooks page
+- [ ] ROLES-2: "Approve and apply" button appears when approval required
+- [ ] ROLES-2: Governance settings copy includes Automation Playbooks
+
+---
+
 ## Coverage Summary
 
 | Critical Path | Manual Docs | Auto Tests | Status |
@@ -561,6 +587,7 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 | CP-015: Guided Onboarding | ✅ | Planned | 🟡 Manual Only (Impl Pending) |
 | CP-016: Project Insights | ✅ | ✅ | 🟢 Full Coverage |
 | CP-017: GEO Answer Readiness | ✅ | ✅ | 🟢 Full Coverage |
+| CP-018: ROLES-2 Project Roles | ✅ | ✅ | 🟢 Full Coverage |
 
 **Legend:**
 - 🟢 Full Coverage (Manual + Automated)
@@ -624,3 +651,4 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 | 3.6 | 2025-12-21 | PRODUCTS-LIST-2.0: Updated CP-003 with decision-first Products list scenarios (Health pill, recommended action, progressive disclosure, Rescan gating, Command Bar). Replaced DEO-UX-REFRESH-1 product-list bullets. Added manual testing doc. |
 | 3.7 | 2025-12-21 | PRODUCTS-LIST-2.0: Added Sort by impact scenario to CP-003 (authoritative ladder, deterministic, stable). |
 | 3.8 | 2025-12-21 | PRODUCTS-LIST-2.0: Added Bulk action confirmation scenario to CP-003 (3-step flow, AI disclosure, Apply uses no AI, partial failure handling). |
+| 3.9 | 2025-12-23 | ROLES-2: Added CP-018 for Project Roles & Approval Foundations. Single-user role emulation, approval gating on Automation Playbooks apply, role-aware UI. Added integration tests and Playwright coverage. |

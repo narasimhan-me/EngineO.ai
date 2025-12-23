@@ -1202,9 +1202,11 @@ enum ApprovalStatus {
 }
 
 // [ENTERPRISE-GEO-1] Resource types that can require approval
+// [ROLES-2] Extended with AUTOMATION_PLAYBOOK_APPLY for playbook apply gating
 enum ApprovalResourceType {
-  GEO_FIX_APPLY       // Applying a GEO fix draft
-  ANSWER_BLOCK_SYNC   // Syncing answer blocks to Shopify
+  GEO_FIX_APPLY              // Applying a GEO fix draft
+  ANSWER_BLOCK_SYNC          // Syncing answer blocks to Shopify
+  AUTOMATION_PLAYBOOK_APPLY  // [ROLES-2] Applying automation playbooks
 }
 
 // [ENTERPRISE-GEO-1] Audit event types for governance tracking
