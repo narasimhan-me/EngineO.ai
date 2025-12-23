@@ -371,8 +371,6 @@ export function ProductTable({
   // Bulk action visibility: only when needsAttentionCount > 0 AND sort is Impact
   const showBulkActions = needsAttentionCount > 0 && sortOption === 'Impact';
   const bulkMetadataCount = bulkMetadataEligible.length;
-  const bulkMetadataMissingTitleCount = bulkMetadataEligible.filter((p) => p.missingTitle).length;
-  const bulkMetadataMissingDescCount = bulkMetadataEligible.filter((p) => p.missingDescription).length;
 
   const handleOpenAutomationEntryFromBulk = useCallback(() => {
     const key = `automationEntryContext:${projectId}`;
