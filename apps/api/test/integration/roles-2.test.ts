@@ -103,7 +103,7 @@ describe('ROLES-2 – Project Roles & Approval Foundations', () => {
 
         const { scopeId, rulesHash } = previewRes.body;
 
-        // Apply should fail without approval
+        // Apply should fail without approval (400 Bad Request with structured error)
         const applyWithoutApproval = await request(server)
           .post(`/projects/${project.id}/automation-playbooks/apply`)
           .set(authHeader(user.id))
@@ -112,9 +112,13 @@ describe('ROLES-2 – Project Roles & Approval Foundations', () => {
             scopeId,
             rulesHash,
           })
-          .expect(403);
+          .expect(400);
 
-        expect(applyWithoutApproval.body.message).toContain('APPROVAL_REQUIRED');
+        // [ROLES-2 FIXUP-1] Error is structured object, not string
+        expect(applyWithoutApproval.body.message).toMatchObject({
+          code: 'APPROVAL_REQUIRED',
+          resourceType: 'AUTOMATION_PLAYBOOK_APPLY',
+        });
 
         // Create and approve an approval request
         const resourceId = `missing_seo_title:${scopeId}`;
@@ -172,7 +176,7 @@ describe('ROLES-2 – Project Roles & Approval Foundations', () => {
 
         const { scopeId, rulesHash } = previewRes.body;
 
-        // Apply should return structured error
+        // Apply should return structured error (400 Bad Request)
         const res = await request(server)
           .post(`/projects/${project.id}/automation-playbooks/apply`)
           .set(authHeader(user.id))
@@ -181,12 +185,14 @@ describe('ROLES-2 – Project Roles & Approval Foundations', () => {
             scopeId,
             rulesHash,
           })
-          .expect(403);
+          .expect(400);
 
+        // [ROLES-2 FIXUP-1] Validate full structured error shape
         expect(res.body.message).toMatchObject({
           code: 'APPROVAL_REQUIRED',
           resourceType: 'AUTOMATION_PLAYBOOK_APPLY',
           resourceId: expect.stringContaining('missing_seo_title'),
+          approvalStatus: 'none',
         });
       });
     });

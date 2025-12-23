@@ -495,36 +495,41 @@ export class ProjectsController {
     }
 
     // [ROLES-2] Governance approval check
-    const approvalRequired = await this.governanceService.isApprovalRequired(projectId);
+    const approvalRequiredByPolicy = await this.governanceService.isApprovalRequired(projectId);
 
-    if (approvalRequired) {
+    // Track the validated approval ID for consumption after successful apply
+    let validatedApprovalId: string | undefined;
+
+    if (approvalRequiredByPolicy) {
       // Resource ID is scoped to the specific playbook apply operation
       const resourceId = `${body.playbookId}:${body.scopeId}`;
 
-      // Check for valid approval
-      const hasApproval = await this.approvalsService.hasValidApproval(
+      // Check for valid approval - returns { valid, approvalId, status }
+      const approvalStatus = await this.approvalsService.hasValidApproval(
         projectId,
         'AUTOMATION_PLAYBOOK_APPLY',
         resourceId,
       );
 
-      if (!hasApproval) {
-        // Return structured approval required error for UI
-        throw new ForbiddenException({
+      if (!approvalStatus.valid) {
+        // [ROLES-2 FIXUP-1] Use BadRequestException to avoid frontend auth-redirect behavior
+        // Match geo.controller.ts contract for consistency
+        throw new BadRequestException({
           code: 'APPROVAL_REQUIRED',
           message: 'Approval is required before applying this automation playbook.',
+          approvalStatus: approvalStatus.status ?? 'none',
+          approvalId: approvalStatus.approvalId,
           resourceType: 'AUTOMATION_PLAYBOOK_APPLY',
           resourceId,
         });
       }
 
-      // Mark approval as consumed
-      if (body.approvalId) {
-        await this.approvalsService.markConsumed(body.approvalId);
-      }
+      // Store the validated approval ID from lookup result, not from client
+      validatedApprovalId = approvalStatus.approvalId;
     }
 
-    return this.automationPlaybooksService.applyPlaybook(
+    // Execute the apply mutation
+    const result = await this.automationPlaybooksService.applyPlaybook(
       userId,
       projectId,
       body.playbookId,
@@ -532,6 +537,13 @@ export class ProjectsController {
       body.rulesHash,
       body?.scopeProductIds,
     );
+
+    // [ROLES-2 FIXUP-1] Only consume approval AFTER successful apply mutation
+    if (validatedApprovalId) {
+      await this.approvalsService.markConsumed(validatedApprovalId);
+    }
+
+    return result;
   }
 
   /**

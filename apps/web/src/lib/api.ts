@@ -731,12 +731,14 @@ export const projectsApi = {
     scopeId: string,
     rulesHash: string,
     scopeProductIds?: string[],
+    /** [ROLES-2] Optional approvalId for governance-gated apply */
+    approvalId?: string,
   ): Promise<AutomationPlaybookApplyResult> =>
     fetchWithAuth(
       `/projects/${id}/automation-playbooks/apply`,
       {
         method: 'POST',
-        body: JSON.stringify({ playbookId, scopeId, rulesHash, scopeProductIds }),
+        body: JSON.stringify({ playbookId, scopeId, rulesHash, scopeProductIds, approvalId }),
       },
     ),
 
@@ -1017,6 +1019,19 @@ export const projectsApi = {
   ): Promise<{ requests: ApprovalRequestResponse[] }> =>
     fetchWithAuth(
       `/projects/${projectId}/governance/approvals${status ? `?status=${status}` : ''}`,
+    ),
+
+  /**
+   * [ROLES-2] Get approval status for a specific resource
+   * Returns the most recent approval request for the given resource
+   */
+  getApprovalStatus: (
+    projectId: string,
+    resourceType: 'GEO_FIX_APPLY' | 'ANSWER_BLOCK_SYNC' | 'AUTOMATION_PLAYBOOK_APPLY',
+    resourceId: string,
+  ): Promise<{ approval: ApprovalRequestResponse | null }> =>
+    fetchWithAuth(
+      `/projects/${projectId}/governance/approvals?resourceType=${resourceType}&resourceId=${encodeURIComponent(resourceId)}`,
     ),
 
   /** Get audit events for a project */

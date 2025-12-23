@@ -8,6 +8,7 @@ import type { DeoIssue } from '@/lib/deo-issues';
 import { isAuthenticated } from '@/lib/auth';
 import {
   ApiError,
+  accountApi,
   aiApi,
   billingApi,
   productsApi,
@@ -248,14 +249,17 @@ export default function AutomationPlaybooksPage() {
         setGovernancePolicy(null);
       }
 
-      // [ROLES-2] Derive effective role from user profile
+      // [ROLES-2 FIXUP-1] Resolve effective role from account profile
       // Single-user emulation: use accountRole if set, otherwise OWNER
       try {
-        const profile = await projectsApi.get(projectId);
-        // For now, in single-user mode, the project owner is always OWNER.
-        // The accountRole field on user profile can be used to simulate VIEWER/EDITOR.
-        // We'll derive this from the profile if available.
-        setEffectiveRole('OWNER'); // Default to OWNER for single-user projects
+        const profile = await accountApi.getProfile();
+        // Use accountRole from profile for role simulation
+        const accountRole = profile.accountRole;
+        if (accountRole === 'VIEWER' || accountRole === 'EDITOR' || accountRole === 'OWNER') {
+          setEffectiveRole(accountRole);
+        } else {
+          setEffectiveRole('OWNER');
+        }
       } catch {
         setEffectiveRole('OWNER');
       }
@@ -639,11 +643,60 @@ export default function AutomationPlaybooksPage() {
       setError('');
       setApplyResult(null);
       setFlowState('APPLY_RUNNING');
+
+      // [ROLES-2 FIXUP-1] Handle "Approve and apply" flow for governance-gated apply
+      let approvalIdToUse: string | undefined;
+      const approvalRequiredByPolicy = governancePolicy?.requireApprovalForApply ?? false;
+      const capabilities = getRoleCapabilities(effectiveRole);
+
+      if (approvalRequiredByPolicy) {
+        const resourceId = `${selectedPlaybookId}:${estimate.scopeId}`;
+
+        // Check existing approval status
+        try {
+          const { approval } = await projectsApi.getApprovalStatus(
+            projectId,
+            'AUTOMATION_PLAYBOOK_APPLY',
+            resourceId,
+          );
+
+          if (approval && approval.status === 'APPROVED' && !approval.consumed) {
+            // Use existing valid approval
+            approvalIdToUse = approval.id;
+          } else if (capabilities.canApprove) {
+            // OWNER can create and immediately approve
+            setApprovalLoading(true);
+            const newApproval = await projectsApi.createApprovalRequest(projectId, {
+              resourceType: 'AUTOMATION_PLAYBOOK_APPLY',
+              resourceId,
+            });
+            const approvedRequest = await projectsApi.approveRequest(projectId, newApproval.id);
+            approvalIdToUse = approvedRequest.id;
+            setPendingApproval(approvedRequest);
+            setApprovalLoading(false);
+          } else {
+            // Non-owner can request but not approve - this should be blocked by UI
+            feedback.showError('Approval is required. Please wait for an owner to approve.');
+            setFlowState('APPLY_READY');
+            setApplying(false);
+            return;
+          }
+        } catch (approvalErr) {
+          console.error('Error handling approval flow:', approvalErr);
+          feedback.showError('Failed to process approval. Please try again.');
+          setFlowState('APPLY_READY');
+          setApplying(false);
+          return;
+        }
+      }
+
       const data = await projectsApi.applyAutomationPlaybook(
         projectId,
         selectedPlaybookId,
         estimate.scopeId,
         estimate.rulesHash,
+        undefined, // scopeProductIds
+        approvalIdToUse,
       );
       setApplyResult(data);
       if (data.updatedCount > 0) {
@@ -723,6 +776,8 @@ export default function AutomationPlaybooksPage() {
     loadEstimate,
     feedback,
     flowState,
+    governancePolicy,
+    effectiveRole,
   ]);
 
   const handleSyncToShopify = useCallback(async () => {
