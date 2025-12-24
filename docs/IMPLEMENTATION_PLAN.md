@@ -587,7 +587,7 @@ True multi-user projects with explicit membership management, approval chains, a
 ### Test Coverage
 
 - Backend: `apps/api/test/integration/roles-3.test.ts`
-- Frontend: `apps/web/tests/roles-3.spec.ts`
+- Frontend: `apps/web/tests/roles-3.spec.ts` (planned)
 
 ### FIXUP History
 
@@ -660,3 +660,4 @@ True multi-user projects with explicit membership management, approval chains, a
 | 2.7 | 2025-12-24 | ROLES-2 FIXUP-3: Role-specific apply denial messages - VIEWER gets "Viewer role cannot apply automation playbooks. Preview and export remain available.", EDITOR gets "Editor role cannot apply automation playbooks. Request approval from an owner." Aligns with test expectations in roles-2.test.ts |
 | 2.8 | 2025-12-24 | Added Phase ROLES-2 section with dedicated capability matrix and FIXUP-3 corrections documentation |
 | 2.9 | 2025-12-24 | ROLES-3 PENDING-1: Approval attribution UI - Playbooks Step 3 shows requester/approver identity + timestamp. Updated CP-019 Auto Tests to reflect roles-3.test.ts is present. |
+| 3.0 | 2025-12-24 | ROLES-3 PENDING-2: Docs consistency fix - marked roles-3.spec.ts as (planned) in Test Coverage section to match reality (Playwright E2E not yet implemented). |
