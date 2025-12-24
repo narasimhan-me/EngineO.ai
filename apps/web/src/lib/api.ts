@@ -212,7 +212,10 @@ export interface ApprovalRequestResponse {
   resourceType: string;
   resourceId: string;
   status: 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+  // [ROLES-3 PENDING-1] Actor tracking for attribution UI
+  requestedByUserId: string;
   requestedAt: string;
+  decidedByUserId?: string;
   decidedAt?: string;
   decisionReason?: string;
   consumed: boolean;

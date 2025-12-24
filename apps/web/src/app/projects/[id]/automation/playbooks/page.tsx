@@ -23,6 +23,7 @@ import type {
   EffectiveProjectRole,
   GovernancePolicyResponse,
   ApprovalRequestResponse,
+  ProjectMember,
 } from '@/lib/api';
 import type { Product } from '@/lib/products';
 import { useFeedback } from '@/components/feedback/FeedbackProvider';
@@ -208,6 +209,8 @@ export default function AutomationPlaybooksPage() {
   const [approvalLoading, setApprovalLoading] = useState(false);
   // [ROLES-3 FIXUP-3 CORRECTION] Track if project has multiple members (affects approval UI)
   const [isMultiUserProject, setIsMultiUserProject] = useState(false);
+  // [ROLES-3 PENDING-1] Members list for approval attribution UI
+  const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
 
   const fetchInitialData = useCallback(async () => {
     try {
@@ -261,6 +264,15 @@ export default function AutomationPlaybooksPage() {
         // Silent fail - default to OWNER for backward compatibility
         setEffectiveRole('OWNER');
         setIsMultiUserProject(false);
+      }
+
+      // [ROLES-3 PENDING-1] Fetch project members for approval attribution UI
+      try {
+        const members = await projectsApi.listMembers(projectId);
+        setProjectMembers(members);
+      } catch {
+        // Silent fail - attribution will show user IDs instead of names
+        setProjectMembers([]);
       }
     } catch (err: unknown) {
       console.error('Error loading automation playbooks data:', err);
@@ -966,6 +978,16 @@ export default function AutomationPlaybooksPage() {
   const canGenerateDrafts = roleCapabilities.canGenerateDrafts; // OWNER/EDITOR can generate, VIEWER cannot
   const approvalRequired = governancePolicy?.requireApprovalForApply ?? false;
   const canApply = roleCapabilities.canApply && (!approvalRequired || !!pendingApproval?.status && pendingApproval.status === 'APPROVED');
+
+  // [ROLES-3 PENDING-1] Helper to look up user display name from members list
+  const getUserDisplayName = useCallback((userId: string): string => {
+    const member = projectMembers.find((m) => m.userId === userId);
+    if (member) {
+      return member.name || member.email;
+    }
+    // Fallback: show shortened user ID
+    return userId.length > 8 ? `${userId.slice(0, 8)}…` : userId;
+  }, [projectMembers]);
 
   const canContinueToEstimate =
     previewPresent &&
@@ -2999,6 +3021,22 @@ export default function AutomationPlaybooksPage() {
 
                     return null;
                   })()}
+                  {/* [ROLES-3 PENDING-1] Approval Attribution Panel */}
+                  {pendingApproval && approvalRequired && (
+                    <div className="mr-4 flex flex-col gap-0.5 text-xs text-gray-500">
+                      <span>
+                        Requested by {getUserDisplayName(pendingApproval.requestedByUserId)}{' '}
+                        on {new Date(pendingApproval.requestedAt).toLocaleDateString()}
+                      </span>
+                      {pendingApproval.decidedByUserId && pendingApproval.decidedAt && (
+                        <span>
+                          {pendingApproval.status === 'APPROVED' ? 'Approved' : 'Decided'} by{' '}
+                          {getUserDisplayName(pendingApproval.decidedByUserId)} on{' '}
+                          {new Date(pendingApproval.decidedAt).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <button
                     type="button"
                     onClick={handleApplyPlaybook}

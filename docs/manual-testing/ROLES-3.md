@@ -683,3 +683,50 @@ Run the following scenarios to verify FIXUP-5:
 - `apps/api/src/account/account.service.ts`
 - `apps/api/src/account/account.module.ts`
 - `apps/api/test/integration/roles-3.test.ts`
+
+---
+
+## ROLES-3 PENDING-1: Approval Attribution UI (December 2025)
+
+This update adds approval attribution display in the Playbooks page Step 3 (Apply), showing who requested and who approved actions.
+
+### Key Changes
+
+**PATCH 1: API Type Update**
+- `api.ts`: Added `requestedByUserId` and `decidedByUserId` to `ApprovalRequestResponse` type
+  - These fields already exist in backend response, now typed in frontend
+
+**PATCH 2: Playbooks Page Attribution UI**
+- `page.tsx`: Added `projectMembers` state and fetch in `fetchInitialData()`
+- `page.tsx`: Added `getUserDisplayName()` helper to map userId → name/email
+- `page.tsx`: Added attribution panel in Step 3 showing:
+  - "Requested by [name] on [date]" when approval exists
+  - "Approved by [name] on [date]" when approval is approved
+- Falls back to shortened userId if member lookup fails
+
+**PATCH 3: Critical Path Map Update**
+- `CRITICAL_PATH_MAP.md`: Updated CP-019 Auto Tests field (roles-3.test.ts present)
+- `CRITICAL_PATH_MAP.md`: Updated Coverage Summary to show Full Coverage
+
+### Test Verification
+
+1. **Attribution shows requester identity**:
+   - As EDITOR, request approval for a playbook
+   - Verify Step 3 shows "Requested by [your name/email] on [date]"
+
+2. **Attribution shows approver identity after approval**:
+   - As OWNER, approve the request
+   - Verify Step 3 shows "Approved by [your name/email] on [date]"
+
+3. **Attribution hidden when no approval**:
+   - With approval requirement disabled, verify no attribution panel
+
+4. **Fallback for unknown users**:
+   - If member lookup fails, verify shortened userId is displayed
+
+### Files Modified
+
+- `apps/web/src/lib/api.ts`
+- `apps/web/src/app/projects/[id]/automation/playbooks/page.tsx`
+- `docs/testing/CRITICAL_PATH_MAP.md`
+- `docs/manual-testing/ROLES-3.md`

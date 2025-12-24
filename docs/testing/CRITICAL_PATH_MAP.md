@@ -580,7 +580,7 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 | Field | Value |
 |-------|-------|
 | **Manual Testing Doc(s)** | `docs/manual-testing/ROLES-3.md` |
-| **Automated Tests** | `apps/api/test/integration/roles-3.test.ts` (planned), `apps/web/tests/roles-3.spec.ts` (planned) |
+| **Automated Tests** | `apps/api/test/integration/roles-3.test.ts`, `apps/web/tests/roles-3.spec.ts` (planned) |
 | **Last Verified (Manual)** | [YYYY-MM-DD] |
 | **Last Verified (Automated)** | N/A |
 | **Owner** | Core Team |
@@ -624,6 +624,9 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 - [ ] ROLES-3 FIXUP-5: Co-owner can sync-products, ensure-metafield-definitions, install
 - [ ] ROLES-3 FIXUP-5: Co-owner can disconnect store (account OWNER + project OWNER)
 - [ ] ROLES-3 FIXUP-5: Legacy Project.userId owner still works (backward compat)
+- [ ] ROLES-3 PENDING-1: Approval attribution shows requester identity + timestamp
+- [ ] ROLES-3 PENDING-1: Approval attribution shows approver identity + timestamp when approved
+- [ ] ROLES-3 PENDING-1: Attribution hidden when approval not required
 
 ---
 
@@ -649,7 +652,7 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 | CP-016: Project Insights | ✅ | ✅ | 🟢 Full Coverage |
 | CP-017: GEO Answer Readiness | ✅ | ✅ | 🟢 Full Coverage |
 | CP-018: ROLES-2 Project Roles | ✅ | ✅ | 🟢 Full Coverage |
-| CP-019: ROLES-3 Multi-User Projects | ✅ | Planned | 🟡 Manual Only |
+| CP-019: ROLES-3 Multi-User Projects | ✅ | ✅ | 🟢 Full Coverage |
 
 **Legend:**
 - 🟢 Full Coverage (Manual + Automated)
@@ -723,3 +726,4 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 | 4.6 | 2025-12-24 | ROLES-3 FIXUP-4: Membership + Role Enforcement Beyond projects/*. Eliminated legacy project.userId ownership gates in AI controller, ProductIssueFixService, SEO scan, Integrations, and Shopify services. Replaced with RoleResolutionService assertions (assertProjectAccess, assertOwnerRole, assertCanGenerateDrafts). Added integration tests for AI usage, integrations, and SEO scan endpoints. Updated CP-019 with FIXUP-4 scenarios. |
 | 4.7 | 2025-12-24 | ROLES-3 FIXUP-5: Co-Owner Support for Shopify Actions. Shopify validateProjectOwnership uses RoleResolutionService (supports co-owners). Account disconnectStore uses assertOwnerRole for project-level check. Co-owner can perform install, sync-products, ensure-metafield-definitions, disconnect store. Added integration tests for multi-owner Shopify actions. Updated CP-006 and CP-019 with FIXUP-5 scenarios. |
 | 4.8 | 2025-12-24 | ROLES-2 FIXUP-3: Role-specific apply denial messages. VIEWER apply denial returns "Viewer role cannot apply automation playbooks. Preview and export remain available." EDITOR apply denial returns "Editor role cannot apply automation playbooks. Request approval from an owner." Aligns backend messages with test expectations and manual testing docs. Updated CP-018 with FIXUP-3 scenarios. |
+| 4.9 | 2025-12-24 | ROLES-3 PENDING-1: Approval attribution UI + doc alignment. Playbooks Step 3 shows requester/approver identity + timestamp. Updated CP-019 Auto Tests field (roles-3.test.ts present), Coverage Summary to Full Coverage. Added attribution scenarios to CP-019. |
