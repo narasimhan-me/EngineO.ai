@@ -448,6 +448,54 @@ Frontend-only redesign of the Products list to be decision-first with Health pil
 
 ---
 
+## Phase ROLES-2: Project Roles & Approval Foundations ✅ COMPLETE
+
+**Status:** Complete
+**Date Completed:** 2025-12-22
+
+Project-level role emulation and approval workflow foundations for single-user projects.
+
+### Key Features
+
+1. **Role Emulation via accountRole**: Project-level role setting (OWNER/EDITOR/VIEWER) for single-user projects
+2. **Capability Matrix**: Role-based permissions for view, draft generation, approval requests, and apply actions
+3. **Approval Workflow**: EDITOR requests approval, OWNER approves/rejects, approval expires after consumption
+4. **Frontend Role-Aware UI**: Buttons and CTAs adapt to user's effective role
+
+### Hard Contracts
+
+1. **OWNER-Only Apply**: Only users with OWNER role can execute apply actions
+2. **EDITOR Approval Chain**: EDITOR cannot apply directly; must request approval from OWNER
+3. **VIEWER Read-Only**: VIEWER can view data and export but cannot generate drafts or request approval
+4. **Apply Never Uses AI**: Apply actions consume zero AI quota regardless of role
+
+### ROLES-2 Capability Matrix
+
+| Capability | OWNER | EDITOR | VIEWER |
+|------------|-------|--------|--------|
+| View project data | ✅ | ✅ | ✅ |
+| Generate drafts (AI) | ✅ | ✅ | ❌ |
+| Request approval | ✅ | ✅ | ❌ |
+| Apply changes | ✅ | ❌ | ❌ |
+| Export/share reports | ✅ | ✅ | ✅ |
+| Modify settings | ✅ | ❌ | ❌ |
+
+### FIXUP-3 Corrections Applied
+
+Role-specific apply denial messages now align with test expectations:
+- **VIEWER denied**: "Viewer role cannot apply automation playbooks. Preview and export remain available."
+- **EDITOR denied**: "Editor role cannot apply automation playbooks. Request approval from an owner."
+- **No access**: "You do not have access to this project"
+
+These messages are enforced in `projects.controller.ts` and verified by `roles-2.test.ts`.
+
+### Related Documents
+
+- [ROLES-2.md](./manual-testing/ROLES-2.md) - Manual testing guide
+- [CRITICAL_PATH_MAP.md](./testing/CRITICAL_PATH_MAP.md) - CP-018 entry
+
+---
+
 ## Phase ROLES-3: True Multi-User Projects & Approval Chains ✅ COMPLETE
 
 **Status:** Complete
@@ -610,3 +658,4 @@ True multi-user projects with explicit membership management, approval chains, a
 | 2.5 | 2025-12-24 | ROLES-3 FIXUP-4: Membership + Role Enforcement Beyond projects/* - eliminated legacy project.userId ownership gates in AI controller, ProductIssueFixService, SEO scan, Integrations, and Shopify services; replaced with RoleResolutionService assertions (assertProjectAccess, assertOwnerRole, assertCanGenerateDrafts); added integration tests |
 | 2.6 | 2025-12-24 | ROLES-3 FIXUP-5: Co-Owner Support for Shopify Actions - Shopify validateProjectOwnership uses RoleResolutionService (supports co-owners), Account disconnectStore uses assertOwnerRole for project-level check, co-owner can perform install/sync-products/ensure-metafield-definitions, added integration tests for multi-owner Shopify actions |
 | 2.7 | 2025-12-24 | ROLES-2 FIXUP-3: Role-specific apply denial messages - VIEWER gets "Viewer role cannot apply automation playbooks. Preview and export remain available.", EDITOR gets "Editor role cannot apply automation playbooks. Request approval from an owner." Aligns with test expectations in roles-2.test.ts |
+| 2.8 | 2025-12-24 | Added Phase ROLES-2 section with dedicated capability matrix and FIXUP-3 corrections documentation |
