@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { RoleResolutionService } from '../common/role-resolution.service';
 import {
   MediaFixDraftType as PrismaDraftType,
   MediaFixApplyTarget as PrismaApplyTarget,
@@ -34,9 +35,16 @@ import type { DeoIssue, DeoIssueSeverity } from '@engineo/shared';
  * - Generated alt text must not hallucinate content not visible in images
  * - Preview uses AI; Apply does NOT use AI
  */
+/**
+ * [ROLES-3 FIXUP-3] MediaAccessibilityService
+ * Updated with membership-aware access control (any ProjectMember can view).
+ */
 @Injectable()
 export class MediaAccessibilityService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly roleResolution: RoleResolutionService,
+  ) {}
 
   // ============================================================================
   // Type Mapping Helpers
@@ -161,9 +169,8 @@ export class MediaAccessibilityService {
       throw new NotFoundException('Project not found');
     }
 
-    if (project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this project');
-    }
+    // [ROLES-3 FIXUP-3] Membership-aware access (any ProjectMember can view)
+    await this.roleResolution.assertProjectAccess(projectId, userId);
 
     // Load all products for the project
     const products = await this.prisma.product.findMany({
@@ -258,9 +265,8 @@ export class MediaAccessibilityService {
       throw new NotFoundException('Product not found');
     }
 
-    if (product.project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this product');
-    }
+    // [ROLES-3 FIXUP-3] Membership-aware access (any ProjectMember can view)
+    await this.roleResolution.assertProjectAccess(product.projectId, userId);
 
     // Compute stats
     const stats = await this.computeProductMediaStats(productId, product.title);

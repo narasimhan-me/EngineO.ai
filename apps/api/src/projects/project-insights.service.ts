@@ -1,8 +1,9 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { AiUsageLedgerService } from '../ai/ai-usage-ledger.service';
 import { AiUsageQuotaService } from '../ai/ai-usage-quota.service';
 import { DeoIssuesService } from './deo-issues.service';
+import { RoleResolutionService } from '../common/role-resolution.service';
 import {
   DEO_PILLARS,
   GEO_ISSUE_LABELS,
@@ -163,6 +164,10 @@ function confidenceOrdinal(level: string): number {
   return 0;
 }
 
+/**
+ * [ROLES-3 FIXUP-3] Project Insights Service
+ * Updated with membership-aware access control (any ProjectMember can view).
+ */
 @Injectable()
 export class ProjectInsightsService {
   constructor(
@@ -170,12 +175,14 @@ export class ProjectInsightsService {
     private readonly aiUsageLedgerService: AiUsageLedgerService,
     private readonly aiUsageQuotaService: AiUsageQuotaService,
     private readonly deoIssuesService: DeoIssuesService,
+    private readonly roleResolution: RoleResolutionService,
   ) {}
 
   async getProjectInsights(projectId: string, userId: string): Promise<ProjectInsightsResponse> {
     const project = await this.prisma.project.findUnique({ where: { id: projectId } });
     if (!project) throw new NotFoundException('Project not found');
-    if (project.userId !== userId) throw new ForbiddenException('You do not have access to this project');
+    // [ROLES-3 FIXUP-3] Membership-aware access (any ProjectMember can view)
+    await this.roleResolution.assertProjectAccess(projectId, userId);
 
     const now = new Date();
     const days = 30;

@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { DeoSignalsService } from './deo-score.service';
 import {
@@ -20,7 +20,12 @@ import { CompetitorsService } from './competitors.service';
 import { OffsiteSignalsService } from './offsite-signals.service';
 import { LocalDiscoveryService } from './local-discovery.service';
 import { MediaAccessibilityService } from './media-accessibility.service';
+import { RoleResolutionService } from '../common/role-resolution.service';
 
+/**
+ * [ROLES-3 FIXUP-3] DEO Issues Service
+ * Updated with membership-aware access control (any ProjectMember can view).
+ */
 @Injectable()
 export class DeoIssuesService {
   constructor(
@@ -32,6 +37,7 @@ export class DeoIssuesService {
     private readonly offsiteSignalsService: OffsiteSignalsService,
     private readonly localDiscoveryService: LocalDiscoveryService,
     private readonly mediaAccessibilityService: MediaAccessibilityService,
+    private readonly roleResolution: RoleResolutionService,
   ) {}
 
   /**
@@ -71,9 +77,8 @@ export class DeoIssuesService {
       throw new NotFoundException('Project not found');
     }
 
-    if (project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this project');
-    }
+    // [ROLES-3 FIXUP-3] Membership-aware access (any ProjectMember can view)
+    await this.roleResolution.assertProjectAccess(projectId, userId);
 
     const [crawlResults, products, signals] = await Promise.all([
       prisma.crawlResult.findMany({ where: { projectId } }),

@@ -243,44 +243,59 @@ export interface AuditEventListResponse {
 export type EffectiveProjectRole = 'OWNER' | 'EDITOR' | 'VIEWER';
 
 /**
- * [ROLES-2] Role capabilities for UI state derivation.
+ * [ROLES-3] Role capabilities for UI state derivation.
+ * Updated: canGenerateDrafts, canManageMembers, canExport added
+ * Updated: canApply is OWNER-only
  */
 export interface RoleCapabilities {
   canView: boolean;
+  canGenerateDrafts: boolean;
   canRequestApproval: boolean;
   canApprove: boolean;
   canApply: boolean;
   canModifySettings: boolean;
+  canManageMembers: boolean;
+  canExport: boolean;
 }
 
 /**
- * [ROLES-2] Get role capabilities for a given effective role.
+ * [ROLES-3] Get role capabilities for a given effective role.
+ * Updated: EDITOR cannot apply; must request approval
  */
 export function getRoleCapabilities(role: EffectiveProjectRole): RoleCapabilities {
   switch (role) {
     case 'OWNER':
       return {
         canView: true,
+        canGenerateDrafts: true,
         canRequestApproval: true,
         canApprove: true,
         canApply: true,
         canModifySettings: true,
+        canManageMembers: true,
+        canExport: true,
       };
     case 'EDITOR':
       return {
         canView: true,
+        canGenerateDrafts: true,
         canRequestApproval: true,
         canApprove: false,
-        canApply: true,
+        canApply: false, // [ROLES-3] EDITOR cannot apply; must request approval
         canModifySettings: false,
+        canManageMembers: false,
+        canExport: true,
       };
     case 'VIEWER':
       return {
         canView: true,
-        canRequestApproval: true,
+        canGenerateDrafts: false,
+        canRequestApproval: false,
         canApprove: false,
         canApply: false,
         canModifySettings: false,
+        canManageMembers: false,
+        canExport: true, // View-only export allowed
       };
   }
 }
@@ -297,6 +312,35 @@ export function getRoleDisplayLabel(role: EffectiveProjectRole): string {
     case 'VIEWER':
       return 'Viewer';
   }
+}
+
+// =============================================================================
+// [ROLES-3] Project Member Types
+// =============================================================================
+
+/**
+ * [ROLES-3] Project member information
+ */
+export interface ProjectMember {
+  id: string;
+  userId: string;
+  email: string;
+  name: string | null;
+  role: EffectiveProjectRole;
+  createdAt: string;
+}
+
+/**
+ * [ROLES-3] User role response from /projects/:id/role endpoint
+ * [ROLES-3 FIXUP-2] Includes isMultiUserProject for UI decisions
+ */
+export interface UserRoleResponse {
+  projectId: string;
+  userId: string;
+  role: EffectiveProjectRole;
+  capabilities: RoleCapabilities;
+  /** Whether this project has multiple members (affects approval flow UI) */
+  isMultiUserProject: boolean;
 }
 
 /**
@@ -316,6 +360,15 @@ export class ApiError extends Error {
 
 /**
  * Build an ApiError from an API response
+ *
+ * [ROLES-2 FIXUP-2] Enhanced to handle NestJS structured error responses.
+ * NestJS BadRequestException({ code, message, ... }) produces:
+ * { statusCode, error, message: { code, message, ... } }
+ *
+ * This function extracts:
+ * - code from body.message.code (structured) or body.code (flat)
+ * - message from body.message.message (structured) or body.message (flat string)
+ * - Falls back to body.error or status-based message
  */
 function buildApiError(response: Response, body: unknown): ApiError {
   let message: string;
@@ -324,15 +377,54 @@ function buildApiError(response: Response, body: unknown): ApiError {
   // Try to extract message and code from JSON body
   if (body && typeof body === 'object') {
     const json = body as Record<string, unknown>;
-    if (typeof json.message === 'string' && json.message) {
-      message = json.message;
-    } else if (typeof json.error === 'string' && json.error) {
-      message = json.error;
-    } else {
-      message = getStatusMessage(response.status, response.statusText);
+
+    // [ROLES-2 FIXUP-2] Handle nested structured error (NestJS BadRequestException with object payload)
+    // Shape: { statusCode, error, message: { code, message, approvalStatus, ... } }
+    if (json.message && typeof json.message === 'object' && !Array.isArray(json.message)) {
+      const nested = json.message as Record<string, unknown>;
+      // Extract code from nested object
+      if (typeof nested.code === 'string') {
+        code = nested.code;
+      }
+      // Extract message from nested object, or construct from code
+      if (typeof nested.message === 'string' && nested.message) {
+        message = nested.message;
+      } else if (code) {
+        // Use code as message if no explicit message
+        message = code;
+      } else {
+        message = getStatusMessage(response.status, response.statusText);
+      }
     }
-    if (typeof json.code === 'string') {
-      code = json.code;
+    // Handle NestJS validation errors (message is an array of strings)
+    else if (Array.isArray(json.message)) {
+      const messages = json.message.filter((m): m is string => typeof m === 'string');
+      message = messages.length > 0 ? messages.join('. ') : getStatusMessage(response.status, response.statusText);
+      // Check for code at top level
+      if (typeof json.code === 'string') {
+        code = json.code;
+      }
+    }
+    // Handle flat string message (original behavior)
+    else if (typeof json.message === 'string' && json.message) {
+      message = json.message;
+      if (typeof json.code === 'string') {
+        code = json.code;
+      }
+    }
+    // Handle body.error as fallback
+    else if (typeof json.error === 'string' && json.error) {
+      message = json.error;
+      if (typeof json.code === 'string') {
+        code = json.code;
+      }
+    }
+    // Final fallback to status-based message
+    else {
+      message = getStatusMessage(response.status, response.statusText);
+      if (typeof json.code === 'string') {
+        code = json.code;
+      }
     }
   } else {
     message = getStatusMessage(response.status, response.statusText);
@@ -1046,6 +1138,49 @@ export const projectsApi = {
     const qs = params.toString() ? `?${params.toString()}` : '';
     return fetchWithAuth(`/projects/${projectId}/governance/audit-events${qs}`);
   },
+
+  // ===========================================================================
+  // [ROLES-3] Member Management API
+  // ===========================================================================
+
+  /** Get the current user's role in a project */
+  getUserRole: (projectId: string): Promise<UserRoleResponse> =>
+    fetchWithAuth(`/projects/${projectId}/role`),
+
+  /** List all members of a project (read-only for all members) */
+  listMembers: (projectId: string): Promise<ProjectMember[]> =>
+    fetchWithAuth(`/projects/${projectId}/members`),
+
+  /** Add a member to a project (OWNER-only) */
+  addMember: (
+    projectId: string,
+    email: string,
+    role: EffectiveProjectRole,
+  ): Promise<ProjectMember> =>
+    fetchWithAuth(`/projects/${projectId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ email, role }),
+    }),
+
+  /** Change a member's role (OWNER-only) */
+  changeMemberRole: (
+    projectId: string,
+    memberId: string,
+    role: EffectiveProjectRole,
+  ): Promise<ProjectMember> =>
+    fetchWithAuth(`/projects/${projectId}/members/${memberId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ role }),
+    }),
+
+  /** Remove a member from a project (OWNER-only) */
+  removeMember: (
+    projectId: string,
+    memberId: string,
+  ): Promise<{ success: boolean; message: string }> =>
+    fetchWithAuth(`/projects/${projectId}/members/${memberId}`, {
+      method: 'DELETE',
+    }),
 };
 
 export const integrationsApi = {

@@ -12668,13 +12668,15 @@ Full Decision Locks documentation: `docs/GEO_INSIGHTS.md` (Decision Locks sectio
 
 ---
 
-## Phase ROLES-2 – Project Roles & Approval Foundations (Completed + FIXUP-1)
+## Phase ROLES-2 – Project Roles & Approval Foundations (Completed + FIXUP-1 + FIXUP-2)
 
 This phase introduces role-based access control foundations with single-user emulation support. It extends the ENTERPRISE-GEO-1 approval workflow to include Automation Playbooks apply, and adds role-aware UI affordances.
 
 **Single-User Emulation Note:** In v1, all project owners default to OWNER role. The `accountRole` field on User model can be set to VIEWER or EDITOR to simulate role restrictions for testing purposes. This maintains frictionless single-user projects while enabling future multi-user roles.
 
 **FIXUP-1 Corrections Applied:** Fixed approval gating correctness (hasValidApproval returns object, not boolean), changed from ForbiddenException to BadRequestException for APPROVAL_REQUIRED errors, fixed consumption to occur after successful apply, wired frontend to resolve effectiveRole from account profile, implemented "Approve and apply" flow, updated integration tests and Playwright tests to use real seed endpoints.
+
+**FIXUP-2 Corrections Applied:** Enhanced frontend `buildApiError` to parse NestJS nested error payloads. When NestJS throws BadRequestException with an object payload (e.g., `{ code: 'APPROVAL_REQUIRED', message: '...' }`), the structured response `{ message: { code, message, ... } }` is now correctly extracted. This ensures `ApiError.code` is set to `'APPROVAL_REQUIRED'` (not undefined) and `ApiError.message` shows the human-readable text (not generic "Bad Request").
 
 ### ROLES-2 Overview
 

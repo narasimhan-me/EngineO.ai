@@ -172,6 +172,15 @@ describe('AiUsageLedger Integration', () => {
       }),
     };
 
+    // [ROLES-3] Mock RoleResolutionService for role checks
+    const roleResolutionMock = {
+      resolveEffectiveRole: jest.fn().mockResolvedValue('OWNER'),
+      assertOwnerRole: jest.fn().mockResolvedValue(undefined),
+      assertProjectAccess: jest.fn().mockResolvedValue(undefined),
+      assertCanGenerateDrafts: jest.fn().mockResolvedValue(undefined),
+      isMultiUserProject: jest.fn().mockResolvedValue(false),
+    };
+
     // Create the real service instances with mocked dependencies
     playbooksService = new AutomationPlaybooksService(
       prismaMock,
@@ -179,11 +188,12 @@ describe('AiUsageLedger Integration', () => {
       tokenUsageMock as any,
       aiServiceMock as any,
       quotaServiceMock as any,
+      roleResolutionMock as any,
     );
 
     processor = new AutomationPlaybookRunProcessor(prismaMock, playbooksService);
 
-    runsService = new AutomationPlaybookRunsService(prismaMock, processor);
+    runsService = new AutomationPlaybookRunsService(prismaMock, processor, roleResolutionMock as any);
 
     ledgerService = new AiUsageLedgerService(prismaMock);
   });

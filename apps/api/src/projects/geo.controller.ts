@@ -13,6 +13,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PrismaService } from '../prisma.service';
 import { GeoService, ProductGeoReadinessResponse } from './geo.service';
 import { AiService } from '../ai/ai.service';
+import { RoleResolutionService } from '../common/role-resolution.service';
 import {
   AiUsageQuotaService,
   AiUsageQuotaEvaluation,
@@ -67,6 +68,13 @@ function toPrismaConfidence(level: GeoCitationConfidenceLevel): PrismaGeoConfide
   return mapping[level];
 }
 
+/**
+ * [ROLES-3 FIXUP-3] GeoController
+ * Updated with membership-aware access control:
+ * - GET endpoints: any ProjectMember can view
+ * - Preview endpoints: OWNER/EDITOR only (assertCanGenerateDrafts)
+ * - Apply endpoints: OWNER-only (assertOwnerRole)
+ */
 @Controller()
 @UseGuards(JwtAuthGuard)
 export class GeoController {
@@ -79,6 +87,7 @@ export class GeoController {
     private readonly governanceService: GovernanceService,
     private readonly approvalsService: ApprovalsService,
     private readonly auditEventsService: AuditEventsService,
+    private readonly roleResolution: RoleResolutionService,
   ) {}
 
   @Get('products/:productId/geo')
@@ -121,7 +130,8 @@ export class GeoController {
     });
 
     if (!product) throw new BadRequestException('Product not found');
-    if (product.project.userId !== userId) throw new ForbiddenException('Access denied');
+    // [ROLES-3 FIXUP-3] OWNER/EDITOR only for draft generation
+    await this.roleResolution.assertCanGenerateDrafts(product.projectId, userId);
 
     const block = (product.answerBlocks ?? []).find((b) => b.questionId === dto.questionId) || null;
     const updatedAtIso = block?.updatedAt ? block.updatedAt.toISOString() : 'none';
@@ -259,7 +269,8 @@ export class GeoController {
     });
 
     if (!product) throw new BadRequestException('Product not found');
-    if (product.project.userId !== userId) throw new ForbiddenException('Access denied');
+    // [ROLES-3 FIXUP-3] OWNER-only for apply mutations
+    await this.roleResolution.assertOwnerRole(product.projectId, userId);
 
     const draft = await this.prisma.productGeoFixDraft.findUnique({
       where: { id: dto.draftId },

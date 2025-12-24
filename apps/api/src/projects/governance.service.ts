@@ -1,14 +1,20 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { ShareLinkAudience } from '@prisma/client';
+import { RoleResolutionService } from '../common/role-resolution.service';
 
 /**
  * [ENTERPRISE-GEO-1] Governance Policy Service
+ * [ROLES-3] Updated with ProjectMember-aware access enforcement
  *
  * Manages project-scoped governance policies including:
  * - Approval requirements for apply actions
  * - Share link restrictions (passcode, expiry)
  * - Export content controls (competitor mentions, PII scrubbing)
+ *
+ * [ROLES-3] Access control:
+ * - getPolicy: Any ProjectMember can view (read-only)
+ * - updatePolicy: OWNER only (via ProjectMember role)
  */
 
 export interface GovernancePolicyResponse {
@@ -44,14 +50,19 @@ const DEFAULT_POLICY: Omit<GovernancePolicyResponse, 'projectId' | 'createdAt' |
 
 @Injectable()
 export class GovernanceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly roleResolution: RoleResolutionService,
+  ) {}
 
   /**
    * Get governance policy for a project
    * Returns default values if no policy exists
+   * [ROLES-3] Any ProjectMember can view (read-only)
    */
   async getPolicy(projectId: string, userId: string): Promise<GovernancePolicyResponse> {
-    await this.verifyProjectAccess(projectId, userId);
+    // [ROLES-3] Verify membership (any role can view)
+    await this.roleResolution.assertProjectAccess(projectId, userId);
 
     const policy = await this.prisma.projectGovernancePolicy.findUnique({
       where: { projectId },
@@ -74,13 +85,15 @@ export class GovernanceService {
   /**
    * Update governance policy for a project
    * Creates policy if it doesn't exist
+   * [ROLES-3] Only OWNER role can update policy
    */
   async updatePolicy(
     projectId: string,
     userId: string,
     updates: UpdateGovernancePolicyDto,
   ): Promise<GovernancePolicyResponse> {
-    await this.verifyProjectAccess(projectId, userId);
+    // [ROLES-3] Enforce OWNER role via ProjectMember
+    await this.roleResolution.assertOwnerRole(projectId, userId);
 
     // Get current policy for audit diff
     const currentPolicy = await this.prisma.projectGovernancePolicy.findUnique({
@@ -203,21 +216,6 @@ export class GovernanceService {
       allowCompetitorMentions: policy?.allowCompetitorMentionsInExports ?? false,
       allowPII: policy?.allowPIIInExports ?? false, // Always false in v1
     };
-  }
-
-  private async verifyProjectAccess(projectId: string, userId: string): Promise<void> {
-    const project = await this.prisma.project.findUnique({
-      where: { id: projectId },
-      select: { userId: true },
-    });
-
-    if (!project) {
-      throw new NotFoundException('Project not found');
-    }
-
-    if (project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this project');
-    }
   }
 
   private formatPolicyResponse(policy: any): GovernancePolicyResponse {

@@ -374,6 +374,7 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 - [ ] AUTOMATION-ENTRY-1: Single-product entry scopes to exactly one product end-to-end
 - [ ] AUTOMATION-ENTRY-1: Disable automation always available and immediate
 - [ ] AUTOMATION-ENTRY-1: Apply does not use AI when a valid draft exists (AUTO-PB-1.3 invariant)
+- [ ] ROLES-3: Multi-user projects do NOT auto-apply; owner approval required before apply
 
 ---
 
@@ -555,7 +556,7 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 **Key Scenarios:**
 - [ ] ROLES-2: OWNER can approve and apply playbooks when approval required
 - [ ] ROLES-2: Approval creates audit event (APPROVAL_APPROVED)
-- [ ] ROLES-2: Apply blocked with APPROVAL_REQUIRED error when missing approval
+- [ ] ROLES-2: Apply blocked with APPROVAL_REQUIRED error when missing approval (HTTP 400, structured error)
 - [ ] ROLES-2: VIEWER (simulated via accountRole) cannot apply
 - [ ] ROLES-2: VIEWER (simulated) cannot approve approval requests
 - [ ] ROLES-2: Preview and estimate remain accessible for VIEWER
@@ -563,6 +564,50 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 - [ ] ROLES-2: Role visibility label shows on playbooks page
 - [ ] ROLES-2: "Approve and apply" button appears when approval required
 - [ ] ROLES-2: Governance settings copy includes Automation Playbooks
+- [ ] ROLES-2 FIXUP-2: APPROVAL_REQUIRED error surfaces correct message/code without auth redirect
+
+---
+
+### CP-019: True Multi-User Projects (ROLES-3)
+
+**Description:** True multi-user projects with explicit membership management. Extends ROLES-2 with ProjectMember model, OWNER-only apply enforcement, approval chains, and multi-user auto-apply blocking.
+
+| Field | Value |
+|-------|-------|
+| **Manual Testing Doc(s)** | `docs/manual-testing/ROLES-3.md` |
+| **Automated Tests** | `apps/api/test/integration/roles-3.test.ts` (planned), `apps/web/tests/roles-3.spec.ts` (planned) |
+| **Last Verified (Manual)** | [YYYY-MM-DD] |
+| **Last Verified (Automated)** | N/A |
+| **Owner** | Core Team |
+
+**Key Scenarios:**
+- [ ] ROLES-3: Non-owner member can view project (via ProjectMember)
+- [ ] ROLES-3: EDITOR cannot apply automation playbooks (OWNER-only)
+- [ ] ROLES-3: VIEWER cannot generate drafts or apply
+- [ ] ROLES-3: Approval chain: EDITOR requests → OWNER approves → OWNER applies
+- [ ] ROLES-3: Multi-user projects block auto-apply (CP-012 invariant preserved)
+- [ ] ROLES-3: Single-user projects preserve existing auto-apply behavior
+- [ ] ROLES-3: Membership management: add/remove/role-change (OWNER-only)
+- [ ] ROLES-3: Cannot remove last OWNER from project
+- [ ] ROLES-3: Non-owner cannot manage members
+- [ ] ROLES-3: Migration backfills existing projects with OWNER membership
+- [ ] ROLES-3: Audit events logged for PROJECT_MEMBER_ADDED/REMOVED/ROLE_CHANGED
+- [ ] ROLES-3: GET /projects includes projects where user is a member
+- [ ] ROLES-3: GET /projects/:id/role returns user's role + capabilities + isMultiUserProject
+- [ ] ROLES-3 FIXUP-2: Multi-user OWNER cannot create approval requests (must apply directly)
+- [ ] ROLES-3 FIXUP-2: Single-user OWNER can create approval requests (ROLES-2 compat)
+- [ ] ROLES-3 FIXUP-2: accountRole ignored in multi-user projects (ProjectMember authoritative)
+- [ ] ROLES-3 FIXUP-2: Answer Block mutations OWNER-only (GET membership-readable)
+- [ ] ROLES-3 FIXUP-2: Members page uses "Add member" wording (not "Invite")
+- [ ] ROLES-3 FIXUP-3: Frontend uses derived state from pendingApproval (no ephemeral flags)
+- [ ] ROLES-3 FIXUP-3: EDITOR can NEVER apply, even if approval status is APPROVED
+- [ ] ROLES-3 FIXUP-3: EDITOR "Apply" click creates/shows approval request status
+- [ ] ROLES-3 FIXUP-3: Multi-user OWNER cannot self-request (shows "Add an Editor" message)
+- [ ] ROLES-3 FIXUP-3: Single-user OWNER can create + approve + apply in one flow
+- [ ] ROLES-3 FIXUP-3: Button states derive from pendingApproval?.status ('PENDING_APPROVAL' | 'APPROVED' | 'REJECTED')
+- [ ] ROLES-3 FIXUP-3 PATCH 4.6: Approval status prefetched when Step 3 visible (auto, no CTA click)
+- [ ] ROLES-3 FIXUP-3 PATCH 4.6: Switching playbooks clears stale approval state
+- [ ] ROLES-3 FIXUP-3 PATCH 4.6: Disabling approval requirement clears approval state
 
 ---
 
@@ -588,6 +633,7 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 | CP-016: Project Insights | ✅ | ✅ | 🟢 Full Coverage |
 | CP-017: GEO Answer Readiness | ✅ | ✅ | 🟢 Full Coverage |
 | CP-018: ROLES-2 Project Roles | ✅ | ✅ | 🟢 Full Coverage |
+| CP-019: ROLES-3 Multi-User Projects | ✅ | Planned | 🟡 Manual Only |
 
 **Legend:**
 - 🟢 Full Coverage (Manual + Automated)
@@ -653,3 +699,8 @@ This document tracks all critical paths in EngineO.ai that must be verified befo
 | 3.8 | 2025-12-21 | PRODUCTS-LIST-2.0: Added Bulk action confirmation scenario to CP-003 (3-step flow, AI disclosure, Apply uses no AI, partial failure handling). |
 | 3.9 | 2025-12-23 | ROLES-2: Added CP-018 for Project Roles & Approval Foundations. Single-user role emulation, approval gating on Automation Playbooks apply, role-aware UI. Added integration tests and Playwright coverage. |
 | 4.0 | 2025-12-23 | ROLES-2 FIXUP-1: Fixed approval gating correctness (hasValidApproval returns object), changed to BadRequestException for APPROVAL_REQUIRED, consume approval after successful apply. Updated integration tests (400 status), Playwright tests (real seed endpoints), frontend (resolve role from profile, approve-and-apply flow). |
+| 4.1 | 2025-12-23 | ROLES-3: Added CP-019 for True Multi-User Projects. ProjectMember model, OWNER-only apply enforcement, membership management API, multi-user auto-apply blocking. Updated CP-012 with multi-user auto-apply blocking scenario. |
+| 4.2 | 2025-12-23 | ROLES-2 FIXUP-2: Frontend structured error parsing for NestJS nested error payloads (e.g., BadRequestException with object message). Prevents "Bad Request" generic message, preserves error codes like APPROVAL_REQUIRED. Added key scenario to CP-018. |
+| 4.3 | 2025-12-23 | ROLES-3 FIXUP-2: Strict approval-chain matrix enforcement. Multi-user OWNER cannot create approval requests (must apply directly), accountRole ignored in multi-user projects (ProjectMember authoritative), isMultiUserProject in API response, Answer Block mutations OWNER-only, Members page "Add member" wording. Updated CP-019 scenarios. |
+| 4.4 | 2025-12-23 | ROLES-3 FIXUP-3: Frontend correction for strict approval-chain matrix. Removed ephemeral approvalRequested flag in favor of derived state from server-sourced pendingApproval object. EDITOR can NEVER apply even if approved—only requests approval. Multi-user OWNER cannot self-request (must wait for EDITOR). Single-user OWNER preserves ROLES-2 convenience (create + approve + apply). Button states and notices derive from pendingApproval?.status. Updated CP-019 with FIXUP-3 test scenarios. |
+| 4.5 | 2025-12-24 | ROLES-3 FIXUP-3 PATCH 4.6: Approval status prefetch and stale-state reset. Approval status auto-fetched when Step 3 visible (no CTA click needed). Stale approval cleared when switching playbooks or when policy changes. Includes stale-response guard for rapid playbook changes. Updated CP-019 verification scenario "UI derives from server state". |

@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma.service';
 import { ProjectInsightsService } from './project-insights.service';
 import { GovernanceService } from './governance.service';
 import { AuditEventsService } from './audit-events.service';
+import { RoleResolutionService } from '../common/role-resolution.service';
 import { ShareLinkAudience } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
@@ -114,6 +115,12 @@ function generatePasscode(): string {
   return result;
 }
 
+/**
+ * [ROLES-3 FIXUP-3] GeoReportsService
+ * Updated with membership-aware access control.
+ * - assembleReport / listShareLinks: any ProjectMember can view
+ * - createShareLink / revokeShareLink: OWNER-only (mutation surface)
+ */
 @Injectable()
 export class GeoReportsService {
   constructor(
@@ -121,6 +128,7 @@ export class GeoReportsService {
     private readonly projectInsightsService: ProjectInsightsService,
     private readonly governanceService: GovernanceService,
     private readonly auditEventsService: AuditEventsService,
+    private readonly roleResolution: RoleResolutionService,
   ) {}
 
   /**
@@ -138,9 +146,8 @@ export class GeoReportsService {
       throw new NotFoundException('Project not found');
     }
 
-    if (project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this project');
-    }
+    // [ROLES-3 FIXUP-3] Membership-aware access (any ProjectMember can view)
+    await this.roleResolution.assertProjectAccess(projectId, userId);
 
     // Get insights data (already authorized)
     const insights = await this.projectInsightsService.getProjectInsights(projectId, userId);
@@ -212,9 +219,8 @@ export class GeoReportsService {
       throw new NotFoundException('Project not found');
     }
 
-    if (project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this project');
-    }
+    // [ROLES-3 FIXUP-3] OWNER-only for share link creation (mutation surface)
+    await this.roleResolution.assertOwnerRole(projectId, userId);
 
     // [ENTERPRISE-GEO-1] Get governance settings for expiry and restrictions
     const shareLinkSettings = await this.governanceService.getShareLinkSettings(projectId);
@@ -297,9 +303,8 @@ export class GeoReportsService {
       throw new NotFoundException('Project not found');
     }
 
-    if (project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this project');
-    }
+    // [ROLES-3 FIXUP-3] Membership-aware access (any ProjectMember can view)
+    await this.roleResolution.assertProjectAccess(projectId, userId);
 
     const links = await this.prisma.geoReportShareLink.findMany({
       where: { projectId },
@@ -329,9 +334,8 @@ export class GeoReportsService {
       throw new NotFoundException('Share link not found');
     }
 
-    if (link.project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this project');
-    }
+    // [ROLES-3 FIXUP-3] OWNER-only for share link revocation (mutation surface)
+    await this.roleResolution.assertOwnerRole(projectId, userId);
 
     if (link.status === 'REVOKED') {
       throw new BadRequestException('Share link is already revoked');

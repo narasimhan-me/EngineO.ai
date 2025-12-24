@@ -69,10 +69,15 @@ ROLES-2 introduces role-based access control foundations for EngineO.ai, with a 
 3. Attempt to apply via API directly (bypassing UI approval flow)
 
 **Expected Results:**
-- [ ] API returns 403 Forbidden with `APPROVAL_REQUIRED` code
-- [ ] Error response includes `resourceType` and `resourceId`
+- [ ] API returns **HTTP 400 Bad Request** (not 403) with structured `APPROVAL_REQUIRED` error
+- [ ] Error response includes structured payload: `{ code, message, approvalStatus, approvalId, resourceType, resourceId }`
+- [ ] **[FIXUP-2]** UI displays human-readable error message (not generic "Bad Request")
+- [ ] **[FIXUP-2]** `err.code === 'APPROVAL_REQUIRED'` is correctly extracted by frontend
+- [ ] UI does **not** auth-redirect (400 is not treated as auth failure)
 - [ ] No products are modified
 - [ ] UI correctly shows approval requirement before apply button is enabled
+
+> **Note (FIXUP-1/FIXUP-2):** The 400 status code (instead of 403) is intentional to prevent frontend auth-redirect behavior while still blocking the apply action. The frontend's `buildApiError` function parses nested NestJS error payloads to extract `code` and `message` from the structured response.
 
 ### 4. Viewer Cannot Apply (Simulated via accountRole)
 
@@ -200,3 +205,23 @@ UPDATE "User" SET "accountRole" = 'OWNER' WHERE email = 'test@example.com';
 
 - Backend: `apps/api/test/integration/roles-2.test.ts`
 - Frontend: `apps/web/tests/roles-2.spec.ts`
+
+## FIXUP History
+
+### FIXUP-1 (2025-12-23)
+
+Corrections to initial ROLES-2 implementation:
+- Changed APPROVAL_REQUIRED error from 403 to 400 (BadRequestException) to prevent auth-redirect
+- Fixed `hasValidApproval` return type handling (returns object, not boolean)
+- Approval consumption now occurs after successful apply mutation (not before)
+- Frontend resolves `effectiveRole` from account profile (not hardcoded)
+- Implemented "Approve and apply" flow in frontend
+
+### FIXUP-2 (2025-12-23)
+
+Frontend structured error parsing:
+- Enhanced `buildApiError` to parse NestJS nested error payloads
+- Structured errors like `{ message: { code, message, ... } }` are now correctly extracted
+- `ApiError.code` correctly set to `'APPROVAL_REQUIRED'` instead of undefined
+- `ApiError.message` shows human-readable text instead of generic "Bad Request"
+- No auth-redirect on 400 errors (existing behavior preserved)

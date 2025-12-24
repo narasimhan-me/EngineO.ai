@@ -1,9 +1,11 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { GovernanceAuditEventType, Prisma } from '@prisma/client';
+import { RoleResolutionService } from '../common/role-resolution.service';
 
 /**
  * [ENTERPRISE-GEO-1] Governance Audit Events Service
+ * [ROLES-3] Updated with ProjectMember-aware access enforcement
  *
  * Append-only audit log for governance actions.
  * All writes are immutable - no update/delete operations.
@@ -13,6 +15,10 @@ import { GovernanceAuditEventType, Prisma } from '@prisma/client';
  * - Approval workflow events
  * - Apply executions
  * - Share link operations
+ *
+ * [ROLES-3] Access control:
+ * - listEvents: Any ProjectMember can view (read-only)
+ * - writeEvent: Internal only (no direct user access check needed)
  */
 
 export interface AuditEventResponse {
@@ -49,7 +55,10 @@ const FORBIDDEN_METADATA_KEYS = [
 
 @Injectable()
 export class AuditEventsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly roleResolution: RoleResolutionService,
+  ) {}
 
   /**
    * Write an audit event (append-only)
@@ -85,6 +94,7 @@ export class AuditEventsService {
   /**
    * List audit events for a project (paged)
    * Customer-visible audit log
+   * [ROLES-3] Any ProjectMember can view (read-only)
    */
   async listEvents(
     projectId: string,
@@ -95,7 +105,8 @@ export class AuditEventsService {
       eventType?: GovernanceAuditEventType;
     } = {},
   ): Promise<AuditEventListResponse> {
-    await this.verifyProjectAccess(projectId, userId);
+    // [ROLES-3] Verify membership (any role can view)
+    await this.roleResolution.assertProjectAccess(projectId, userId);
 
     const page = options.page ?? 1;
     const pageSize = Math.min(options.pageSize ?? 20, 100); // Max 100 per page
@@ -275,21 +286,6 @@ export class AuditEventsService {
     }
 
     return sanitized;
-  }
-
-  private async verifyProjectAccess(projectId: string, userId: string): Promise<void> {
-    const project = await this.prisma.project.findUnique({
-      where: { id: projectId },
-      select: { userId: true },
-    });
-
-    if (!project) {
-      throw new NotFoundException('Project not found');
-    }
-
-    if (project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this project');
-    }
   }
 
   private formatEventResponse(event: any): AuditEventResponse {

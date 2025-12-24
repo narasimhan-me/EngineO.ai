@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { RoleResolutionService } from '../common/role-resolution.service';
 import {
   LocalApplicabilityStatus as PrismaApplicabilityStatus,
   LocalSignalType as PrismaSignalType,
@@ -48,9 +49,16 @@ import type { DeoIssue, DeoIssueSeverity } from '@engineo/shared';
  * - No GMB management, map rank tracking, or multi-location/franchise tooling in v1
  * - No geo-rank promises or external location API integrations in v1
  */
+/**
+ * [ROLES-3 FIXUP-3] LocalDiscoveryService
+ * Updated with membership-aware access control (any ProjectMember can view).
+ */
 @Injectable()
 export class LocalDiscoveryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly roleResolution: RoleResolutionService,
+  ) {}
 
   // ============================================================================
   // Type Mapping Helpers
@@ -608,9 +616,8 @@ export class LocalDiscoveryService {
       throw new NotFoundException('Project not found');
     }
 
-    if (project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this project');
-    }
+    // [ROLES-3 FIXUP-3] Membership-aware access (any ProjectMember can view)
+    await this.roleResolution.assertProjectAccess(projectId, userId);
 
     // Get or compute scorecard
     const scorecard = await this.getProjectScorecard(projectId);

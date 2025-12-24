@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { IntegrationType, CrawlFrequency } from '@prisma/client';
+import { IntegrationType, CrawlFrequency, ProjectMemberRole, GovernanceAuditEventType } from '@prisma/client';
+import { RoleResolutionService, EffectiveProjectRole } from '../common/role-resolution.service';
 
 export interface CreateProjectDto {
   name: string;
@@ -18,22 +19,71 @@ export interface UpdateProjectDto {
   aeoSyncToShopifyMetafields?: boolean;
 }
 
+// [ROLES-3] Project member DTOs
+export interface AddMemberDto {
+  email: string;
+  role: ProjectMemberRole;
+}
+
+export interface ChangeMemberRoleDto {
+  role: ProjectMemberRole;
+}
+
+export interface ProjectMemberInfo {
+  id: string;
+  userId: string;
+  email: string;
+  name: string | null;
+  role: ProjectMemberRole;
+  createdAt: Date;
+}
+
 @Injectable()
 export class ProjectsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly roleResolution: RoleResolutionService,
+  ) {}
 
   /**
-   * Get all projects for a user
+   * [ROLES-3] Get all projects for a user (includes projects where user is a member)
    */
   async getProjectsForUser(userId: string) {
-    return this.prisma.project.findMany({
+    // Get projects where user is a ProjectMember
+    const memberProjects = await this.prisma.projectMember.findMany({
       where: { userId },
+      include: {
+        project: true,
+      },
+      orderBy: { project: { createdAt: 'desc' } },
+    });
+
+    // Also get legacy projects (where user is Project.userId but no membership record)
+    const legacyProjects = await this.prisma.project.findMany({
+      where: {
+        userId,
+        members: {
+          none: { userId },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
+
+    // Combine and return (members first, then legacy)
+    const memberProjectList = memberProjects.map((m) => ({
+      ...m.project,
+      memberRole: m.role,
+    }));
+    const legacyProjectList = legacyProjects.map((p) => ({
+      ...p,
+      memberRole: 'OWNER' as ProjectMemberRole, // Legacy owner
+    }));
+
+    return [...memberProjectList, ...legacyProjectList];
   }
 
   /**
-   * Get project by ID (with ownership check)
+   * [ROLES-3] Get project by ID (with membership check instead of ownership check)
    */
   async getProject(projectId: string, userId: string) {
     const project = await this.prisma.project.findUnique({
@@ -44,31 +94,63 @@ export class ProjectsService {
       throw new NotFoundException('Project not found');
     }
 
-    if (project.userId !== userId) {
+    // [ROLES-3] Check membership instead of ownership
+    const hasAccess = await this.roleResolution.hasProjectAccess(projectId, userId);
+    if (!hasAccess) {
       throw new ForbiddenException('You do not have access to this project');
     }
 
-    return project;
+    // Include user's role in the response
+    const role = await this.roleResolution.resolveEffectiveRole(projectId, userId);
+
+    return {
+      ...project,
+      memberRole: role,
+    };
   }
 
   /**
-   * Create a new project
+   * Create a new project (and add creator as OWNER member)
    */
   async createProject(userId: string, dto: CreateProjectDto) {
-    return this.prisma.project.create({
-      data: {
-        userId,
-        name: dto.name,
-        domain: dto.domain,
-      },
+    // Use transaction to create project and membership atomically
+    return this.prisma.$transaction(async (tx) => {
+      const project = await tx.project.create({
+        data: {
+          userId,
+          name: dto.name,
+          domain: dto.domain,
+        },
+      });
+
+      // [ROLES-3] Create OWNER membership for the creator
+      await tx.projectMember.create({
+        data: {
+          projectId: project.id,
+          userId,
+          role: ProjectMemberRole.OWNER,
+        },
+      });
+
+      return project;
     });
   }
 
   /**
-   * Update a project
+   * [ROLES-3] Update a project (OWNER-only)
    */
   async updateProject(projectId: string, userId: string, dto: UpdateProjectDto) {
-    const project = await this.getProject(projectId, userId);
+    // Verify project exists and user has OWNER role
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    // [ROLES-3] Enforce OWNER-only for updates
+    await this.roleResolution.assertOwnerRole(projectId, userId);
 
     // Validate crawlFrequency if provided
     if (dto.crawlFrequency !== undefined) {
@@ -96,10 +178,19 @@ export class ProjectsService {
   }
 
   /**
-   * Delete a project
+   * [ROLES-3] Delete a project (OWNER-only)
    */
   async deleteProject(projectId: string, userId: string) {
-    const project = await this.getProject(projectId, userId);
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    // [ROLES-3] Enforce OWNER-only for deletion
+    await this.roleResolution.assertOwnerRole(projectId, userId);
 
     // Delete related integrations first
     await this.prisma.integration.deleteMany({
@@ -116,14 +207,14 @@ export class ProjectsService {
       where: { projectId },
     });
 
-    // Delete the project
+    // Delete the project (ProjectMember records cascade-deleted)
     return this.prisma.project.delete({
       where: { id: projectId },
     });
   }
 
   /**
-   * Get integration status for a project
+   * [ROLES-3] Get integration status for a project (membership check)
    */
   async getIntegrationStatus(projectId: string, userId: string) {
     const project = await this.prisma.project.findUnique({
@@ -137,7 +228,9 @@ export class ProjectsService {
       throw new NotFoundException('Project not found');
     }
 
-    if (project.userId !== userId) {
+    // [ROLES-3] Check membership instead of ownership
+    const hasAccess = await this.roleResolution.hasProjectAccess(projectId, userId);
+    if (!hasAccess) {
       throw new ForbiddenException('You do not have access to this project');
     }
 
@@ -223,7 +316,7 @@ export class ProjectsService {
   }
 
   /**
-   * Get project with all integrations
+   * [ROLES-3] Get project with all integrations (membership check)
    */
   async getProjectWithIntegrations(projectId: string, userId: string) {
     const project = await this.prisma.project.findUnique({
@@ -237,7 +330,9 @@ export class ProjectsService {
       throw new NotFoundException('Project not found');
     }
 
-    if (project.userId !== userId) {
+    // [ROLES-3] Check membership instead of ownership
+    const hasAccess = await this.roleResolution.hasProjectAccess(projectId, userId);
+    if (!hasAccess) {
       throw new ForbiddenException('You do not have access to this project');
     }
 
@@ -245,7 +340,14 @@ export class ProjectsService {
   }
 
   /**
-   * Validate project ownership
+   * [ROLES-3] Validate project access (replaces validateProjectOwnership for read paths)
+   */
+  async validateProjectAccess(projectId: string, userId: string): Promise<boolean> {
+    return this.roleResolution.hasProjectAccess(projectId, userId);
+  }
+
+  /**
+   * Legacy: Validate project ownership (kept for backward compatibility)
    */
   async validateProjectOwnership(projectId: string, userId: string): Promise<boolean> {
     const project = await this.prisma.project.findFirst({
@@ -258,7 +360,7 @@ export class ProjectsService {
   }
 
   /**
-   * Get project overview stats for dashboard
+   * [ROLES-3] Get project overview stats for dashboard (membership check)
    */
   async getProjectOverview(projectId: string, userId: string): Promise<{
     crawlCount: number;
@@ -270,7 +372,7 @@ export class ProjectsService {
     lastAnswerBlockSyncStatus: string | null;
     lastAnswerBlockSyncAt: Date | null;
   }> {
-    // Validate project ownership
+    // Validate project access
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },
     });
@@ -279,7 +381,9 @@ export class ProjectsService {
       throw new NotFoundException('Project not found');
     }
 
-    if (project.userId !== userId) {
+    // [ROLES-3] Check membership instead of ownership
+    const hasAccess = await this.roleResolution.hasProjectAccess(projectId, userId);
+    if (!hasAccess) {
       throw new ForbiddenException('You do not have access to this project');
     }
 
@@ -351,10 +455,10 @@ export class ProjectsService {
   }
 
   /**
-   * Get non-product crawl pages for content optimization
+   * [ROLES-3] Get non-product crawl pages for content optimization (membership check)
    */
   async getCrawlPages(projectId: string, userId: string) {
-    // Validate project ownership
+    // Validate project access
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },
     });
@@ -363,7 +467,9 @@ export class ProjectsService {
       throw new NotFoundException('Project not found');
     }
 
-    if (project.userId !== userId) {
+    // [ROLES-3] Check membership instead of ownership
+    const hasAccess = await this.roleResolution.hasProjectAccess(projectId, userId);
+    if (!hasAccess) {
       throw new ForbiddenException('You do not have access to this project');
     }
 
@@ -483,5 +589,277 @@ export class ProjectsService {
       });
 
     return contentPages;
+  }
+
+  // ===========================================================================
+  // [ROLES-3] Membership Management API
+  // ===========================================================================
+
+  /**
+   * [ROLES-3] List all members of a project (read-only for all members)
+   */
+  async listMembers(projectId: string, userId: string): Promise<ProjectMemberInfo[]> {
+    // Verify project exists and user has access
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    await this.roleResolution.assertProjectAccess(projectId, userId);
+
+    const members = await this.prisma.projectMember.findMany({
+      where: { projectId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return members.map((m) => ({
+      id: m.id,
+      userId: m.userId,
+      email: m.user.email,
+      name: m.user.name,
+      role: m.role,
+      createdAt: m.createdAt,
+    }));
+  }
+
+  /**
+   * [ROLES-3] Add a member to a project (OWNER-only)
+   */
+  async addMember(
+    projectId: string,
+    actorUserId: string,
+    dto: AddMemberDto,
+  ): Promise<ProjectMemberInfo> {
+    // Verify project exists
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    // Enforce OWNER-only
+    await this.roleResolution.assertOwnerRole(projectId, actorUserId);
+
+    // Find user by email
+    const targetUser = await this.prisma.user.findUnique({
+      where: { email: dto.email.toLowerCase() },
+      select: { id: true, email: true, name: true },
+    });
+
+    if (!targetUser) {
+      throw new BadRequestException('User with this email does not exist');
+    }
+
+    // Check if already a member
+    const existingMember = await this.prisma.projectMember.findUnique({
+      where: {
+        projectId_userId: { projectId, userId: targetUser.id },
+      },
+    });
+
+    if (existingMember) {
+      throw new BadRequestException('User is already a member of this project');
+    }
+
+    // Create membership
+    const member = await this.prisma.projectMember.create({
+      data: {
+        projectId,
+        userId: targetUser.id,
+        role: dto.role,
+      },
+    });
+
+    // Audit log
+    await this.prisma.governanceAuditEvent.create({
+      data: {
+        projectId,
+        actorUserId,
+        eventType: GovernanceAuditEventType.PROJECT_MEMBER_ADDED,
+        resourceType: 'PROJECT_MEMBER',
+        resourceId: member.id,
+        metadata: {
+          targetUserId: targetUser.id,
+          targetEmail: targetUser.email,
+          role: dto.role,
+        },
+      },
+    });
+
+    return {
+      id: member.id,
+      userId: targetUser.id,
+      email: targetUser.email,
+      name: targetUser.name,
+      role: member.role,
+      createdAt: member.createdAt,
+    };
+  }
+
+  /**
+   * [ROLES-3] Change a member's role (OWNER-only)
+   */
+  async changeMemberRole(
+    projectId: string,
+    memberId: string,
+    actorUserId: string,
+    dto: ChangeMemberRoleDto,
+  ): Promise<ProjectMemberInfo> {
+    // Verify project exists
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    // Enforce OWNER-only
+    await this.roleResolution.assertOwnerRole(projectId, actorUserId);
+
+    // Find membership
+    const member = await this.prisma.projectMember.findFirst({
+      where: { id: memberId, projectId },
+      include: {
+        user: {
+          select: { id: true, email: true, name: true },
+        },
+      },
+    });
+
+    if (!member) {
+      throw new NotFoundException('Member not found');
+    }
+
+    // If changing from OWNER to non-OWNER, ensure at least one OWNER remains
+    if (member.role === ProjectMemberRole.OWNER && dto.role !== ProjectMemberRole.OWNER) {
+      const ownerCount = await this.prisma.projectMember.count({
+        where: { projectId, role: ProjectMemberRole.OWNER },
+      });
+      if (ownerCount <= 1) {
+        throw new BadRequestException('Cannot remove the last owner. Projects must have at least one owner.');
+      }
+    }
+
+    const oldRole = member.role;
+
+    // Update role
+    const updated = await this.prisma.projectMember.update({
+      where: { id: memberId },
+      data: { role: dto.role },
+    });
+
+    // Audit log
+    await this.prisma.governanceAuditEvent.create({
+      data: {
+        projectId,
+        actorUserId,
+        eventType: GovernanceAuditEventType.PROJECT_MEMBER_ROLE_CHANGED,
+        resourceType: 'PROJECT_MEMBER',
+        resourceId: member.id,
+        metadata: {
+          targetUserId: member.userId,
+          targetEmail: member.user.email,
+          oldRole,
+          newRole: dto.role,
+        },
+      },
+    });
+
+    return {
+      id: updated.id,
+      userId: member.userId,
+      email: member.user.email,
+      name: member.user.name,
+      role: updated.role,
+      createdAt: updated.createdAt,
+    };
+  }
+
+  /**
+   * [ROLES-3] Remove a member from a project (OWNER-only)
+   */
+  async removeMember(
+    projectId: string,
+    memberId: string,
+    actorUserId: string,
+  ): Promise<void> {
+    // Verify project exists
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    // Enforce OWNER-only
+    await this.roleResolution.assertOwnerRole(projectId, actorUserId);
+
+    // Find membership
+    const member = await this.prisma.projectMember.findFirst({
+      where: { id: memberId, projectId },
+      include: {
+        user: {
+          select: { id: true, email: true },
+        },
+      },
+    });
+
+    if (!member) {
+      throw new NotFoundException('Member not found');
+    }
+
+    // If removing an OWNER, ensure at least one OWNER remains
+    if (member.role === ProjectMemberRole.OWNER) {
+      const ownerCount = await this.prisma.projectMember.count({
+        where: { projectId, role: ProjectMemberRole.OWNER },
+      });
+      if (ownerCount <= 1) {
+        throw new BadRequestException('Cannot remove the last owner. Projects must have at least one owner.');
+      }
+    }
+
+    // Delete membership
+    await this.prisma.projectMember.delete({
+      where: { id: memberId },
+    });
+
+    // Audit log
+    await this.prisma.governanceAuditEvent.create({
+      data: {
+        projectId,
+        actorUserId,
+        eventType: GovernanceAuditEventType.PROJECT_MEMBER_REMOVED,
+        resourceType: 'PROJECT_MEMBER',
+        resourceId: member.id,
+        metadata: {
+          targetUserId: member.userId,
+          targetEmail: member.user.email,
+          role: member.role,
+        },
+      },
+    });
+  }
+
+  /**
+   * [ROLES-3] Get user's role in a project
+   */
+  async getUserRole(projectId: string, userId: string): Promise<EffectiveProjectRole | null> {
+    return this.roleResolution.resolveEffectiveRole(projectId, userId);
   }
 }

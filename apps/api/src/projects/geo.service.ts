@@ -1,5 +1,6 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { RoleResolutionService } from '../common/role-resolution.service';
 import {
   ANSWER_QUESTION_LABELS,
   evaluateGeoProduct,
@@ -19,9 +20,16 @@ export interface ProductGeoReadinessResponse {
   issues: Array<GeoIssue & { questionLabel?: string }>;
 }
 
+/**
+ * [ROLES-3 FIXUP-3] GeoService
+ * Updated with membership-aware access control (any ProjectMember can view).
+ */
 @Injectable()
 export class GeoService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly roleResolution: RoleResolutionService,
+  ) {}
 
   async getProductGeoReadiness(productId: string, userId: string): Promise<ProductGeoReadinessResponse> {
     const product = await this.prisma.product.findUnique({
@@ -33,7 +41,8 @@ export class GeoService {
     });
 
     if (!product) throw new NotFoundException('Product not found');
-    if (product.project.userId !== userId) throw new ForbiddenException('Access denied');
+    // [ROLES-3 FIXUP-3] Membership-aware access (any ProjectMember can view)
+    await this.roleResolution.assertProjectAccess(product.projectId, userId);
 
     const units: GeoAnswerUnitInput[] = (product.answerBlocks ?? []).map((b) => ({
       unitId: b.id,

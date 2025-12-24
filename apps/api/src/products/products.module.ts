@@ -4,10 +4,11 @@ import { ProductAnswerBlocksController } from './product-answer-blocks.controlle
 import { ProductsService } from './products.service';
 import { AnswerBlockService } from './answer-block.service';
 import { PrismaService } from '../prisma.service';
+import { RoleResolutionService } from '../common/role-resolution.service';
 
 @Module({
   controllers: [ProductsController, ProductAnswerBlocksController],
-  providers: [ProductsService, AnswerBlockService, PrismaService],
+  providers: [ProductsService, AnswerBlockService, PrismaService, RoleResolutionService],
   exports: [ProductsService, AnswerBlockService],
 })
 export class ProductsModule {}

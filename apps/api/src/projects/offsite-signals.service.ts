@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { RoleResolutionService } from '../common/role-resolution.service';
 import {
   OffsiteSignalType as PrismaSignalType,
   OffsiteGapType as PrismaGapType,
@@ -67,9 +68,16 @@ const KNOWN_PLATFORMS: { signalType: OffsiteSignalType; sourceName: string; desc
  * - Focus on presence and quality of trust signals
  * - All generated content requires human review
  */
+/**
+ * [ROLES-3 FIXUP-3] OffsiteSignalsService
+ * Updated with membership-aware access control (any ProjectMember can view).
+ */
 @Injectable()
 export class OffsiteSignalsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly roleResolution: RoleResolutionService,
+  ) {}
 
   // ============================================================================
   // Type Mapping Helpers
@@ -496,9 +504,8 @@ export class OffsiteSignalsService {
       throw new NotFoundException('Project not found');
     }
 
-    if (project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this project');
-    }
+    // [ROLES-3 FIXUP-3] Membership-aware access (any ProjectMember can view)
+    await this.roleResolution.assertProjectAccess(projectId, userId);
 
     // Get signals
     const signals = await this.getProjectSignals(projectId);

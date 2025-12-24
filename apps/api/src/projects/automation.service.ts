@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -20,6 +19,7 @@ import { ShopifyService } from '../shopify/shopify.service';
 import { GovernanceService } from './governance.service';
 import { ApprovalsService } from './approvals.service';
 import { AuditEventsService } from './audit-events.service';
+import { RoleResolutionService } from '../common/role-resolution.service';
 
 const AUTOMATION_SOURCE = 'automation_v1';
 
@@ -43,6 +43,7 @@ export class AutomationService {
     private readonly governanceService: GovernanceService,
     private readonly approvalsService: ApprovalsService,
     private readonly auditEventsService: AuditEventsService,
+    private readonly roleResolutionService: RoleResolutionService,
   ) {}
 
   /**
@@ -295,6 +296,7 @@ export class AutomationService {
    * Returns true only when:
    * - The plan allows auto-apply (Pro/Business)
    * - The issue type is MISSING_METADATA (not THIN_CONTENT for AE-2.1)
+   * - [ROLES-3] The project is single-user (multi-user projects block auto-apply)
    */
   private async shouldAutoApplyMetadataForProject(
     projectId: string,
@@ -312,6 +314,15 @@ export class AutomationService {
     });
 
     if (!project) {
+      return false;
+    }
+
+    // [ROLES-3] Multi-user projects block auto-apply; require OWNER approval
+    const isMultiUser = await this.roleResolutionService.isMultiUserProject(projectId);
+    if (isMultiUser) {
+      this.logger.log(
+        `[Automation] Multi-user project ${projectId}: auto-apply blocked, requiring OWNER approval`,
+      );
       return false;
     }
 
@@ -582,7 +593,16 @@ export class AutomationService {
     });
 
     // Check if we should auto-apply (Pro/Business plans only)
-    const shouldAutoApply = await this.entitlementsService.canAutoApplyMetadataAutomations(userId);
+    // [ROLES-3] Multi-user projects block auto-apply; require OWNER approval
+    const isMultiUser = await this.roleResolutionService.isMultiUserProject(projectId);
+    const canAutoApplyPlan = await this.entitlementsService.canAutoApplyMetadataAutomations(userId);
+    const shouldAutoApply = canAutoApplyPlan && !isMultiUser;
+
+    if (isMultiUser && canAutoApplyPlan) {
+      this.logger.log(
+        `[Automation] Multi-user project ${projectId}: auto-apply blocked for new product ${productId}, requiring OWNER approval`,
+      );
+    }
 
     if (shouldAutoApply) {
       const suggestedTitleValid = metadata.title && metadata.title.trim() !== '';
@@ -628,17 +648,8 @@ export class AutomationService {
   }
 
   async getSuggestionsForProject(projectId: string, userId: string) {
-    const project = await this.prisma.project.findUnique({
-      where: { id: projectId },
-    });
-
-    if (!project) {
-      throw new NotFoundException('Project not found');
-    }
-
-    if (project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this project');
-    }
+    // [ROLES-3 FIXUP-3] Membership-aware access (any ProjectMember can view)
+    await this.roleResolutionService.assertProjectAccess(projectId, userId);
 
     const suggestions = await this.prisma.automationSuggestion.findMany({
       where: { projectId },
@@ -695,9 +706,8 @@ export class AutomationService {
       return;
     }
 
-    if (product.project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this product');
-    }
+    // [ROLES-3 FIXUP-3] Membership-aware access (any ProjectMember can trigger)
+    await this.roleResolutionService.assertProjectAccess(product.projectId, userId);
 
     const planId: PlanId = await this.entitlementsService.getUserPlan(userId);
 
@@ -796,9 +806,8 @@ export class AutomationService {
       throw new NotFoundException('Product not found');
     }
 
-    if (product.project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this product');
-    }
+    // [ROLES-3 FIXUP-3] Membership-aware access (any ProjectMember can view logs)
+    await this.roleResolutionService.assertProjectAccess(product.projectId, userId);
 
     const logs = await this.prisma.answerBlockAutomationLog.findMany({
       where: { productId: product.id },
@@ -850,9 +859,8 @@ export class AutomationService {
       throw new NotFoundException('Product not found');
     }
 
-    if (product.project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this product');
-    }
+    // [ROLES-3 FIXUP-3] OWNER-only for sync mutations (APPLY surface)
+    await this.roleResolutionService.assertOwnerRole(product.projectId, userId);
 
     const planId: PlanId = await this.entitlementsService.getUserPlan(userId);
     const triggerType = 'manual_sync';

@@ -448,6 +448,108 @@ Frontend-only redesign of the Products list to be decision-first with Health pil
 
 ---
 
+## Phase ROLES-3: True Multi-User Projects & Approval Chains ✅ COMPLETE
+
+**Status:** Complete
+**Date Completed:** 2025-12-23
+
+True multi-user projects with explicit membership management, approval chains, and enforcement of the OWNER-only apply invariant.
+
+### Key Features
+
+1. **ProjectMember Model**: Real project memberships with OWNER/EDITOR/VIEWER roles
+2. **Membership Management API**: OWNER-only add/remove/role-change endpoints
+3. **Role Resolution Service**: ProjectMember as source of truth (with legacy fallback)
+4. **Locked Capability Matrix**: EDITOR cannot apply; must request approval; VIEWER read-only
+5. **Approval Chain Enforcement**: EDITOR requests approval, OWNER approves and applies
+6. **Multi-User Auto-Apply Blocking**: Multi-user projects do NOT auto-apply (preserves CP-012)
+7. **Audit Trail**: PROJECT_MEMBER_ADDED/REMOVED/ROLE_CHANGED events
+
+### Hard Contracts
+
+1. **OWNER-Only Apply**: Only project owners can execute apply actions
+2. **Minimum One Owner**: Projects must always have at least one OWNER
+3. **No Silent Auto-Apply for Multi-User**: Multi-user projects block auto-apply; require OWNER approval
+4. **Backward Compatibility**: Single-user projects preserve ROLES-2 behavior
+
+### Implementation Details
+
+#### Database / Prisma
+
+- **New Enum**: `ProjectMemberRole` (OWNER, EDITOR, VIEWER)
+- **New Model**: `ProjectMember` with projectId, userId, role, createdAt
+  - Unique constraint on (projectId, userId)
+  - Cascade deletion when project is deleted
+  - Indexes for list-by-project, resolve-role, list-by-user
+- **Extended Enum**: `GovernanceAuditEventType` with PROJECT_MEMBER_* events
+- **Migration**: `20251223_roles_3_project_members` with backfill for existing projects
+
+#### Backend Services
+
+- **role-resolution.service.ts**: Updated to use ProjectMember as source of truth
+  - `resolveEffectiveRole()`: ProjectMember first, legacy fallback second
+  - `assertProjectAccess()`, `assertOwnerRole()`, `assertCanRequestApproval()`
+  - `isMultiUserProject()`: Checks if project has 2+ members
+  - `getCapabilities()`: Returns capability matrix for role
+- **projects.service.ts**: Multi-user access support
+  - `getProjectsForUser()`: Includes projects where user is a member
+  - `getProject()`: Membership check, returns memberRole
+  - `listMembers()`, `addMember()`, `changeMemberRole()`, `removeMember()`
+  - Audit logging for all membership changes
+- **automation.service.ts**: Multi-user auto-apply blocking
+  - `shouldAutoApplyMetadataForProject()`: Returns false for multi-user projects
+  - `runNewProductSeoTitleAutomation()`: Checks isMultiUserProject before auto-apply
+
+#### API Endpoints (projects.controller.ts)
+
+- `GET /projects/:id/members` - List members (all members can view)
+- `POST /projects/:id/members` - Add member (OWNER-only)
+- `PUT /projects/:id/members/:memberId` - Change role (OWNER-only)
+- `DELETE /projects/:id/members/:memberId` - Remove member (OWNER-only)
+- `GET /projects/:id/role` - Get current user's role + capabilities
+- Updated apply endpoint: OWNER-only enforcement
+
+#### Frontend (api.ts)
+
+- Updated `RoleCapabilities` interface with `canGenerateDrafts`, `canManageMembers`, `canExport`
+- Updated `getRoleCapabilities()`: EDITOR cannot apply
+- New types: `ProjectMember`, `UserRoleResponse`
+- New API methods: `getUserRole()`, `listMembers()`, `addMember()`, `changeMemberRole()`, `removeMember()`
+
+### Capability Matrix
+
+| Capability | OWNER | EDITOR | VIEWER |
+|------------|-------|--------|--------|
+| View data | Yes | Yes | Yes |
+| Generate drafts | Yes | Yes | No |
+| Request approval | Yes | Yes | No |
+| Approve actions | Yes | No | No |
+| Apply changes | Yes | No | No |
+| Modify settings | Yes | No | No |
+| Manage members | Yes | No | No |
+| Export/view reports | Yes | Yes | Yes |
+
+### Critical Paths
+
+- **CP-001 (Auth & Authorization)**: Project membership + role enforcement is real
+- **CP-012 (Automation Engine)**: Multi-user projects do NOT auto-apply
+- **CP-018 (ROLES-2)**: Single-user projects preserve existing behavior
+- **CP-019 (ROLES-3)**: True multi-user project flows
+
+### Test Coverage
+
+- Backend: `apps/api/test/integration/roles-3.test.ts`
+- Frontend: `apps/web/tests/roles-3.spec.ts`
+
+### Related Documents
+
+- [ROLES-3.md](./manual-testing/ROLES-3.md) - Manual testing guide
+- [ROLES-2.md](./manual-testing/ROLES-2.md) - Role foundations (single-user emulation)
+- [ENTERPRISE-GEO-1.md](./manual-testing/ENTERPRISE-GEO-1.md) - Approval workflow foundations
+- [CRITICAL_PATH_MAP.md](./testing/CRITICAL_PATH_MAP.md) - CP-019 entry
+
+---
+
 ## Document History
 
 | Version | Date | Changes |
@@ -463,3 +565,6 @@ Frontend-only redesign of the Products list to be decision-first with Health pil
 | 1.8 | 2025-12-21 | Added PRODUCTS-LIST-2.0: Decision-First Products List (Complete) - Health pills, recommended actions, progressive disclosure, Command Bar |
 | 1.9 | 2025-12-21 | PRODUCTS-LIST-2.0: Added Sort by impact ladder (authoritative, deterministic, action-aligned clustering) |
 | 2.0 | 2025-12-21 | PRODUCTS-LIST-2.0: Added Bulk-action confirmation UX (3-step, draft-first, no one-click apply) with API client methods for draft lifecycle and deep-link support |
+| 2.1 | 2025-12-23 | Added ROLES-3: True Multi-User Projects & Approval Chains (Complete) - ProjectMember model, membership management API, OWNER-only apply enforcement, multi-user auto-apply blocking |
+| 2.2 | 2025-12-23 | ROLES-3 FIXUP-1: Made multi-user projects work end-to-end - membership-aware access for governance services, role resolution fixes, draft generation blocking for VIEWER, frontend role-based UI, Members management page |
+| 2.3 | 2025-12-23 | ROLES-3 FIXUP-2: Strict matrix enforcement - OWNER cannot create approval requests in multi-user projects, role simulation correctness (accountRole ignored in multi-user), isMultiUserProject in API response, OWNER-only for Answer Block mutations, updated documentation |

@@ -2,18 +2,26 @@ import { Injectable, ForbiddenException, NotFoundException, BadRequestException 
 import { PrismaService } from '../prisma.service';
 import { ApprovalResourceType, ApprovalStatus } from '@prisma/client';
 import { AuditEventsService } from './audit-events.service';
+import { RoleResolutionService } from '../common/role-resolution.service';
 
 /**
  * [ENTERPRISE-GEO-1] Approval Workflow Service
  * [ROLES-2] Extended with role-based access control and AUTOMATION_PLAYBOOK_APPLY
+ * [ROLES-3] Updated with ProjectMember-aware access enforcement
+ * [ROLES-3 FIXUP-2] Strict approval-chain matrix enforcement
  *
  * Manages approval requests for governed resources:
  * - GEO_FIX_APPLY: Applying GEO fix drafts
  * - ANSWER_BLOCK_SYNC: Syncing answer blocks to Shopify
  * - AUTOMATION_PLAYBOOK_APPLY: Applying automation playbooks [ROLES-2]
  *
- * Single-user constraint (v1): Only project owner can approve/reject.
- * ROLES-2 emulation: Uses accountRole field to simulate VIEWER restrictions.
+ * [ROLES-3 FIXUP-2] Access control (strict matrix):
+ * - createRequest:
+ *   - Multi-user projects: EDITOR-only (OWNER must NOT create requests; they apply directly)
+ *   - Single-user projects: OWNER allowed (preserve ROLES-2 "approve-and-apply" UX)
+ *   - VIEWER: blocked in all cases
+ * - approve/reject: OWNER only (via ProjectMember role)
+ * - getApprovalStatus/listRequests: Any ProjectMember (view-only)
  */
 
 export interface ApprovalRequestResponse {
@@ -47,17 +55,45 @@ export class ApprovalsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditEventsService: AuditEventsService,
+    private readonly roleResolution: RoleResolutionService,
   ) {}
 
   /**
    * Create a new approval request
+   * [ROLES-3 FIXUP-2] Strict matrix enforcement:
+   * - Multi-user: EDITOR-only (OWNER must apply directly, not create requests)
+   * - Single-user: OWNER allowed (preserve ROLES-2 convenience)
+   * - VIEWER: blocked always
    */
   async createRequest(
     projectId: string,
     userId: string,
     dto: CreateApprovalRequestDto,
   ): Promise<ApprovalRequestResponse> {
-    await this.verifyProjectAccess(projectId, userId);
+    // [ROLES-3] Verify membership and role
+    const role = await this.roleResolution.resolveEffectiveRole(projectId, userId);
+    if (!role) {
+      throw new ForbiddenException('You do not have access to this project');
+    }
+
+    // [ROLES-3 FIXUP-2] Strict approval-chain matrix enforcement
+    const isMultiUser = await this.roleResolution.isMultiUserProject(projectId);
+
+    // VIEWER cannot request approvals in any project type
+    if (role === 'VIEWER') {
+      throw new ForbiddenException('Viewer role cannot request approvals');
+    }
+
+    // [ROLES-3 FIXUP-2] In multi-user projects, OWNER must NOT create approval requests
+    // OWNER should apply directly (they have approval authority)
+    if (isMultiUser && role === 'OWNER') {
+      throw new ForbiddenException(
+        'Owners cannot create approval requests in multi-user projects. Apply directly instead.',
+      );
+    }
+
+    // At this point: EDITOR in any project, or OWNER in single-user project
+    // Both are allowed to create approval requests
 
     // Check for existing pending/approved request for same resource
     const existingRequest = await this.prisma.approvalRequest.findFirst({
@@ -105,7 +141,7 @@ export class ApprovalsService {
 
   /**
    * Approve a pending request
-   * [ROLES-2] Only OWNER role can approve - explicit role check required
+   * [ROLES-3] Only OWNER role (via ProjectMember) can approve
    */
   async approve(
     projectId: string,
@@ -113,8 +149,8 @@ export class ApprovalsService {
     userId: string,
     dto: ApproveRejectDto = {},
   ): Promise<ApprovalRequestResponse> {
-    // [ROLES-2] Enforce that only OWNER can approve - no silent bypass
-    await this.verifyOwnerRole(projectId, userId);
+    // [ROLES-3] Enforce OWNER role via ProjectMember
+    await this.roleResolution.assertOwnerRole(projectId, userId);
 
     const request = await this.getRequestOrThrow(projectId, approvalId);
 
@@ -149,7 +185,7 @@ export class ApprovalsService {
 
   /**
    * Reject a pending request
-   * [ROLES-2] Only OWNER role can reject - explicit role check required
+   * [ROLES-3] Only OWNER role (via ProjectMember) can reject
    */
   async reject(
     projectId: string,
@@ -157,8 +193,8 @@ export class ApprovalsService {
     userId: string,
     dto: ApproveRejectDto = {},
   ): Promise<ApprovalRequestResponse> {
-    // [ROLES-2] Enforce that only OWNER can reject - no silent bypass
-    await this.verifyOwnerRole(projectId, userId);
+    // [ROLES-3] Enforce OWNER role via ProjectMember
+    await this.roleResolution.assertOwnerRole(projectId, userId);
 
     const request = await this.getRequestOrThrow(projectId, approvalId);
 
@@ -193,7 +229,7 @@ export class ApprovalsService {
 
   /**
    * Get approval status for a specific resource
-   * Returns the most recent approval request
+   * [ROLES-3] Any ProjectMember can view (read-only)
    */
   async getApprovalStatus(
     projectId: string,
@@ -201,7 +237,8 @@ export class ApprovalsService {
     resourceType: ApprovalResourceType,
     resourceId: string,
   ): Promise<ApprovalRequestResponse | null> {
-    await this.verifyProjectAccess(projectId, userId);
+    // [ROLES-3] Verify membership (any role can view)
+    await this.roleResolution.assertProjectAccess(projectId, userId);
 
     const request = await this.prisma.approvalRequest.findFirst({
       where: {
@@ -217,6 +254,7 @@ export class ApprovalsService {
 
   /**
    * List approval requests for a project
+   * [ROLES-3] Any ProjectMember can view (read-only)
    */
   async listRequests(
     projectId: string,
@@ -235,7 +273,8 @@ export class ApprovalsService {
     pageSize: number;
     hasMore: boolean;
   }> {
-    await this.verifyProjectAccess(projectId, userId);
+    // [ROLES-3] Verify membership (any role can view)
+    await this.roleResolution.assertProjectAccess(projectId, userId);
 
     const page = options.page ?? 1;
     const pageSize = Math.min(options.pageSize ?? 20, 100);
@@ -334,72 +373,6 @@ export class ApprovalsService {
     }
 
     return request;
-  }
-
-  private async verifyProjectAccess(projectId: string, userId: string): Promise<void> {
-    const project = await this.prisma.project.findUnique({
-      where: { id: projectId },
-      select: { userId: true },
-    });
-
-    if (!project) {
-      throw new NotFoundException('Project not found');
-    }
-
-    if (project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this project');
-    }
-  }
-
-  private async verifyProjectOwner(projectId: string, userId: string): Promise<void> {
-    const project = await this.prisma.project.findUnique({
-      where: { id: projectId },
-      select: { userId: true },
-    });
-
-    if (!project) {
-      throw new NotFoundException('Project not found');
-    }
-
-    // Single-user constraint: only owner can approve/reject
-    if (project.userId !== userId) {
-      throw new ForbiddenException('Only the project owner can approve or reject requests');
-    }
-  }
-
-  /**
-   * [ROLES-2] Verify user has OWNER role for approvals.
-   * Uses accountRole field for single-user emulation.
-   * OWNER role is required for approval actions - no silent bypass allowed.
-   */
-  private async verifyOwnerRole(projectId: string, userId: string): Promise<void> {
-    const [project, user] = await Promise.all([
-      this.prisma.project.findUnique({
-        where: { id: projectId },
-        select: { userId: true },
-      }),
-      this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { accountRole: true },
-      }),
-    ]);
-
-    if (!project) {
-      throw new NotFoundException('Project not found');
-    }
-
-    // Must be project owner
-    if (project.userId !== userId) {
-      throw new ForbiddenException('Only the project owner can approve or reject requests');
-    }
-
-    // [ROLES-2] Check effective role - VIEWER/EDITOR cannot approve
-    // Single-user emulation: Use accountRole if set
-    if (user?.accountRole === 'VIEWER' || user?.accountRole === 'EDITOR') {
-      throw new ForbiddenException(
-        'Only the project Owner role can approve or reject requests',
-      );
-    }
   }
 
   private formatResponse(request: any): ApprovalRequestResponse {

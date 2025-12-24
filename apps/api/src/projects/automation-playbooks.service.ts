@@ -17,6 +17,7 @@ import {
 import { AiService } from '../ai/ai.service';
 import { PlanId } from '../billing/plans';
 import { AiUsageQuotaService } from '../ai/ai-usage-quota.service';
+import { RoleResolutionService } from '../common/role-resolution.service';
 
 export type AutomationPlaybookId = 'missing_seo_title' | 'missing_seo_description';
 
@@ -149,6 +150,19 @@ export interface PlaybookDraftItem {
   ruleWarnings: string[];
 }
 
+/**
+ * [ROLES-3] Updated with ProjectMember-aware access enforcement
+ *
+ * Access control:
+ * - previewPlaybook: OWNER/EDITOR can generate (canGenerateDrafts)
+ * - generateDraft: OWNER/EDITOR can generate (canGenerateDrafts)
+ * - getLatestDraft: Any ProjectMember can view (assertProjectAccess)
+ * - estimatePlaybook: Any ProjectMember can view (assertProjectAccess)
+ * - applyPlaybook: OWNER only (assertOwnerRole)
+ * - setAutomationEntryConfig: OWNER only (assertOwnerRole)
+ *
+ * VIEWER role is blocked from draft generation entirely.
+ */
 @Injectable()
 export class AutomationPlaybooksService {
   constructor(
@@ -157,17 +171,18 @@ export class AutomationPlaybooksService {
     private readonly tokenUsageService: TokenUsageService,
     private readonly aiService: AiService,
     private readonly aiUsageQuotaService: AiUsageQuotaService,
+    private readonly roleResolution: RoleResolutionService,
   ) {}
 
-  private async ensureProjectOwnership(projectId: string, userId: string) {
+  /**
+   * [ROLES-3] Legacy helper - kept for internal use where we need project data
+   */
+  private async getProjectOrThrow(projectId: string) {
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },
     });
     if (!project) {
       throw new NotFoundException('Project not found');
-    }
-    if (project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this project');
     }
     return project;
   }
@@ -383,7 +398,8 @@ export class AutomationPlaybooksService {
     sampleSize = 3,
     scopeProductIds?: string[] | null,
   ): Promise<PlaybookPreviewResponse> {
-    await this.ensureProjectOwnership(projectId, userId);
+    // [ROLES-3] Only OWNER/EDITOR can generate drafts (VIEWER blocked)
+    await this.roleResolution.assertCanGenerateDrafts(projectId, userId);
 
     // AI-USAGE v2: Plan-aware quota enforcement for preview generation.
     // This check must run before any AI work is performed.
@@ -605,7 +621,8 @@ export class AutomationPlaybooksService {
     // CACHE/REUSE v2: Indicates whether AI was actually called during this request
     aiCalled?: boolean;
   }> {
-    await this.ensureProjectOwnership(projectId, userId);
+    // [ROLES-3] Only OWNER/EDITOR can generate drafts (VIEWER blocked)
+    await this.roleResolution.assertCanGenerateDrafts(projectId, userId);
 
     // AI-USAGE v2: Plan-aware quota enforcement for full draft generation.
     // This check must run before any AI work is performed.
@@ -841,7 +858,8 @@ export class AutomationPlaybooksService {
     draftItems: PlaybookDraftItem[];
     rules?: Record<string, unknown> | null;
   } | null> {
-    await this.ensureProjectOwnership(projectId, userId);
+    // [ROLES-3] Any ProjectMember can view drafts
+    await this.roleResolution.assertProjectAccess(projectId, userId);
 
     const draft = await this.prisma.automationPlaybookDraft.findFirst({
       where: {
@@ -877,7 +895,8 @@ export class AutomationPlaybooksService {
     playbookId: AutomationPlaybookId,
     scopeProductIds?: string[] | null,
   ): Promise<PlaybookEstimate> {
-    await this.ensureProjectOwnership(projectId, userId);
+    // [ROLES-3] Any ProjectMember can view estimates
+    await this.roleResolution.assertProjectAccess(projectId, userId);
 
     const affectedProductIds = await this.resolveAffectedProductIds(
       projectId,
@@ -986,7 +1005,9 @@ export class AutomationPlaybooksService {
     rulesHash: string,
     scopeProductIds?: string[] | null,
   ): Promise<PlaybookApplyResult> {
-    const project = await this.ensureProjectOwnership(projectId, userId);
+    // [ROLES-3] Only OWNER can apply playbooks
+    await this.roleResolution.assertOwnerRole(projectId, userId);
+    const project = await this.getProjectOrThrow(projectId);
 
     const planId = await this.entitlementsService.getUserPlan(userId);
     if (planId === 'free') {
@@ -1233,7 +1254,8 @@ export class AutomationPlaybooksService {
     rulesHash: string;
     updatedAt: string;
   }> {
-    await this.ensureProjectOwnership(projectId, userId);
+    // [ROLES-3] Only OWNER can configure automation settings
+    await this.roleResolution.assertOwnerRole(projectId, userId);
 
     const draft = await this.prisma.automationPlaybookDraft.findUnique({
       where: {

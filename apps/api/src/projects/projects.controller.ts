@@ -15,7 +15,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { ProjectsService, CreateProjectDto, UpdateProjectDto } from './projects.service';
+import { ProjectsService, CreateProjectDto, UpdateProjectDto, AddMemberDto, ChangeMemberRoleDto } from './projects.service';
+import { ProjectMemberRole } from '@prisma/client';
 import { DeoScoreService, DeoSignalsService } from './deo-score.service';
 import { DeoIssuesService } from './deo-issues.service';
 import { AutomationService } from './automation.service';
@@ -451,8 +452,9 @@ export class ProjectsController {
    * the exact same set of products that was previewed/estimated, and rulesHash
    * to bind apply to the rules snapshot used for draft generation.
    *
-   * [ROLES-2] Added role and approval gating:
-   * - VIEWER role is blocked from apply
+   * [ROLES-3] Updated role and approval gating:
+   * - OWNER-only: Only project owners can apply
+   * - EDITOR must request approval before owner can apply
    * - If governance policy requires approval, returns APPROVAL_REQUIRED error
    */
   @Post(':id/automation-playbooks/apply')
@@ -481,7 +483,7 @@ export class ProjectsController {
 
     const userId = req.user.id as string;
 
-    // [ROLES-2] Role check: VIEWER cannot apply
+    // [ROLES-3] Role check: Only OWNER can apply
     const effectiveRole = await this.roleResolutionService.resolveEffectiveRole(
       projectId,
       userId,
@@ -490,7 +492,7 @@ export class ProjectsController {
 
     if (!capabilities.canApply) {
       throw new ForbiddenException(
-        'Viewer role cannot apply automation playbooks. Preview and export remain available.',
+        'Only project owners can apply automation playbooks. Editors must request approval.',
       );
     }
 
@@ -686,5 +688,107 @@ export class ProjectsController {
         intent: body.intent,
       },
     );
+  }
+
+  // ===========================================================================
+  // [ROLES-3] Membership Management API
+  // ===========================================================================
+
+  /**
+   * GET /projects/:id/members
+   * List all members of a project (read-only for all members)
+   */
+  @Get(':id/members')
+  async listMembers(@Request() req: any, @Param('id') projectId: string) {
+    return this.projectsService.listMembers(projectId, req.user.id);
+  }
+
+  /**
+   * POST /projects/:id/members
+   * Add a member to a project (OWNER-only)
+   */
+  @Post(':id/members')
+  @HttpCode(HttpStatus.CREATED)
+  async addMember(
+    @Request() req: any,
+    @Param('id') projectId: string,
+    @Body() body: { email: string; role: ProjectMemberRole },
+  ) {
+    if (!body?.email) {
+      throw new BadRequestException('email is required');
+    }
+    if (!body?.role) {
+      throw new BadRequestException('role is required');
+    }
+    const validRoles = Object.values(ProjectMemberRole);
+    if (!validRoles.includes(body.role)) {
+      throw new BadRequestException(`Invalid role. Must be one of: ${validRoles.join(', ')}`);
+    }
+    const dto: AddMemberDto = {
+      email: body.email,
+      role: body.role,
+    };
+    return this.projectsService.addMember(projectId, req.user.id, dto);
+  }
+
+  /**
+   * PUT /projects/:id/members/:memberId
+   * Change a member's role (OWNER-only)
+   */
+  @Put(':id/members/:memberId')
+  async changeMemberRole(
+    @Request() req: any,
+    @Param('id') projectId: string,
+    @Param('memberId') memberId: string,
+    @Body() body: { role: ProjectMemberRole },
+  ) {
+    if (!body?.role) {
+      throw new BadRequestException('role is required');
+    }
+    const validRoles = Object.values(ProjectMemberRole);
+    if (!validRoles.includes(body.role)) {
+      throw new BadRequestException(`Invalid role. Must be one of: ${validRoles.join(', ')}`);
+    }
+    const dto: ChangeMemberRoleDto = {
+      role: body.role,
+    };
+    return this.projectsService.changeMemberRole(projectId, memberId, req.user.id, dto);
+  }
+
+  /**
+   * DELETE /projects/:id/members/:memberId
+   * Remove a member from a project (OWNER-only)
+   */
+  @Delete(':id/members/:memberId')
+  @HttpCode(HttpStatus.OK)
+  async removeMember(
+    @Request() req: any,
+    @Param('id') projectId: string,
+    @Param('memberId') memberId: string,
+  ) {
+    await this.projectsService.removeMember(projectId, memberId, req.user.id);
+    return { success: true, message: 'Member removed successfully' };
+  }
+
+  /**
+   * GET /projects/:id/role
+   * Get the current user's role in a project
+   * [ROLES-3 FIXUP-2] Includes isMultiUserProject for UI decisions
+   */
+  @Get(':id/role')
+  async getUserRole(@Request() req: any, @Param('id') projectId: string) {
+    const role = await this.projectsService.getUserRole(projectId, req.user.id);
+    if (!role) {
+      throw new ForbiddenException('You do not have access to this project');
+    }
+    const capabilities = this.roleResolutionService.getCapabilities(role);
+    const isMultiUserProject = await this.roleResolutionService.isMultiUserProject(projectId);
+    return {
+      projectId,
+      userId: req.user.id,
+      role,
+      capabilities,
+      isMultiUserProject,
+    };
   }
 }

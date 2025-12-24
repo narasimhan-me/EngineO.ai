@@ -8,7 +8,6 @@ import type { DeoIssue } from '@/lib/deo-issues';
 import { isAuthenticated } from '@/lib/auth';
 import {
   ApiError,
-  accountApi,
   aiApi,
   billingApi,
   productsApi,
@@ -207,6 +206,8 @@ export default function AutomationPlaybooksPage() {
   const [governancePolicy, setGovernancePolicy] = useState<GovernancePolicyResponse | null>(null);
   const [pendingApproval, setPendingApproval] = useState<ApprovalRequestResponse | null>(null);
   const [approvalLoading, setApprovalLoading] = useState(false);
+  // [ROLES-3 FIXUP-3 CORRECTION] Track if project has multiple members (affects approval UI)
+  const [isMultiUserProject, setIsMultiUserProject] = useState(false);
 
   const fetchInitialData = useCallback(async () => {
     try {
@@ -249,19 +250,17 @@ export default function AutomationPlaybooksPage() {
         setGovernancePolicy(null);
       }
 
-      // [ROLES-2 FIXUP-1] Resolve effective role from account profile
-      // Single-user emulation: use accountRole if set, otherwise OWNER
+      // [ROLES-3] Resolve effective role from project membership API
+      // This returns the user's ProjectMember role with capabilities
+      // [ROLES-3 FIXUP-3 CORRECTION] Also fetch isMultiUserProject for approval flow decisions
       try {
-        const profile = await accountApi.getProfile();
-        // Use accountRole from profile for role simulation
-        const accountRole = profile.accountRole;
-        if (accountRole === 'VIEWER' || accountRole === 'EDITOR' || accountRole === 'OWNER') {
-          setEffectiveRole(accountRole);
-        } else {
-          setEffectiveRole('OWNER');
-        }
+        const roleResponse = await projectsApi.getUserRole(projectId);
+        setEffectiveRole(roleResponse.role);
+        setIsMultiUserProject(roleResponse.isMultiUserProject);
       } catch {
+        // Silent fail - default to OWNER for backward compatibility
         setEffectiveRole('OWNER');
+        setIsMultiUserProject(false);
       }
     } catch (err: unknown) {
       console.error('Error loading automation playbooks data:', err);
@@ -574,6 +573,84 @@ export default function AutomationPlaybooksPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPlaybookId]);
 
+  /**
+   * [ROLES-3 FIXUP-3 PATCH 4.6] Clear approval state when approval is not required.
+   * This ensures no stale approval state is shown when policy changes.
+   */
+  useEffect(() => {
+    if (!governancePolicy?.requireApprovalForApply) {
+      setPendingApproval(null);
+    }
+  }, [governancePolicy?.requireApprovalForApply]);
+
+  /**
+   * [ROLES-3 FIXUP-3 PATCH 4.6] Prefetch approval status when Step 3 is ready.
+   * This ensures the UI shows correct approval state on page load/refresh.
+   *
+   * Triggers when:
+   * - governancePolicy?.requireApprovalForApply === true
+   * - selectedPlaybookId is set
+   * - estimate?.scopeId is present (resourceId can be formed)
+   * - flowState is APPLY_READY (Step 3 is visible)
+   *
+   * Includes stale-response guard to prevent race conditions when playbook changes.
+   */
+  useEffect(() => {
+    // Only prefetch when approval is required by policy
+    if (!governancePolicy?.requireApprovalForApply) {
+      return;
+    }
+
+    // Need all pieces to form resourceId
+    if (!selectedPlaybookId || !estimate?.scopeId) {
+      return;
+    }
+
+    // Only prefetch when Step 3 is visible (APPLY_READY state)
+    if (flowState !== 'APPLY_READY') {
+      return;
+    }
+
+    const resourceId = `${selectedPlaybookId}:${estimate.scopeId}`;
+    let cancelled = false;
+
+    const prefetchApprovalStatus = async () => {
+      setApprovalLoading(true);
+      try {
+        const { approval } = await projectsApi.getApprovalStatus(
+          projectId,
+          'AUTOMATION_PLAYBOOK_APPLY',
+          resourceId,
+        );
+        // Stale-response guard: only update if this effect is still current
+        if (!cancelled) {
+          setPendingApproval(approval);
+        }
+      } catch (err) {
+        // Silent fail - don't block UI for prefetch errors
+        console.error('[ROLES-3 FIXUP-3] Approval status prefetch failed:', err);
+        // Only clear if we can confirm resourceId changed (cancelled flag)
+        // Otherwise leave as-is to avoid flickering
+      } finally {
+        if (!cancelled) {
+          setApprovalLoading(false);
+        }
+      }
+    };
+
+    prefetchApprovalStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    governancePolicy?.requireApprovalForApply,
+    selectedPlaybookId,
+    estimate?.scopeId,
+    flowState,
+    projectId,
+  ]);
+
   const handleSelectPlaybook = (playbookId: PlaybookId) => {
     setSelectedPlaybookId(playbookId);
     const summary = playbookSummaries.find((s) => s.id === playbookId);
@@ -587,6 +664,8 @@ export default function AutomationPlaybooksPage() {
     setApplyResult(null);
     setConfirmApply(false);
     setApplyInlineError(null);
+    // [ROLES-3 FIXUP-3 PATCH 4.6] Reset stale approval state when switching playbooks
+    setPendingApproval(null);
   };
 
   const handleGeneratePreview = async () => {
@@ -638,34 +717,102 @@ export default function AutomationPlaybooksPage() {
       return;
     }
     if (flowState !== 'APPLY_READY') return;
-    try {
-      setApplying(true);
-      setError('');
-      setApplyResult(null);
-      setFlowState('APPLY_RUNNING');
 
-      // [ROLES-2 FIXUP-1] Handle "Approve and apply" flow for governance-gated apply
-      let approvalIdToUse: string | undefined;
-      const approvalRequiredByPolicy = governancePolicy?.requireApprovalForApply ?? false;
-      const capabilities = getRoleCapabilities(effectiveRole);
+    const capabilities = getRoleCapabilities(effectiveRole);
+    const approvalRequiredByPolicy = governancePolicy?.requireApprovalForApply ?? false;
+    const resourceId = `${selectedPlaybookId}:${estimate.scopeId}`;
 
+    // [ROLES-3 FIXUP-3 CORRECTION] EDITOR can NEVER apply, even if approved
+    // EDITOR can only request approval; OWNER must apply after approval is granted
+    if (!capabilities.canApply) {
+      // This is EDITOR or VIEWER
+      if (!capabilities.canRequestApproval) {
+        // VIEWER - blocked entirely
+        feedback.showError('Viewer role cannot apply playbooks.');
+        return;
+      }
+
+      // EDITOR - check approval status and act accordingly
       if (approvalRequiredByPolicy) {
-        const resourceId = `${selectedPlaybookId}:${estimate.scopeId}`;
-
-        // Check existing approval status
+        setApprovalLoading(true);
         try {
           const { approval } = await projectsApi.getApprovalStatus(
             projectId,
             'AUTOMATION_PLAYBOOK_APPLY',
             resourceId,
           );
+          setPendingApproval(approval);
+
+          if (!approval || approval.status === 'REJECTED' || approval.consumed) {
+            // No approval or rejected/consumed - create new request
+            const newApproval = await projectsApi.createApprovalRequest(projectId, {
+              resourceType: 'AUTOMATION_PLAYBOOK_APPLY',
+              resourceId,
+            });
+            setPendingApproval(newApproval);
+            feedback.showInfo(
+              'Approval request submitted. An owner must approve and apply this playbook.',
+            );
+          } else if (approval.status === 'PENDING_APPROVAL') {
+            // Already pending - just inform
+            feedback.showInfo('Approval is pending. Waiting for an owner to approve.');
+          } else if (approval.status === 'APPROVED') {
+            // Approved but EDITOR still cannot apply - inform them
+            feedback.showInfo('Approval granted. An owner must apply this playbook.');
+          }
+        } catch (requestErr) {
+          console.error('Error handling approval request:', requestErr);
+          feedback.showError('Failed to process approval request. Please try again.');
+        } finally {
+          setApprovalLoading(false);
+        }
+      } else {
+        // No approval required but EDITOR still cannot apply
+        feedback.showError('Editor role cannot apply playbooks. An owner must apply.');
+      }
+      return;
+    }
+
+    // From here on, user is OWNER (canApply === true)
+    try {
+      setApplying(true);
+      setError('');
+      setApplyResult(null);
+      setFlowState('APPLY_RUNNING');
+
+      let approvalIdToUse: string | undefined;
+
+      if (approvalRequiredByPolicy) {
+        setApprovalLoading(true);
+        try {
+          // Always refresh approval status from server (derived state rule)
+          const { approval } = await projectsApi.getApprovalStatus(
+            projectId,
+            'AUTOMATION_PLAYBOOK_APPLY',
+            resourceId,
+          );
+          setPendingApproval(approval);
 
           if (approval && approval.status === 'APPROVED' && !approval.consumed) {
             // Use existing valid approval
             approvalIdToUse = approval.id;
-          } else if (capabilities.canApprove) {
-            // OWNER can create and immediately approve
-            setApprovalLoading(true);
+          } else if (approval && approval.status === 'PENDING_APPROVAL') {
+            // OWNER approves the pending request, then applies
+            const approvedRequest = await projectsApi.approveRequest(projectId, approval.id);
+            approvalIdToUse = approvedRequest.id;
+            setPendingApproval(approvedRequest);
+          } else if (isMultiUserProject) {
+            // [ROLES-3 FIXUP-3 CORRECTION] Multi-user project: OWNER cannot self-request
+            // An EDITOR must request approval first
+            setApprovalLoading(false);
+            feedback.showError(
+              'In multi-user projects, an Editor must request approval first. Add an Editor in Members settings.',
+            );
+            setFlowState('APPLY_READY');
+            setApplying(false);
+            return;
+          } else {
+            // Single-user project: OWNER can create → approve → apply (ROLES-2 convenience)
             const newApproval = await projectsApi.createApprovalRequest(projectId, {
               resourceType: 'AUTOMATION_PLAYBOOK_APPLY',
               resourceId,
@@ -673,13 +820,6 @@ export default function AutomationPlaybooksPage() {
             const approvedRequest = await projectsApi.approveRequest(projectId, newApproval.id);
             approvalIdToUse = approvedRequest.id;
             setPendingApproval(approvedRequest);
-            setApprovalLoading(false);
-          } else {
-            // Non-owner can request but not approve - this should be blocked by UI
-            feedback.showError('Approval is required. Please wait for an owner to approve.');
-            setFlowState('APPLY_READY');
-            setApplying(false);
-            return;
           }
         } catch (approvalErr) {
           console.error('Error handling approval flow:', approvalErr);
@@ -687,6 +827,8 @@ export default function AutomationPlaybooksPage() {
           setFlowState('APPLY_READY');
           setApplying(false);
           return;
+        } finally {
+          setApprovalLoading(false);
         }
       }
 
@@ -818,9 +960,10 @@ export default function AutomationPlaybooksPage() {
   const estimateEligible = !!estimate && estimate.canProceed;
   const previewValid = previewPresent && !previewStale;
 
-  // [ROLES-2] Derived state for role-based access control
+  // [ROLES-3] Derived state for role-based access control
   const roleCapabilities = getRoleCapabilities(effectiveRole);
-  const readOnly = !roleCapabilities.canApply; // VIEWER => true
+  const readOnly = !roleCapabilities.canApply; // VIEWER or EDITOR => true (for Apply button)
+  const canGenerateDrafts = roleCapabilities.canGenerateDrafts; // OWNER/EDITOR can generate, VIEWER cannot
   const approvalRequired = governancePolicy?.requireApprovalForApply ?? false;
   const canApply = roleCapabilities.canApply && (!approvalRequired || !!pendingApproval?.status && pendingApproval.status === 'APPROVED');
 
@@ -1144,7 +1287,7 @@ export default function AutomationPlaybooksPage() {
             Safely apply AI-powered fixes to missing SEO metadata, with preview and
             token estimates before you run anything.
           </p>
-          {/* [ROLES-2] Role visibility label */}
+          {/* [ROLES-3] Role visibility label */}
           <p className="mt-1 text-xs text-gray-500">
             You are the {getRoleDisplayLabel(effectiveRole)}
           </p>
@@ -1157,6 +1300,42 @@ export default function AutomationPlaybooksPage() {
           Create automation
         </button>
       </div>
+
+      {/* [ROLES-3] VIEWER mode banner */}
+      {effectiveRole === 'VIEWER' && (
+        <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-5 w-5 text-gray-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-700">View-only mode</p>
+              <p className="mt-1 text-xs text-gray-500">
+                You are viewing this project as a Viewer. To generate previews or apply changes,
+                ask the project Owner to upgrade your role.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Next DEO Win Banner - shown when navigating from overview card */}
       {showNextDeoWinBanner && !bannerDismissed && (
@@ -1772,7 +1951,8 @@ export default function AutomationPlaybooksPage() {
                   <button
                     type="button"
                     onClick={handleGeneratePreview}
-                    disabled={loadingPreview || planIsFree}
+                    disabled={loadingPreview || planIsFree || !canGenerateDrafts}
+                    title={!canGenerateDrafts ? 'Viewer role cannot generate previews' : undefined}
                     className={`inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium shadow-sm disabled:cursor-not-allowed disabled:opacity-50 ${
                       hasPreview
                         ? 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
@@ -2453,7 +2633,8 @@ export default function AutomationPlaybooksPage() {
                           setFlowState('PREVIEW_GENERATED');
                         }
                       }}
-                      disabled={loadingPreview}
+                      disabled={loadingPreview || !canGenerateDrafts}
+                      title={!canGenerateDrafts ? 'Viewer role cannot generate previews' : undefined}
                       className="mt-2 inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Generate preview (uses AI)
@@ -2738,32 +2919,140 @@ export default function AutomationPlaybooksPage() {
               </div>
               {flowState !== 'APPLY_COMPLETED' && flowState !== 'APPLY_STOPPED' && (
                 <>
-                  {/* [ROLES-2] Approval required notice */}
-                  {approvalRequired && roleCapabilities.canApprove && (
-                    <p className="mr-4 text-xs text-amber-600">
-                      Approval required before apply
-                    </p>
-                  )}
-                  {/* [ROLES-2] Read-only notice for VIEWER */}
-                  {readOnly && (
-                    <p className="mr-4 text-xs text-gray-500">
-                      Viewer role cannot apply. Preview and export remain available.
-                    </p>
-                  )}
+                  {/* [ROLES-3 FIXUP-3 CORRECTION] All notices derived from server state (pendingApproval) */}
+                  {(() => {
+                    // Derive approval state from server-sourced pendingApproval
+                    const approvalStatus = pendingApproval?.status;
+                    const approvalConsumed = pendingApproval?.consumed ?? false;
+                    const hasPendingApproval = approvalStatus === 'PENDING_APPROVAL';
+                    const hasApprovedApproval = approvalStatus === 'APPROVED' && !approvalConsumed;
+                    const needsNewRequest = !pendingApproval || approvalStatus === 'REJECTED' || approvalConsumed;
+
+                    // VIEWER notice
+                    if (!roleCapabilities.canRequestApproval && !roleCapabilities.canApply) {
+                      return (
+                        <p className="mr-4 text-xs text-gray-500">
+                          Viewer role cannot apply. Preview and export remain available.
+                        </p>
+                      );
+                    }
+
+                    // EDITOR notices (can request but not apply)
+                    if (roleCapabilities.canRequestApproval && !roleCapabilities.canApply) {
+                      if (!approvalRequired) {
+                        return (
+                          <p className="mr-4 text-xs text-gray-500">
+                            Editor role cannot apply. An owner must apply this playbook.
+                          </p>
+                        );
+                      }
+                      if (hasPendingApproval) {
+                        return (
+                          <p className="mr-4 text-xs text-amber-600">
+                            Approval pending. Waiting for owner to approve.
+                          </p>
+                        );
+                      }
+                      if (hasApprovedApproval) {
+                        return (
+                          <p className="mr-4 text-xs text-green-600">
+                            Approved — an owner must apply this playbook.
+                          </p>
+                        );
+                      }
+                      return (
+                        <p className="mr-4 text-xs text-amber-600">
+                          Approval required. Click to request owner approval.
+                        </p>
+                      );
+                    }
+
+                    // OWNER notices
+                    if (roleCapabilities.canApply && approvalRequired) {
+                      if (hasPendingApproval) {
+                        return (
+                          <p className="mr-4 text-xs text-amber-600">
+                            Pending approval from Editor. Click to approve and apply.
+                          </p>
+                        );
+                      }
+                      if (hasApprovedApproval) {
+                        return (
+                          <p className="mr-4 text-xs text-green-600">
+                            Approval granted. Ready to apply.
+                          </p>
+                        );
+                      }
+                      if (isMultiUserProject && needsNewRequest) {
+                        return (
+                          <p className="mr-4 text-xs text-amber-600">
+                            An Editor must request approval first.
+                          </p>
+                        );
+                      }
+                      return (
+                        <p className="mr-4 text-xs text-amber-600">
+                          Approval required before apply.
+                        </p>
+                      );
+                    }
+
+                    return null;
+                  })()}
                   <button
                     type="button"
                     onClick={handleApplyPlaybook}
-                    disabled={
-                      flowState !== 'APPLY_READY' ||
-                      applying ||
-                      !estimate ||
-                      !estimate.canProceed ||
-                      !confirmApply ||
-                      readOnly // [ROLES-2] Block VIEWER from apply
-                    }
+                    disabled={(() => {
+                      // Base conditions
+                      if (flowState !== 'APPLY_READY' || applying || !estimate || !estimate.canProceed || !confirmApply || approvalLoading) {
+                        return true;
+                      }
+                      // VIEWER blocked
+                      if (!roleCapabilities.canRequestApproval && !roleCapabilities.canApply) {
+                        return true;
+                      }
+                      // EDITOR: blocked if approval already pending or approved (they can only request once)
+                      if (roleCapabilities.canRequestApproval && !roleCapabilities.canApply) {
+                        const status = pendingApproval?.status;
+                        if (status === 'PENDING_APPROVAL' || (status === 'APPROVED' && !pendingApproval?.consumed)) {
+                          return true;
+                        }
+                      }
+                      // OWNER in multi-user project with approval required but no pending request
+                      if (roleCapabilities.canApply && approvalRequired && isMultiUserProject) {
+                        const hasActionableApproval = pendingApproval &&
+                          (pendingApproval.status === 'PENDING_APPROVAL' || (pendingApproval.status === 'APPROVED' && !pendingApproval.consumed));
+                        if (!hasActionableApproval) {
+                          return true;
+                        }
+                      }
+                      return false;
+                    })()}
                     className="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {applying ? 'Applying…' : approvalRequired && roleCapabilities.canApprove ? 'Approve and apply' : 'Apply playbook'}
+                    {(() => {
+                      if (applying || approvalLoading) return 'Processing…';
+
+                      // EDITOR button text
+                      if (roleCapabilities.canRequestApproval && !roleCapabilities.canApply) {
+                        const status = pendingApproval?.status;
+                        if (status === 'PENDING_APPROVAL') return 'Pending approval';
+                        if (status === 'APPROVED' && !pendingApproval?.consumed) return 'Approved — Owner applies';
+                        return 'Request approval';
+                      }
+
+                      // OWNER button text
+                      if (roleCapabilities.canApply) {
+                        if (!approvalRequired) return 'Apply playbook';
+                        const status = pendingApproval?.status;
+                        if (status === 'PENDING_APPROVAL') return 'Approve and apply';
+                        if (status === 'APPROVED' && !pendingApproval?.consumed) return 'Apply playbook';
+                        if (isMultiUserProject) return 'Waiting for Editor request';
+                        return 'Approve and apply';
+                      }
+
+                      return 'Apply playbook';
+                    })()}
                   </button>
                 </>
               )}
