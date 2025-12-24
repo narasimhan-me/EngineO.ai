@@ -1046,6 +1046,185 @@ Execution layer for Pages and Collections: draft generation and apply-to-Shopify
 
 ---
 
+## Phase ASSETS-PAGES-1.1-UI-HARDEN: End-to-End Shippable UI ✅ COMPLETE
+
+**Status:** Complete
+**Dependencies:** ASSETS-PAGES-1.1 (Complete)
+**Started:** 2025-12-24
+**Completed:** 2025-12-24
+
+### Overview
+
+UI hardening for Pages/Collections playbook execution. Ensures the frontend properly handles asset-scoped deep links, blocks operations when scope is missing, and provides a complete end-to-end flow for PAGES/COLLECTIONS asset types.
+
+### Authoritative Constraints
+
+1. **Deterministic Safety Block**: PAGES/COLLECTIONS without scopeAssetRefs must be blocked (no silent project-wide scoping)
+2. **Canonical Playbook IDs ONLY**: Only `missing_seo_title` and `missing_seo_description` allowed
+3. **XOR Scope Enforcement**: PRODUCTS uses scopeProductIds, PAGES/COLLECTIONS uses scopeAssetRefs
+4. **Handle-Only Refs**: `page_handle:<handle>`, `collection_handle:<handle>` format required
+
+### Implementation Patches
+
+#### PATCH 1 — API Client Full Param Support ✅
+- [x] Extended `previewAutomationPlaybook()` with assetType + scopeAssetRefs params
+- [x] Extended `applyAutomationPlaybook()` with assetType + scopeAssetRefs params
+- [x] Extended `generateAutomationPlaybookDraft()` with assetType + scopeAssetRefs params
+- [x] XOR enforcement: PRODUCTS uses scopeProductIds, PAGES/COLLECTIONS uses scopeAssetRefs
+
+#### PATCH 2 — Playbooks UI Hardening ✅
+- [x] Parse and retain URL params: playbookId, assetType, scopeAssetRefs (comma-separated)
+- [x] Missing scope safety block: red banner with exact message when PAGES/COLLECTIONS lacks scopeAssetRefs
+- [x] Scope summary UI: asset type badge + first 3 handles + "+N more"
+- [x] Pass assetType and scopeAssetRefs through loadEstimate(), loadPreview(), handleApplyPlaybook()
+
+#### PATCH 3 — Work Queue Deep Link Completeness ✅
+- [x] `extractScopeAssetRefs()`: extract handle refs from scopeQueryRef or bundleId
+- [x] `hasMissingScope()`: check if PAGES/COLLECTIONS bundle lacks deterministic refs
+- [x] `getCTARoute()`: include scopeAssetRefs in deep link for PAGES/COLLECTIONS
+- [x] `deriveCtas()`: disable actions for bundles with missing scope
+
+#### PATCH 4 — Playwright UI Smoke Test ✅
+- [x] Created `apps/web/tests/assets-pages-1-1.spec.ts`
+- [x] Test: Asset type badge renders for assetType=PAGES
+- [x] Test: Scope summary renders with handle refs
+- [x] Test: Missing scope block for PAGES without scopeAssetRefs
+- [x] Test: Missing scope block for COLLECTIONS without scopeAssetRefs
+- [x] Test: PRODUCTS works without scopeAssetRefs (backwards compatibility)
+- [x] Test: Deep link preserves all params including scopeAssetRefs
+- [x] Test: "+N more" shown for >3 scope refs
+
+#### PATCH 5 — Documentation ✅
+- [x] Added ASSETS-PAGES-1.1-UI-HARDEN phase to IMPLEMENTATION_PLAN.md
+- [x] Updated ASSETS-PAGES-1.1.md with UI execution verification scenarios
+- [x] Linked to Playwright test file
+
+### Trust Invariants
+
+1. **No Silent Broad Scoping**: PAGES/COLLECTIONS without scope refs cannot proceed
+2. **Deterministic Deep Links**: Work Queue CTA includes all params needed for scoped execution
+3. **Backwards Compatible**: PRODUCTS flow unchanged (no scopeAssetRefs required)
+4. **Scope Visibility**: User sees scope summary before any mutation
+
+### Related Documents
+
+- [ASSETS-PAGES-1.1.md](./manual-testing/ASSETS-PAGES-1.1.md) - Manual testing guide
+- [assets-pages-1-1.spec.ts](../apps/web/tests/assets-pages-1-1.spec.ts) - Playwright UI smoke tests
+- Phase ASSETS-PAGES-1.1 - Execution layer (prerequisite)
+
+---
+
+## Phase GOV-AUDIT-VIEWER-1: Audit & Approvals Viewer ✅ COMPLETE
+
+**Status:** Complete
+**Dependencies:** ENTERPRISE-GEO-1 (Complete)
+**Started:** 2025-12-24
+**Completed:** 2025-12-24
+
+### Overview
+
+Read-only governance viewer providing project members visibility into approval requests, audit events, and share link activity. Part of the Enterprise Trust Surface.
+
+### Key Features
+
+1. **Three-Tab UI**: Approvals, Audit Log, Sharing & Links
+2. **Cursor-Based Pagination**: Stable ordering (timestamp DESC, id DESC)
+3. **Strict Audit Allowlist**: Only approval and share-link lifecycle events visible
+4. **Passcode Security**: Never returns full passcode, only passcodeLast4
+5. **Role-Safe Read Access**: Any project member (VIEWER, EDITOR, OWNER) can view
+
+### Authoritative Constraints
+
+1. **Read-Only Only**: All endpoints are GET; no mutations from viewer
+2. **Allowlist-Filtered Audit Events**: Only these event types are returned:
+   - APPROVAL_REQUESTED
+   - APPROVAL_APPROVED
+   - APPROVAL_REJECTED
+   - SHARE_LINK_CREATED
+   - SHARE_LINK_REVOKED
+   - SHARE_LINK_EXPIRED
+3. **Server-Side Filtering**: Allowlist enforced on server, not client
+4. **Deterministic Ordering**: timestamp DESC, id DESC for stable pagination
+5. **Data Minimization**: Passcode hash never exposed; only passcodeLast4
+
+### Implementation Patches
+
+#### PATCH 1 — Shared Governance Contract ✅
+- [x] Created `packages/shared/src/governance.ts` with DTOs
+- [x] Defined `ALLOWED_AUDIT_EVENT_TYPES` authoritative allowlist
+- [x] Added cursor pagination helpers: `buildPaginationCursor()`, `parsePaginationCursor()`
+- [x] Added type guards: `isAllowedAuditEventType()`
+- [x] Exported from `packages/shared/src/index.ts`
+
+#### PATCH 2 — API Read Endpoints ✅
+- [x] Created `apps/api/src/projects/governance-viewer.service.ts`
+  - `listApprovals()`: Cursor pagination, user name resolution, deep-link fields
+  - `listAuditEvents()`: STRICT allowlist filtering, cursor pagination
+  - `listShareLinks()`: Status derivation, NEVER returns passcode
+- [x] Extended `apps/api/src/projects/governance.controller.ts` with viewer endpoints:
+  - `GET /projects/:projectId/governance/viewer/approvals`
+  - `GET /projects/:projectId/governance/viewer/audit-events`
+  - `GET /projects/:projectId/governance/viewer/share-links`
+- [x] Registered `GovernanceViewerService` in `projects.module.ts`
+- [x] Added API client methods to `apps/web/src/lib/api.ts`
+
+#### PATCH 3 — Governance UI ✅
+- [x] Created `/projects/[id]/settings/governance/page.tsx`
+- [x] Three tabs: Approvals, Audit Log, Sharing & Links
+- [x] Status filter buttons for each tab
+- [x] Detail drawers for each item type
+- [x] Badge components for status, event type, audience
+- [x] URL-based tab navigation
+
+#### PATCH 4 — Testing ✅
+- [x] Created `apps/api/test/e2e/governance-viewer.e2e-spec.ts`
+  - Approvals: empty, pagination, user names
+  - Audit events: allowlist filtering, type filter
+  - Share links: passcode security, status derivation, status filter
+  - Access control tests
+- [x] Created `apps/web/tests/governance-viewer.spec.ts` (Playwright smoke)
+  - Tab navigation
+  - Empty states
+  - Filter buttons
+  - URL-based tab control
+
+#### PATCH 5 — Documentation ✅
+- [x] Created `docs/manual-testing/GOV-AUDIT-VIEWER-1.md`
+- [x] Updated `docs/IMPLEMENTATION_PLAN.md` (this section)
+- [x] Updated `API_SPEC.md` with Governance Viewer endpoints
+
+### Entry Point / Route
+
+Governance Viewer is accessible at:
+- `/projects/{id}/settings/governance` - Main page
+- `/projects/{id}/settings/governance?tab=approvals` - Approvals tab
+- `/projects/{id}/settings/governance?tab=audit` - Audit Log tab
+- `/projects/{id}/settings/governance?tab=sharing` - Sharing & Links tab
+
+### Trust Invariants
+
+1. **Mutation-Free Viewer**: No POST/PUT/DELETE from viewer endpoints
+2. **Allowlist Enforcement**: Server-side filtering, not client-only
+3. **Passcode Protection**: Hash never exposed; last4 only for display
+4. **Universal Read Access**: All project members can view governance data
+
+### API Endpoints
+
+| Endpoint | Query Params | Description |
+|----------|--------------|-------------|
+| `GET /viewer/approvals` | status, cursor, limit | List approvals (pending/history) |
+| `GET /viewer/audit-events` | types, actor, from, to, cursor, limit | List allowlist-filtered events |
+| `GET /viewer/share-links` | status, cursor, limit | List share links with derived status |
+
+### Related Documents
+
+- [GOV-AUDIT-VIEWER-1.md](./manual-testing/GOV-AUDIT-VIEWER-1.md) - Manual testing guide
+- [ENTERPRISE-GEO-1.md](./manual-testing/ENTERPRISE-GEO-1.md) - Governance foundations
+- [governance-viewer.e2e-spec.ts](../apps/api/test/e2e/governance-viewer.e2e-spec.ts) - API E2E tests
+- [governance-viewer.spec.ts](../apps/web/tests/governance-viewer.spec.ts) - Playwright smoke tests
+
+---
+
 ## Document History
 
 | Version | Date | Changes |
@@ -1081,3 +1260,5 @@ Execution layer for Pages and Collections: draft generation and apply-to-Shopify
 | 3.8 | 2025-12-24 | ASSETS-PAGES-1.1 PATCH 4 Complete: Extended Work Queue derivation for PAGES/COLLECTIONS automation bundles - iterates over all asset types, asset-specific bundle IDs, scope preview from CrawlResult, asset-type-specific labels. |
 | 3.9 | 2025-12-24 | ASSETS-PAGES-1.1 PATCH 6+7 Complete: Created ASSETS-PAGES-1.1.md manual testing doc, verified and removed non-canonical playbook ID references from API_SPEC.md. Phase ready for execution testing. |
 | 4.0 | 2025-12-24 | **ASSETS-PAGES-1.1 COMPLETE**: PATCH 5 (Frontend + E2E) - Work Queue CTA routing with asset-scoped deep links, Playbooks page assetType support, api.ts assetType/scopeAssetRefs, E2E tests in assets-pages-1-1.e2e-spec.ts. Phase marked complete. |
+| 4.1 | 2025-12-24 | **ASSETS-PAGES-1.1-UI-HARDEN COMPLETE**: Full API client param support for all operations, Playbooks UI missing-scope safety block, scope summary UI, Work Queue deep link with scopeAssetRefs, Playwright UI smoke tests (assets-pages-1-1.spec.ts). |
+| 4.2 | 2025-12-24 | **GOV-AUDIT-VIEWER-1 COMPLETE**: Read-only governance viewer with 3 tabs (Approvals, Audit Log, Sharing & Links), strict audit event allowlist filtering, cursor-based pagination, passcode security (never expose hash), universal read access for all project members. Added governance-viewer.service.ts, extended governance.controller.ts, created governance viewer UI page, E2E and Playwright tests. |

@@ -239,6 +239,95 @@ export interface AuditEventListResponse {
   hasMore: boolean;
 }
 
+// =============================================================================
+// [GOV-AUDIT-VIEWER-1] Governance Viewer Response Types
+// =============================================================================
+
+/** Approval item for governance viewer */
+export interface GovernanceViewerApprovalItem {
+  id: string;
+  projectId: string;
+  resourceType: string;
+  resourceId: string;
+  status: 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+  requestedByUserId: string;
+  requestedByName?: string;
+  requestedAt: string;
+  decidedByUserId?: string;
+  decidedByName?: string;
+  decidedAt?: string;
+  decisionReason?: string;
+  consumed: boolean;
+  consumedAt?: string;
+  // Deep-link fields for traceability
+  bundleId?: string;
+  playbookId?: string;
+  assetType?: string;
+}
+
+/** Response for governance viewer approvals list */
+export interface GovernanceViewerApprovalsResponse {
+  items: GovernanceViewerApprovalItem[];
+  nextCursor?: string;
+  hasMore: boolean;
+}
+
+/** Audit event item for governance viewer (allowlist-filtered) */
+export interface GovernanceViewerAuditEventItem {
+  id: string;
+  projectId: string;
+  actorUserId: string;
+  actorName?: string;
+  eventType: string;
+  resourceType?: string;
+  resourceId?: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
+/** Response for governance viewer audit events list */
+export interface GovernanceViewerAuditEventsResponse {
+  items: GovernanceViewerAuditEventItem[];
+  nextCursor?: string;
+  hasMore: boolean;
+}
+
+/** Share link status history entry */
+export interface ShareLinkStatusHistoryEntry {
+  status: 'ACTIVE' | 'EXPIRED' | 'REVOKED';
+  changedAt: string;
+  changedByUserId?: string;
+  changedByName?: string;
+}
+
+/** Share link item for governance viewer (passcode NEVER returned) */
+export interface GovernanceViewerShareLinkItem {
+  id: string;
+  projectId: string;
+  reportType: string;
+  title?: string;
+  audience: 'ANYONE_WITH_LINK' | 'PASSCODE' | 'ORG_ONLY';
+  passcodeLast4?: string;
+  status: 'ACTIVE' | 'EXPIRED' | 'REVOKED';
+  expiresAt: string;
+  createdAt: string;
+  createdByUserId: string;
+  createdByName?: string;
+  revokedAt?: string;
+  revokedByUserId?: string;
+  revokedByName?: string;
+  viewCount: number;
+  lastViewedAt?: string;
+  statusHistory?: ShareLinkStatusHistoryEntry[];
+}
+
+/** Response for governance viewer share links list */
+export interface GovernanceViewerShareLinksResponse {
+  items: GovernanceViewerShareLinkItem[];
+  nextCursor?: string;
+  hasMore: boolean;
+}
+
 /**
  * [ROLES-2] Effective project role for role-based access control.
  * Single-user emulation: OWNER by default, can simulate VIEWER/EDITOR.
@@ -816,6 +905,10 @@ export const projectsApi = {
   /**
    * Preview an automation playbook - creates/updates a backend draft with sample suggestions.
    * Returns scopeId, rulesHash, and sample preview items that can be used for the full apply flow.
+   *
+   * [ASSETS-PAGES-1.1-UI-HARDEN] Extended with assetType and scopeAssetRefs support.
+   * - PRODUCTS: use scopeProductIds (existing flow)
+   * - PAGES/COLLECTIONS: use scopeAssetRefs (handle-only refs like 'page_handle:about-us')
    */
   previewAutomationPlaybook: (
     id: string,
@@ -832,12 +925,28 @@ export const projectsApi = {
     },
     sampleSize?: number,
     scopeProductIds?: string[],
+    assetType?: AutomationAssetType,
+    scopeAssetRefs?: string[],
   ) =>
     fetchWithAuth(`/projects/${id}/automation-playbooks/${playbookId}/preview`, {
       method: 'POST',
-      body: JSON.stringify({ rules, sampleSize, scopeProductIds }),
+      body: JSON.stringify({
+        rules,
+        sampleSize,
+        scopeProductIds,
+        assetType,
+        scopeAssetRefs,
+      }),
     }),
 
+  /**
+   * Apply an automation playbook.
+   *
+   * [ASSETS-PAGES-1.1-UI-HARDEN] Extended with assetType and scopeAssetRefs support.
+   * XOR enforcement:
+   * - PRODUCTS: use scopeProductIds (existing flow)
+   * - PAGES/COLLECTIONS: use scopeAssetRefs (handle-only refs)
+   */
   applyAutomationPlaybook: (
     id: string,
     playbookId: AutomationPlaybookId,
@@ -846,12 +955,22 @@ export const projectsApi = {
     scopeProductIds?: string[],
     /** [ROLES-2] Optional approvalId for governance-gated apply */
     approvalId?: string,
+    assetType?: AutomationAssetType,
+    scopeAssetRefs?: string[],
   ): Promise<AutomationPlaybookApplyResult> =>
     fetchWithAuth(
       `/projects/${id}/automation-playbooks/apply`,
       {
         method: 'POST',
-        body: JSON.stringify({ playbookId, scopeId, rulesHash, scopeProductIds, approvalId }),
+        body: JSON.stringify({
+          playbookId,
+          scopeId,
+          rulesHash,
+          scopeProductIds,
+          approvalId,
+          assetType,
+          scopeAssetRefs,
+        }),
       },
     ),
 
@@ -914,6 +1033,11 @@ export const projectsApi = {
   /**
    * Generate a draft for an automation playbook (uses AI).
    * Returns counts for affected products, drafts generated, and those needing attention.
+   *
+   * [ASSETS-PAGES-1.1-UI-HARDEN] Extended with assetType and scopeAssetRefs support.
+   * XOR enforcement:
+   * - PRODUCTS: use scopeProductIds (existing flow)
+   * - PAGES/COLLECTIONS: use scopeAssetRefs (handle-only refs)
    */
   generateAutomationPlaybookDraft: (
     projectId: string,
@@ -921,12 +1045,20 @@ export const projectsApi = {
     scopeId: string,
     rulesHash: string,
     scopeProductIds?: string[],
+    assetType?: AutomationAssetType,
+    scopeAssetRefs?: string[],
   ): Promise<AutomationPlaybookDraftGenerateResult> =>
     fetchWithAuth(
       `/projects/${projectId}/automation-playbooks/${playbookId}/draft/generate`,
       {
         method: 'POST',
-        body: JSON.stringify({ scopeId, rulesHash, scopeProductIds }),
+        body: JSON.stringify({
+          scopeId,
+          rulesHash,
+          scopeProductIds,
+          assetType,
+          scopeAssetRefs,
+        }),
       },
     ),
 
@@ -1158,6 +1290,75 @@ export const projectsApi = {
     if (options?.eventType) params.set('eventType', options.eventType);
     const qs = params.toString() ? `?${params.toString()}` : '';
     return fetchWithAuth(`/projects/${projectId}/governance/audit-events${qs}`);
+  },
+
+  // ===========================================================================
+  // [GOV-AUDIT-VIEWER-1] Governance Viewer API (read-only)
+  // ===========================================================================
+
+  /**
+   * [GOV-AUDIT-VIEWER-1] List approvals for governance viewer with cursor pagination.
+   * @param status - 'pending' (PENDING_APPROVAL) or 'history' (APPROVED/REJECTED)
+   */
+  listViewerApprovals: (
+    projectId: string,
+    options?: { status?: 'pending' | 'history'; cursor?: string; limit?: number },
+  ): Promise<GovernanceViewerApprovalsResponse> => {
+    const params = new URLSearchParams();
+    if (options?.status) params.set('status', options.status);
+    if (options?.cursor) params.set('cursor', options.cursor);
+    if (options?.limit) params.set('limit', String(options.limit));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return fetchWithAuth(`/projects/${projectId}/governance/viewer/approvals${qs}`);
+  },
+
+  /**
+   * [GOV-AUDIT-VIEWER-1] List audit events for governance viewer with cursor pagination.
+   * IMPORTANT: Only returns events in ALLOWED_AUDIT_EVENT_TYPES allowlist.
+   * @param types - Comma-separated list of event types to filter (optional)
+   * @param actor - Filter by actorUserId (optional)
+   * @param from - ISO timestamp for date range start (optional)
+   * @param to - ISO timestamp for date range end (optional)
+   */
+  listViewerAuditEvents: (
+    projectId: string,
+    options?: {
+      types?: string[];
+      actor?: string;
+      from?: string;
+      to?: string;
+      cursor?: string;
+      limit?: number;
+    },
+  ): Promise<GovernanceViewerAuditEventsResponse> => {
+    const params = new URLSearchParams();
+    if (options?.types && options.types.length > 0) {
+      params.set('types', options.types.join(','));
+    }
+    if (options?.actor) params.set('actor', options.actor);
+    if (options?.from) params.set('from', options.from);
+    if (options?.to) params.set('to', options.to);
+    if (options?.cursor) params.set('cursor', options.cursor);
+    if (options?.limit) params.set('limit', String(options.limit));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return fetchWithAuth(`/projects/${projectId}/governance/viewer/audit-events${qs}`);
+  },
+
+  /**
+   * [GOV-AUDIT-VIEWER-1] List share links for governance viewer with cursor pagination.
+   * IMPORTANT: Passcode is NEVER returned, only passcodeLast4.
+   * @param status - 'ACTIVE' | 'EXPIRED' | 'REVOKED' | 'all' (optional)
+   */
+  listViewerShareLinks: (
+    projectId: string,
+    options?: { status?: 'ACTIVE' | 'EXPIRED' | 'REVOKED' | 'all'; cursor?: string; limit?: number },
+  ): Promise<GovernanceViewerShareLinksResponse> => {
+    const params = new URLSearchParams();
+    if (options?.status) params.set('status', options.status);
+    if (options?.cursor) params.set('cursor', options.cursor);
+    if (options?.limit) params.set('limit', String(options.limit));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return fetchWithAuth(`/projects/${projectId}/governance/viewer/share-links${qs}`);
   },
 
   // ===========================================================================

@@ -3,15 +3,24 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { GovernanceService, UpdateGovernancePolicyDto } from './governance.service';
 import { ApprovalsService, CreateApprovalRequestDto, ApproveRejectDto } from './approvals.service';
 import { AuditEventsService } from './audit-events.service';
+import { GovernanceViewerService } from './governance-viewer.service';
 import { ApprovalResourceType, ApprovalStatus, GovernanceAuditEventType } from '@prisma/client';
+import {
+  ApprovalStatusFilter,
+  AllowedAuditEventType,
+  isAllowedAuditEventType,
+  ShareLinkStatusFilter,
+} from '@engineo/shared';
 
 /**
  * [ENTERPRISE-GEO-1] Governance Controller
+ * [GOV-AUDIT-VIEWER-1] Extended with read-only viewer endpoints
  *
  * Project-scoped endpoints for:
  * - Governance policy management
  * - Approval workflow
  * - Audit event viewing
+ * - [GOV-AUDIT-VIEWER-1] Governance viewer (approvals, audit, share links)
  */
 @Controller('projects/:projectId/governance')
 @UseGuards(JwtAuthGuard)
@@ -20,6 +29,7 @@ export class GovernanceController {
     private readonly governanceService: GovernanceService,
     private readonly approvalsService: ApprovalsService,
     private readonly auditEventsService: AuditEventsService,
+    private readonly governanceViewerService: GovernanceViewerService,
   ) {}
 
   // ============================================================================
@@ -171,6 +181,105 @@ export class GovernanceController {
       page: page ? parseInt(page, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
       eventType: eventType as GovernanceAuditEventType | undefined,
+    });
+  }
+
+  // ============================================================================
+  // [GOV-AUDIT-VIEWER-1] Governance Viewer Endpoints
+  // ============================================================================
+
+  /**
+   * List approvals for governance viewer (cursor-paginated)
+   * GET /projects/:projectId/governance/viewer/approvals
+   *
+   * Query params:
+   * - status: 'pending' | 'history' (pending = PENDING_APPROVAL, history = APPROVED/REJECTED)
+   * - cursor: pagination cursor
+   * - limit: max items per page
+   */
+  @Get('viewer/approvals')
+  async listViewerApprovals(
+    @Request() req: any,
+    @Param('projectId') projectId: string,
+    @Query('status') status?: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.governanceViewerService.listApprovals(projectId, req.user.id, {
+      status: status as ApprovalStatusFilter | undefined,
+      cursor,
+      limit: limit ? parseInt(limit, 10) : undefined,
+    });
+  }
+
+  /**
+   * List audit events for governance viewer (cursor-paginated, allowlist-filtered)
+   * GET /projects/:projectId/governance/viewer/audit-events
+   *
+   * Query params:
+   * - types: comma-separated list of allowed event types
+   * - actor: filter by actorUserId
+   * - from: ISO timestamp (date range start)
+   * - to: ISO timestamp (date range end)
+   * - cursor: pagination cursor
+   * - limit: max items per page
+   *
+   * IMPORTANT: Only returns events in ALLOWED_AUDIT_EVENT_TYPES.
+   * Any other event types are filtered out server-side.
+   */
+  @Get('viewer/audit-events')
+  async listViewerAuditEvents(
+    @Request() req: any,
+    @Param('projectId') projectId: string,
+    @Query('types') types?: string,
+    @Query('actor') actor?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    // Parse types as comma-separated list and filter by allowlist
+    let parsedTypes: AllowedAuditEventType[] | undefined;
+    if (types) {
+      parsedTypes = types
+        .split(',')
+        .map((t) => t.trim())
+        .filter(isAllowedAuditEventType) as AllowedAuditEventType[];
+    }
+
+    return this.governanceViewerService.listAuditEvents(projectId, req.user.id, {
+      types: parsedTypes,
+      actor,
+      from,
+      to,
+      cursor,
+      limit: limit ? parseInt(limit, 10) : undefined,
+    });
+  }
+
+  /**
+   * List share links for governance viewer (cursor-paginated)
+   * GET /projects/:projectId/governance/viewer/share-links
+   *
+   * Query params:
+   * - status: 'ACTIVE' | 'EXPIRED' | 'REVOKED' | 'all'
+   * - cursor: pagination cursor
+   * - limit: max items per page
+   *
+   * IMPORTANT: Passcode is NEVER returned. Only passcodeLast4 is included.
+   */
+  @Get('viewer/share-links')
+  async listViewerShareLinks(
+    @Request() req: any,
+    @Param('projectId') projectId: string,
+    @Query('status') status?: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.governanceViewerService.listShareLinks(projectId, req.user.id, {
+      status: status as ShareLinkStatusFilter | undefined,
+      cursor,
+      limit: limit ? parseInt(limit, 10) : undefined,
     });
   }
 }

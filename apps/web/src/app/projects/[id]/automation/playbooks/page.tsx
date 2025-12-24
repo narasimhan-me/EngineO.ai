@@ -188,6 +188,18 @@ export default function AutomationPlaybooksPage() {
       ? urlAssetType
       : 'PRODUCTS'; // Default to PRODUCTS
 
+  // [ASSETS-PAGES-1.1-UI-HARDEN] Deep-link support: read scopeAssetRefs from URL (comma-separated)
+  const urlScopeAssetRefs = searchParams.get('scopeAssetRefs');
+  const parsedScopeAssetRefs = useMemo(() => {
+    if (!urlScopeAssetRefs) return [];
+    return urlScopeAssetRefs.split(',').map((ref) => ref.trim()).filter((ref) => ref.length > 0);
+  }, [urlScopeAssetRefs]);
+
+  // [ASSETS-PAGES-1.1-UI-HARDEN] Deterministic safety check: PAGES/COLLECTIONS require scopeAssetRefs
+  const isMissingScopeForPagesCollections =
+    (validUrlAssetType === 'PAGES' || validUrlAssetType === 'COLLECTIONS') &&
+    parsedScopeAssetRefs.length === 0;
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [projectName, setProjectName] = useState<string | null>(null);
@@ -199,6 +211,8 @@ export default function AutomationPlaybooksPage() {
     useState<PlaybookId | null>(validUrlPlaybookId ?? 'missing_seo_title');
   // [ASSETS-PAGES-1.1] Track current asset type from URL deep link (read-only from URL params)
   const [currentAssetType] = useState<AutomationAssetType>(validUrlAssetType);
+  // [ASSETS-PAGES-1.1-UI-HARDEN] Track scope asset refs from URL deep link (read-only)
+  const [currentScopeAssetRefs] = useState<string[]>(parsedScopeAssetRefs);
   const [flowState, setFlowState] = useState<PlaybookFlowState>('PREVIEW_READY');
   const [previewSamples, setPreviewSamples] = useState<PreviewSample[]>([]);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -417,19 +431,22 @@ export default function AutomationPlaybooksPage() {
   };
 
   const loadEstimate = useCallback(
-    async (playbookId: PlaybookId, assetType?: AutomationAssetType) => {
+    async (playbookId: PlaybookId, assetType?: AutomationAssetType, scopeAssetRefs?: string[]) => {
       try {
         setLoadingEstimate(true);
         setError('');
         setEstimate(null);
-        // [ASSETS-PAGES-1.1] Pass assetType to estimate endpoint
+        // [ASSETS-PAGES-1.1-UI-HARDEN] Pass assetType and scopeAssetRefs to estimate endpoint
         const effectiveAssetType = assetType ?? currentAssetType;
+        const effectiveScopeAssetRefs = scopeAssetRefs ?? currentScopeAssetRefs;
         const data = (await projectsApi.automationPlaybookEstimate(
           projectId,
           playbookId,
-          undefined, // scopeProductIds
+          undefined, // scopeProductIds - only for PRODUCTS
           effectiveAssetType !== 'PRODUCTS' ? effectiveAssetType : undefined,
-          undefined, // scopeAssetRefs
+          effectiveAssetType !== 'PRODUCTS' && effectiveScopeAssetRefs.length > 0
+            ? effectiveScopeAssetRefs
+            : undefined,
         )) as PlaybookEstimate;
         setEstimate(data);
       } catch (err: unknown) {
@@ -444,7 +461,7 @@ export default function AutomationPlaybooksPage() {
         setLoadingEstimate(false);
       }
     },
-    [projectId, currentAssetType],
+    [projectId, currentAssetType, currentScopeAssetRefs],
   );
 
   const loadPreview = useCallback(
@@ -494,11 +511,17 @@ export default function AutomationPlaybooksPage() {
         // 2. Creates/updates a draft in the database
         // 3. Generates AI suggestions for sample products
         // 4. Returns everything needed for the apply flow
+        // [ASSETS-PAGES-1.1-UI-HARDEN] Pass assetType and scopeAssetRefs
         const previewResult = await projectsApi.previewAutomationPlaybook(
           projectId,
           playbookId,
           rules.enabled ? rules : undefined,
           3, // sampleSize
+          undefined, // scopeProductIds - only for PRODUCTS
+          currentAssetType !== 'PRODUCTS' ? currentAssetType : undefined,
+          currentAssetType !== 'PRODUCTS' && currentScopeAssetRefs.length > 0
+            ? currentScopeAssetRefs
+            : undefined,
         ) as {
           projectId: string;
           playbookId: string;
@@ -604,7 +627,7 @@ export default function AutomationPlaybooksPage() {
         setLoadingPreview(false);
       }
     },
-    [projectId, feedback, rules, rulesVersion, estimate, loadEstimate],
+    [projectId, feedback, rules, rulesVersion, estimate, loadEstimate, currentAssetType, currentScopeAssetRefs],
   );
 
   useEffect(() => {
@@ -874,13 +897,18 @@ export default function AutomationPlaybooksPage() {
         }
       }
 
+      // [ASSETS-PAGES-1.1-UI-HARDEN] Pass assetType and scopeAssetRefs to apply
       const data = await projectsApi.applyAutomationPlaybook(
         projectId,
         selectedPlaybookId,
         estimate.scopeId,
         estimate.rulesHash,
-        undefined, // scopeProductIds
+        undefined, // scopeProductIds - only for PRODUCTS
         approvalIdToUse,
+        currentAssetType !== 'PRODUCTS' ? currentAssetType : undefined,
+        currentAssetType !== 'PRODUCTS' && currentScopeAssetRefs.length > 0
+          ? currentScopeAssetRefs
+          : undefined,
       );
       setApplyResult(data);
       if (data.updatedCount > 0) {
@@ -963,6 +991,8 @@ export default function AutomationPlaybooksPage() {
     governancePolicy,
     effectiveRole,
     isMultiUserProject,
+    currentAssetType,
+    currentScopeAssetRefs,
   ]);
 
   const handleSyncToShopify = useCallback(async () => {
@@ -1359,6 +1389,87 @@ export default function AutomationPlaybooksPage() {
           Create automation
         </button>
       </div>
+
+      {/* [ASSETS-PAGES-1.1-UI-HARDEN] Missing scope safety block for PAGES/COLLECTIONS */}
+      {isMissingScopeForPagesCollections && (
+        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-5 w-5 text-red-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-red-800">
+                Missing scope for {getAssetTypeLabel(currentAssetType).plural}. Return to Work Queue.
+              </p>
+              <p className="mt-1 text-xs text-red-700">
+                To run playbooks on {getAssetTypeLabel(currentAssetType).plural}, you must navigate from the Work Queue
+                with a specific scope. This prevents unintended project-wide changes.
+              </p>
+              <div className="mt-3">
+                <Link
+                  href={`/projects/${projectId}/work-queue`}
+                  className="inline-flex items-center rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-red-700"
+                >
+                  Return to Work Queue
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* [ASSETS-PAGES-1.1-UI-HARDEN] Scope summary for PAGES/COLLECTIONS with valid scope */}
+      {currentAssetType !== 'PRODUCTS' && currentScopeAssetRefs.length > 0 && (
+        <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-5 w-5 text-blue-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-blue-900">Scope summary</p>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+                  {getAssetTypeLabel(currentAssetType).plural}
+                </span>
+                <span className="text-xs text-blue-700">
+                  {currentScopeAssetRefs.slice(0, 3).map((ref) => {
+                    // Extract just the handle part (e.g., 'page_handle:about-us' -> 'about-us')
+                    const parts = ref.split(':');
+                    return parts.length > 1 ? parts[1] : ref;
+                  }).join(', ')}
+                  {currentScopeAssetRefs.length > 3 && (
+                    <span className="text-blue-500"> +{currentScopeAssetRefs.length - 3} more</span>
+                  )}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* [ROLES-3] VIEWER mode banner */}
       {effectiveRole === 'VIEWER' && (

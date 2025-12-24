@@ -33,6 +33,8 @@
   - WORK-QUEUE-1.md (Work Queue manual testing)
   - API_SPEC.md (Automation Playbooks section)
   - IMPLEMENTATION_PLAN.md
+  - assets-pages-1-1.spec.ts (Playwright UI smoke tests)
+  - assets-pages-1-1.e2e-spec.ts (API E2E tests)
 
 ---
 
@@ -450,6 +452,98 @@ curl -X POST http://localhost:3001/projects/PROJECT_ID/automation-playbooks/esti
 
 ---
 
+## UI Execution Verification (ASSETS-PAGES-1.1-UI-HARDEN)
+
+### UEV-001: Missing Scope Safety Block for PAGES
+
+**Steps:**
+1. Navigate to `/projects/{id}/automation/playbooks?assetType=PAGES` (no scopeAssetRefs)
+2. Observe the page
+
+**Expected Results:**
+- Red banner: "Missing scope for pages. Return to Work Queue."
+- Explanation text about project-wide changes
+- "Return to Work Queue" link visible
+- Generate Preview button NOT blocked (safety block is informational)
+
+---
+
+### UEV-002: Missing Scope Safety Block for COLLECTIONS
+
+**Steps:**
+1. Navigate to `/projects/{id}/automation/playbooks?assetType=COLLECTIONS` (no scopeAssetRefs)
+2. Observe the page
+
+**Expected Results:**
+- Red banner: "Missing scope for collections. Return to Work Queue."
+- Same structure as UEV-001
+
+---
+
+### UEV-003: Scope Summary Renders for Valid Scope
+
+**Steps:**
+1. Navigate to `/projects/{id}/automation/playbooks?playbookId=missing_seo_title&assetType=PAGES&scopeAssetRefs=page_handle:about,page_handle:contact`
+2. Observe the page
+
+**Expected Results:**
+- Blue "Scope summary" banner visible
+- Asset type badge ("pages")
+- Handles shown: "about, contact"
+- No missing scope block
+
+---
+
+### UEV-004: Scope Summary "+N more" for Many Refs
+
+**Steps:**
+1. Navigate with 5+ scopeAssetRefs
+2. Observe the scope summary
+
+**Expected Results:**
+- First 3 handles shown
+- "+2 more" (or appropriate count) shown
+
+---
+
+### UEV-005: Work Queue CTA Includes scopeAssetRefs
+
+**Steps:**
+1. Navigate to Work Queue
+2. Find an AUTOMATION_RUN bundle for PAGES/COLLECTIONS
+3. Inspect the CTA link (without clicking)
+
+**Expected Results:**
+- URL includes `playbookId`, `assetType`, and `scopeAssetRefs` params
+- scopeAssetRefs are comma-separated handle refs
+
+---
+
+### UEV-006: Work Queue CTA Disabled for Missing Scope
+
+**Steps:**
+1. Navigate to Work Queue
+2. Find an AUTOMATION_RUN bundle for PAGES/COLLECTIONS that lacks deterministic scope refs
+
+**Expected Results:**
+- CTA shows "View Details" instead of action
+- disabledReason: "Missing scope for pages/collections. Return to Work Queue."
+
+---
+
+### UEV-007: PRODUCTS Flow Unchanged (Backwards Compatibility)
+
+**Steps:**
+1. Navigate to `/projects/{id}/automation/playbooks` (default PRODUCTS)
+2. Run through preview → generate drafts → apply flow
+
+**Expected Results:**
+- No missing scope block
+- No scope summary (PRODUCTS doesn't need it)
+- Flow works exactly as before
+
+---
+
 ## Notes
 
 - AI prompt adaptation for Pages/Collections draft generation is deferred to future phase
@@ -463,5 +557,6 @@ curl -X POST http://localhost:3001/projects/PROJECT_ID/automation-playbooks/esti
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 1.0 | 2025-12-24 | Claude | Initial draft for ASSETS-PAGES-1.1 execution phase |
-| 1.1 | 2025-12-24 | Claude | Added Frontend Test Scenarios (PATCH 5), updated Test Coverage Status with E2E completion |
+| 1.0 | 2025-12-24 | Narasimhan Mahendrakumar | Initial draft for ASSETS-PAGES-1.1 execution phase |
+| 1.1 | 2025-12-24 | Narasimhan Mahendrakumar | Added Frontend Test Scenarios (PATCH 5), updated Test Coverage Status with E2E completion |
+| 1.2 | 2025-12-24 | Narasimhan Mahendrakumar | Added UI Execution Verification scenarios (ASSETS-PAGES-1.1-UI-HARDEN) - missing scope blocks, scope summary, Work Queue CTA completeness, backwards compatibility |

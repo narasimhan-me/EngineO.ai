@@ -168,6 +168,40 @@ export {
   type PerformanceForDiscoveryScorecard,
 } from './performance-signals';
 
+// GOV-AUDIT-VIEWER-1: Governance Audit & Approvals Viewer types
+export {
+  // Approval types
+  type ApprovalStatusFilter,
+  type ApprovalStatus,
+  type ApprovalResourceType,
+  type ApprovalsQuery,
+  type ApprovalsListItem,
+  type ApprovalsListResponse,
+  // Audit event types
+  ALLOWED_AUDIT_EVENT_TYPES,
+  type AllowedAuditEventType,
+  AUDIT_EVENT_TYPE_LABELS,
+  type AuditEventsQuery,
+  type AuditEventListItem,
+  type AuditEventsListResponse,
+  // Share link types
+  type ShareLinkStatusFilter,
+  type ShareLinkStatus,
+  type ShareLinkAudience,
+  type ShareLinksQuery,
+  type ShareLinkListItem,
+  type ShareLinkEventItem,
+  type ShareLinksListResponse,
+  // Helper functions
+  isAllowedAuditEventType,
+  getAuditEventTypeLabel,
+  buildPaginationCursor,
+  parsePaginationCursor,
+  // Constants
+  GOVERNANCE_DEFAULT_PAGE_SIZE,
+  GOVERNANCE_MAX_PAGE_SIZE,
+} from './governance';
+
 // WORK-QUEUE-1: Unified Action Bundle Work Queue types
 export {
   // Core enums

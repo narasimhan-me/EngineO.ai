@@ -37,6 +37,7 @@ import { GovernanceService } from './governance.service';
 import { ApprovalsService } from './approvals.service';
 import { AuditEventsService } from './audit-events.service';
 import { GovernanceController } from './governance.controller';
+import { GovernanceViewerService } from './governance-viewer.service';
 import { RoleResolutionService } from '../common/role-resolution.service';
 import { WorkQueueService } from './work-queue.service';
 
@@ -73,6 +74,7 @@ import { WorkQueueService } from './work-queue.service';
     GovernanceService,
     ApprovalsService,
     AuditEventsService,
+    GovernanceViewerService,
     RoleResolutionService,
     WorkQueueService,
   ],

@@ -268,6 +268,7 @@ function getScopeTypeLabel(scopeType: string, count: number): string {
 
 /**
  * Derive CTAs based on bundle state and viewer capabilities.
+ * [ASSETS-PAGES-1.1-UI-HARDEN] Now handles missing scope for PAGES/COLLECTIONS.
  */
 function deriveCtas(
   bundle: WorkQueueActionBundle,
@@ -282,6 +283,15 @@ function deriveCtas(
   const canApprove = viewer?.capabilities.canApprove ?? false;
   const canGenerateDrafts = viewer?.capabilities.canGenerateDrafts ?? false;
   const canRequestApproval = viewer?.capabilities.canRequestApproval ?? false;
+
+  // [ASSETS-PAGES-1.1-UI-HARDEN] Block actions for PAGES/COLLECTIONS without deterministic scope
+  if (hasMissingScope(bundle)) {
+    return {
+      primaryCta: 'View Details',
+      secondaryCta: null,
+      disabledReason: 'Missing scope for pages/collections. Return to Work Queue.',
+    };
+  }
 
   // GEO Export special case
   if (bundleType === 'GEO_EXPORT') {
@@ -374,9 +384,70 @@ function deriveCtas(
 }
 
 /**
+ * [ASSETS-PAGES-1.1-UI-HARDEN] Extract handle-only scope refs from bundle for deep linking.
+ * Returns an array of refs like ['page_handle:about-us', 'page_handle:contact'] or null if not available.
+ *
+ * For PAGES/COLLECTIONS bundles, we need deterministic handle-based refs.
+ * These come from scopeQueryRef (if it contains handle refs) or are derived from the bundle ID.
+ */
+function extractScopeAssetRefs(bundle: WorkQueueActionBundle): string[] | null {
+  const { scopeType, scopeQueryRef, bundleId } = bundle;
+
+  // Only relevant for PAGES/COLLECTIONS
+  if (scopeType !== 'PAGES' && scopeType !== 'COLLECTIONS') {
+    return null;
+  }
+
+  // Check if scopeQueryRef contains handle-based refs (comma-separated)
+  if (scopeQueryRef) {
+    const prefix = scopeType === 'PAGES' ? 'page_handle:' : 'collection_handle:';
+    if (scopeQueryRef.includes(prefix)) {
+      // scopeQueryRef might be a comma-separated list of refs
+      return scopeQueryRef.split(',').map((ref) => ref.trim()).filter((ref) => ref.length > 0);
+    }
+  }
+
+  // Try to extract from bundleId if it contains handle refs
+  // Bundle ID format: AUTOMATION_RUN:FIX_MISSING_METADATA:{playbookId}:{assetType}:{projectId}:{scopeRef}
+  const bundleIdParts = bundleId.split(':');
+  if (bundleIdParts.length >= 6) {
+    // The last part might contain scope refs
+    const potentialRefs = bundleIdParts.slice(5).join(':');
+    if (potentialRefs.includes('_handle:')) {
+      return potentialRefs.split(',').map((ref) => ref.trim()).filter((ref) => ref.length > 0);
+    }
+  }
+
+  // No deterministic refs available
+  return null;
+}
+
+/**
+ * [ASSETS-PAGES-1.1-UI-HARDEN] Check if bundle has missing scope for PAGES/COLLECTIONS.
+ * Returns true if the bundle requires scope but doesn't have it.
+ */
+function hasMissingScope(bundle: WorkQueueActionBundle): boolean {
+  const { bundleType, scopeType } = bundle;
+
+  // Only AUTOMATION_RUN bundles for PAGES/COLLECTIONS require scope
+  if (bundleType !== 'AUTOMATION_RUN') {
+    return false;
+  }
+
+  if (scopeType !== 'PAGES' && scopeType !== 'COLLECTIONS') {
+    return false;
+  }
+
+  // Check if we have deterministic scope refs
+  const refs = extractScopeAssetRefs(bundle);
+  return refs === null || refs.length === 0;
+}
+
+/**
  * Get CTA route based on bundle type, scopeType, and action.
  * [ASSETS-PAGES-1] Routes PAGES/COLLECTIONS bundles to their respective asset lists.
  * [ASSETS-PAGES-1.1] AUTOMATION_RUN bundles now deep-link to playbooks with assetType param.
+ * [ASSETS-PAGES-1.1-UI-HARDEN] Include scopeAssetRefs for PAGES/COLLECTIONS when available.
  */
 function getCTARoute(bundle: WorkQueueActionBundle, projectId: string): string {
   const { bundleType, recommendedActionKey, scopeType } = bundle;
@@ -398,6 +469,12 @@ function getCTARoute(bundle: WorkQueueActionBundle, projectId: string): string {
     params.set('playbookId', playbookId);
     if (assetType !== 'PRODUCTS') {
       params.set('assetType', assetType);
+
+      // [ASSETS-PAGES-1.1-UI-HARDEN] Include scopeAssetRefs for PAGES/COLLECTIONS
+      const scopeRefs = extractScopeAssetRefs(bundle);
+      if (scopeRefs && scopeRefs.length > 0) {
+        params.set('scopeAssetRefs', scopeRefs.join(','));
+      }
     }
     return `/projects/${projectId}/automation/playbooks?${params.toString()}`;
   }

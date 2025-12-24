@@ -900,6 +900,172 @@ Or:
 
 ---
 
+## 13. Governance Viewer (GOV-AUDIT-VIEWER-1)
+
+Read-only governance viewer endpoints for viewing approval requests, audit events, and share links. These endpoints are accessible to any project member (VIEWER, EDITOR, OWNER) and never perform mutations.
+
+### Key Invariants
+
+1. **Read-Only**: All endpoints are GET; no mutations
+2. **Allowlist-Filtered Audit Events**: Only these event types are returned:
+   - `APPROVAL_REQUESTED`
+   - `APPROVAL_APPROVED`
+   - `APPROVAL_REJECTED`
+   - `SHARE_LINK_CREATED`
+   - `SHARE_LINK_REVOKED`
+   - `SHARE_LINK_EXPIRED`
+3. **Passcode Security**: Passcode hash is NEVER returned; only `passcodeLast4` for display
+4. **Cursor-Based Pagination**: Stable ordering (timestamp DESC, id DESC)
+5. **Server-Side Filtering**: Allowlist enforced on server, not client
+
+---
+
+### GET `/projects/:projectId/governance/viewer/approvals` (auth required)
+
+List approval requests for governance viewer with cursor-based pagination.
+
+**Query parameters:**
+- `status` (optional): `'pending'` (PENDING_APPROVAL) or `'history'` (APPROVED/REJECTED)
+- `cursor` (optional): Pagination cursor (format: `{timestamp}:{id}`)
+- `limit` (optional): Max results per page (default 50)
+
+**Response:**
+
+```json
+{
+  "items": [
+    {
+      "id": "string",
+      "projectId": "string",
+      "resourceType": "AUTOMATION_PLAYBOOK_APPLY" | "GEO_FIX_APPLY" | "ANSWER_BLOCK_SYNC" | "GEO_REPORT_SHARE_LINK",
+      "resourceId": "string",
+      "status": "PENDING_APPROVAL" | "APPROVED" | "REJECTED",
+      "requestedByUserId": "string",
+      "requestedByName": "User Name",
+      "requestedAt": "2024-01-01T00:00:00.000Z",
+      "decidedByUserId": "string (optional)",
+      "decidedByName": "User Name (optional)",
+      "decidedAt": "2024-01-01T00:00:00.000Z (optional)",
+      "decisionReason": "string (optional)",
+      "consumed": false,
+      "consumedAt": "2024-01-01T00:00:00.000Z (optional)",
+      "bundleId": "string (optional, for traceability)",
+      "playbookId": "string (optional)",
+      "assetType": "PRODUCTS" | "PAGES" | "COLLECTIONS" (optional)
+    }
+  ],
+  "nextCursor": "string (optional)",
+  "hasMore": true
+}
+```
+
+**Role access:** Any project member (VIEWER, EDITOR, OWNER) can read.
+
+---
+
+### GET `/projects/:projectId/governance/viewer/audit-events` (auth required)
+
+List audit events for governance viewer with cursor-based pagination. **IMPORTANT: Only returns events in ALLOWED_AUDIT_EVENT_TYPES allowlist.** Any request for other event types is silently filtered.
+
+**Query parameters:**
+- `types` (optional): Comma-separated list of event types (e.g., `APPROVAL_REQUESTED,SHARE_LINK_CREATED`)
+- `actor` (optional): Filter by actorUserId
+- `from` (optional): ISO timestamp for date range start
+- `to` (optional): ISO timestamp for date range end
+- `cursor` (optional): Pagination cursor (format: `{timestamp}:{id}`)
+- `limit` (optional): Max results per page (default 50)
+
+**Response:**
+
+```json
+{
+  "items": [
+    {
+      "id": "string",
+      "projectId": "string",
+      "actorUserId": "string",
+      "actorName": "User Name",
+      "eventType": "APPROVAL_REQUESTED" | "APPROVAL_APPROVED" | "APPROVAL_REJECTED" | "SHARE_LINK_CREATED" | "SHARE_LINK_REVOKED" | "SHARE_LINK_EXPIRED",
+      "resourceType": "string (optional)",
+      "resourceId": "string (optional)",
+      "metadata": { ... },
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "nextCursor": "string (optional)",
+  "hasMore": true
+}
+```
+
+**Allowlist enforcement:** The following event types are NEVER returned even if they exist in storage:
+- `POLICY_CHANGED`
+- `APPLY_EXECUTED`
+- Any other event types not in the allowlist
+
+**Role access:** Any project member (VIEWER, EDITOR, OWNER) can read.
+
+---
+
+### GET `/projects/:projectId/governance/viewer/share-links` (auth required)
+
+List share links for governance viewer with cursor-based pagination. **IMPORTANT: Passcode is NEVER returned; only `passcodeLast4` is included for display.**
+
+**Query parameters:**
+- `status` (optional): `'ACTIVE'`, `'EXPIRED'`, `'REVOKED'`, or `'all'` (default: `'all'`)
+- `cursor` (optional): Pagination cursor (format: `{timestamp}:{id}`)
+- `limit` (optional): Max results per page (default 50)
+
+**Response:**
+
+```json
+{
+  "items": [
+    {
+      "id": "string",
+      "projectId": "string",
+      "reportType": "GEO_INSIGHTS",
+      "title": "string (optional)",
+      "audience": "ANYONE_WITH_LINK" | "PASSCODE" | "ORG_ONLY",
+      "passcodeLast4": "AB12 (optional, only for PASSCODE audience)",
+      "status": "ACTIVE" | "EXPIRED" | "REVOKED",
+      "expiresAt": "2024-01-14T00:00:00.000Z",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "createdByUserId": "string",
+      "createdByName": "User Name",
+      "revokedAt": "2024-01-01T00:00:00.000Z (optional)",
+      "revokedByUserId": "string (optional)",
+      "revokedByName": "User Name (optional)",
+      "viewCount": 5,
+      "lastViewedAt": "2024-01-01T00:00:00.000Z (optional)",
+      "statusHistory": [
+        {
+          "status": "ACTIVE" | "EXPIRED" | "REVOKED",
+          "changedAt": "2024-01-01T00:00:00.000Z",
+          "changedByUserId": "string (optional)",
+          "changedByName": "User Name (optional)"
+        }
+      ]
+    }
+  ],
+  "nextCursor": "string (optional)",
+  "hasMore": true
+}
+```
+
+**Status derivation:** Status is derived deterministically:
+- `REVOKED`: If `revokedAt` is set (or status enum is REVOKED)
+- `EXPIRED`: If `expiresAt` is in the past
+- `ACTIVE`: Otherwise
+
+**Data minimization:** The following fields are NEVER returned:
+- `passcode` (plaintext)
+- `passcodeHash` (bcrypt hash)
+- `shareToken` (only returned at creation, not in list views)
+
+**Role access:** Any project member (VIEWER, EDITOR, OWNER) can read.
+
+---
+
 ## 10. Admin Endpoints (Internal)
 
 All admin endpoints require JWT authentication and internal admin role (SUPPORT_AGENT, OPS_ADMIN, or MANAGEMENT_CEO).
