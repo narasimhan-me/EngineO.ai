@@ -2,18 +2,113 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 255, 255, 255;
-  --background-end-rgb: 255, 255, 255;
+@layer base {
+  :root {
+    /* Obsidian "Daylight Control" (Light Mode Default) */
+    --background: 210 40% 98%;
+    /* Slate 50ish */
+    --foreground: 222.2 84% 4.9%;
+    /* Slate 900 */
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 174 95% 45%;
+    /* Darker Signal for Light Mode Readability */
+    --primary-foreground: 228 15% 5%;
+
+    --secondary: 210 40% 96.1%;
+    /* Slate 100 */
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 35%;
+    /* Slate 600/700 for better contrast */
+
+    --accent: 174 95% 45%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 174 95% 45%;
+
+    --radius: 0.3rem;
+
+    /* Custom Palette Mapping */
+    --obsidian: 0 0% 100%;
+    --cockpit: 210 40% 96.1%;
+    --signal: 174 95% 45%;
+  }
+
+  .dark {
+    /* Obsidian Control (Dark Mode) */
+    --background: 228 15% 5%;
+    /* #0B0C10 */
+    --foreground: 210 20% 98%;
+
+    --card: 228 15% 8%;
+    --card-foreground: 210 20% 98%;
+
+    --popover: 228 15% 5%;
+    --popover-foreground: 210 20% 98%;
+
+    --primary: 174 95% 69%;
+    /* #66FCF1 Signal */
+    --primary-foreground: 228 15% 5%;
+
+    --secondary: 217 20% 16%;
+    /* #1f2833 Cockpit */
+    --secondary-foreground: 210 20% 98%;
+
+    --muted: 217 20% 12%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 177 38% 45%;
+    /* #45A29E Signal Dim */
+    --accent-foreground: 210 20% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 20% 98%;
+
+    --border: 217 20% 16%;
+    /* Subtle border */
+    --input: 217 20% 16%;
+    --ring: 174 95% 69%;
+
+    /* Custom Palette Mapping */
+    --obsidian: 228 15% 5%;
+    --cockpit: 217 20% 16%;
+    --signal: 174 95% 69%;
+  }
+
+  /* Force defaults based on variables */
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+/* Scrollbar for 'Control Plane' Feel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--secondary));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
 }

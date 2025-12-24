@@ -72,11 +72,11 @@ export function ProductRow({
     event.stopPropagation();
   };
 
-  // Health pill styling
+  // Health pill styling - Updated for Obsidian
   const healthPillClasses = {
-    Healthy: 'bg-green-50 text-green-700 ring-1 ring-green-200',
-    'Needs Attention': 'bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200',
-    Critical: 'bg-red-50 text-red-700 ring-1 ring-red-200',
+    Healthy: 'bg-green-900/20 text-green-400 border border-green-900/50',
+    'Needs Attention': 'bg-yellow-900/20 text-yellow-500 border border-yellow-900/50',
+    Critical: 'bg-destructive/20 text-destructive border border-destructive/50',
   };
 
   return (
@@ -87,7 +87,7 @@ export function ProductRow({
         tabIndex={0}
         onClick={handleRowClick}
         onKeyDown={handleKeyDown}
-        className="flex cursor-pointer flex-col gap-4 rounded-lg border border-gray-200 bg-white px-4 py-4 transition-colors hover:bg-gray-50 active:bg-gray-100 sm:flex-row sm:items-center sm:justify-between"
+        className="flex cursor-pointer flex-col gap-4 rounded-lg border border-border/10 bg-card px-4 py-4 transition-all hover:bg-accent/5 hover:border-signal/20 active:bg-accent/10 sm:flex-row sm:items-center sm:justify-between"
       >
         {/* Left section - image + title + recommended action */}
         <div className="flex min-w-0 flex-1 items-start gap-3">
@@ -97,13 +97,13 @@ export function ProductRow({
               alt={product.title}
               width={48}
               height={48}
-              className="h-12 w-12 flex-shrink-0 rounded object-cover"
+              className="h-12 w-12 flex-shrink-0 rounded bg-muted object-cover"
               unoptimized
             />
           ) : (
-            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded bg-gray-100">
+            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded bg-muted/50">
               <svg
-                className="h-6 w-6 text-gray-400"
+                className="h-6 w-6 text-muted-foreground"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -119,11 +119,11 @@ export function ProductRow({
           )}
           <div className="min-w-0 flex-1">
             {/* Title line */}
-            <div className="line-clamp-1 text-sm font-medium text-gray-900">
+            <div className="line-clamp-1 text-sm font-medium text-foreground">
               {product.title}
             </div>
             {/* Action line (recommended action) */}
-            <div className="mt-0.5 text-xs text-gray-500">
+            <div className="mt-0.5 text-xs text-muted-foreground font-mono font-medium">
               {recommendedAction}
             </div>
           </div>
@@ -132,7 +132,7 @@ export function ProductRow({
         {/* Middle section - Health pill (visible on all sizes) */}
         <div className="flex items-center gap-3 sm:justify-center">
           <span
-            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${healthPillClasses[healthState]}`}
+            className={`inline-flex items-center rounded px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${healthPillClasses[healthState]}`}
           >
             {healthState}
           </span>
@@ -148,16 +148,17 @@ export function ProductRow({
                 onScan();
               }}
               disabled={isScanning}
-              className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center rounded border border-input bg-background/50 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
               data-no-row-click
             >
               {isScanning ? (
                 <>
                   <svg
-                    className="mr-1.5 h-3.5 w-3.5 animate-spin text-gray-500"
+                    className="mr-1.5 h-3.5 w-3.5 animate-spin text-muted-foreground"
                     fill="none"
                     viewBox="0 0 24 24"
                   >
+                    {/* ... spinner SVG ... */}
                     <circle
                       className="opacity-25"
                       cx="12"
@@ -177,7 +178,7 @@ export function ProductRow({
               ) : (
                 <>
                   <svg
-                    className="mr-1.5 h-3.5 w-3.5 text-gray-500"
+                    className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -199,14 +200,14 @@ export function ProductRow({
           <Link
             href={workspacePath}
             onClick={handleButtonClick}
-            className="inline-flex items-center rounded-md bg-gray-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-800"
+            className="inline-flex items-center rounded bg-signal/10 border border-signal/20 px-3 py-1.5 text-xs font-medium text-signal hover:bg-signal/20 transition-colors uppercase tracking-wide"
             data-no-row-click
           >
-            View details
+            View
           </Link>
 
           {/* Expand indicator */}
-          <div className="flex h-8 w-8 items-center justify-center text-gray-400">
+          <div className="flex h-8 w-8 items-center justify-center text-muted-foreground">
             <svg
               className={`h-5 w-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
               fill="none"

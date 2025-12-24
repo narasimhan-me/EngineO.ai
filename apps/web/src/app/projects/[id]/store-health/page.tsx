@@ -22,6 +22,10 @@ import type { ProjectInsightsResponse } from '@/lib/insights';
  * 6. AI Usage & Quota
  */
 
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+
 type HealthStatus = 'Healthy' | 'Needs Attention' | 'Critical';
 
 interface HealthCard {
@@ -96,7 +100,7 @@ export default function StoreHealthPage() {
   // 1. Discoverability (DEO) - FIX_MISSING_METADATA + RESOLVE_TECHNICAL_ISSUES
   const deoBundles = items.filter(
     (b) => b.recommendedActionKey === 'FIX_MISSING_METADATA' ||
-           b.recommendedActionKey === 'RESOLVE_TECHNICAL_ISSUES'
+      b.recommendedActionKey === 'RESOLVE_TECHNICAL_ISSUES'
   );
   const deoHealth = getWorstHealth(deoBundles);
   const deoSummary = deoBundles.length > 0
@@ -131,7 +135,7 @@ export default function StoreHealthPage() {
   // 5. Trust & Compliance - IMPROVE_SEARCH_INTENT + governance
   const trustBundles = items.filter(
     (b) => b.recommendedActionKey === 'IMPROVE_SEARCH_INTENT' ||
-           b.recommendedActionKey === 'SHARE_LINK_GOVERNANCE'
+      b.recommendedActionKey === 'SHARE_LINK_GOVERNANCE'
   );
   const trustHealth = getWorstHealth(trustBundles);
   const trustSummary = trustBundles.length > 0
@@ -202,22 +206,24 @@ export default function StoreHealthPage() {
   ];
 
   // Health pill styling
-  const getHealthStyles = (health: HealthStatus): string => {
+  const getHealthVariant = (health: HealthStatus): "signal" | "default" | "destructive" | "secondary" | "outline" => {
     switch (health) {
       case 'Critical':
-        return 'bg-red-100 text-red-700 border-red-200';
+        return 'destructive';
       case 'Needs Attention':
-        return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+        return 'secondary'; // Using secondary for warning state if 'warning' doesn't exist
       case 'Healthy':
-        return 'bg-green-100 text-green-700 border-green-200';
+        return 'signal';
+      default:
+        return 'default';
     }
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Store Health</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-2xl font-semibold text-foreground tracking-tight">Store Health</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Overview of your store&apos;s optimization status. Click any card to take action.
         </p>
       </div>
@@ -247,42 +253,51 @@ export default function StoreHealthPage() {
       {!loading && !error && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {cards.map((card) => (
-            <button
+            <Card
               key={card.id}
               onClick={card.onClick}
-              className="flex flex-col rounded-lg border border-gray-200 bg-white p-5 text-left shadow-sm transition-all hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="group cursor-pointer transition-all hover:border-signal/50 hover:shadow-lg hover:shadow-signal/10"
+              role="button"
+              tabIndex={0}
             >
-              {/* Health pill */}
-              <span
-                className={`inline-flex w-fit items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${getHealthStyles(card.health)}`}
-              >
-                {card.health}
-              </span>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  {/* Health pill */}
+                  <Badge variant={getHealthVariant(card.health)}>
+                    {card.health}
+                  </Badge>
+                </div>
+                {/* Title */}
+                <CardTitle className="mt-3 text-lg font-semibold text-foreground group-hover:text-signal transition-colors">
+                  {card.title}
+                </CardTitle>
+              </CardHeader>
 
-              {/* Title */}
-              <h3 className="mt-3 text-lg font-semibold text-gray-900">{card.title}</h3>
+              <CardContent className="pb-3">
+                {/* Summary */}
+                <p className="text-sm text-muted-foreground">{card.summary}</p>
+              </CardContent>
 
-              {/* Summary */}
-              <p className="mt-1 flex-1 text-sm text-gray-600">{card.summary}</p>
-
-              {/* Action label */}
-              <span className="mt-4 inline-flex items-center text-sm font-medium text-blue-600">
-                {card.actionLabel}
-                <svg
-                  className="ml-1 h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </span>
-            </button>
+              <CardFooter className="pt-0">
+                {/* Action label */}
+                <span className="inline-flex items-center text-sm font-medium text-signal group-hover:underline">
+                  {card.actionLabel}
+                  <svg
+                    className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </span>
+              </CardFooter>
+            </Card>
           ))}
         </div>
       )}

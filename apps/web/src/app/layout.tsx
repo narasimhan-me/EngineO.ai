@@ -1,21 +1,22 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, JetBrains_Mono } from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
 import { UnsavedChangesProvider } from '@/components/unsaved-changes/UnsavedChangesProvider';
 import { FeedbackProvider } from '@/components/feedback/FeedbackProvider';
+import { ThemeProvider } from '@/components/theme-provider';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+});
 
-export const metadata: Metadata = {
-  title: 'EngineO.ai – Discovery Engine Optimization (DEO) Platform',
-  description:
-    'EngineO.ai is the Discovery Engine Optimization (DEO) platform that unifies SEO, AEO, PEO, and VEO to optimize your brand for search engines and AI assistants.',
-  icons: {
-    icon: '/branding/engineo/logo-light.png',
-    apple: '/branding/engineo/logo-light.png',
-  },
-};
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains-mono',
+});
+
+// ... metadata remains the same ...
 
 export default function RootLayout({
   children,
@@ -39,9 +40,18 @@ export default function RootLayout({
           `}
         </Script>
       </head>
-      <body className={`${inter.className} min-h-screen bg-gray-50`}>
+      <body
+        className={`${inter.variable} ${jetbrainsMono.variable} min-h-screen bg-background font-sans antialiased`}
+      >
         <UnsavedChangesProvider>
-          <FeedbackProvider>{children}</FeedbackProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <FeedbackProvider>{children}</FeedbackProvider>
+          </ThemeProvider>
         </UnsavedChangesProvider>
       </body>
     </html>

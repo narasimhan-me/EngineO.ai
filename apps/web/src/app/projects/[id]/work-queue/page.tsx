@@ -91,16 +91,16 @@ export default function WorkQueuePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Work Queue</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-foreground">Work Queue</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Prioritized action items derived from your store&apos;s optimization status.
           </p>
         </div>
         {response?.viewer && (
-          <div className="text-sm text-gray-500">
-            Role: <span className="font-medium">{response.viewer.role}</span>
+          <div className="text-sm text-muted-foreground">
+            Role: <span className="font-medium text-foreground">{response.viewer.role}</span>
             {response.viewer.isMultiUserProject && (
-              <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+              <span className="ml-2 rounded-full bg-blue-900/20 px-2 py-0.5 text-xs text-blue-400 border border-blue-900/50">
                 Multi-user
               </span>
             )}
@@ -125,11 +125,11 @@ export default function WorkQueuePage() {
 
       {/* Error state */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-          <p className="text-sm text-red-700">{error}</p>
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4">
+          <p className="text-sm text-destructive-foreground">{error}</p>
           <button
             onClick={fetchWorkQueue}
-            className="mt-2 text-sm font-medium text-red-700 hover:text-red-800"
+            className="mt-2 text-sm font-medium text-destructive-foreground hover:underline"
           >
             Try again
           </button>
@@ -138,9 +138,9 @@ export default function WorkQueuePage() {
 
       {/* Empty state */}
       {!loading && !error && items.length === 0 && (
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center">
+        <div className="rounded-lg border border-border/10 bg-card p-8 text-center">
           <svg
-            className="mx-auto h-12 w-12 text-gray-400"
+            className="mx-auto h-12 w-12 text-muted-foreground"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -152,12 +152,12 @@ export default function WorkQueuePage() {
               d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          <h3 className="mt-4 text-lg font-medium text-gray-900">
+          <h3 className="mt-4 text-lg font-medium text-foreground">
             {currentTab === 'AppliedRecently'
               ? 'No recently applied actions'
               : 'All caught up!'}
           </h3>
-          <p className="mt-2 text-sm text-gray-500">
+          <p className="mt-2 text-sm text-muted-foreground">
             {currentTab === 'AppliedRecently'
               ? 'Actions you apply will appear here for 7 days.'
               : 'No action items in this category. Check other tabs or come back later.'}

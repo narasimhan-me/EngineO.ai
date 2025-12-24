@@ -50,19 +50,19 @@ export default function ProjectLayout({
       {/* Mobile drawer overlay */}
       {mobileNavOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black bg-opacity-40 md:hidden"
+          className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm md:hidden"
           onClick={() => setMobileNavOpen(false)}
         >
           <div
-            className="absolute bottom-0 left-0 top-0 w-64 bg-white shadow-xl"
+            className="absolute bottom-0 left-0 top-0 w-64 bg-background border-r border-border/10 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drawer header */}
-            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-              <span className="text-sm font-semibold text-gray-900">Navigation</span>
+            <div className="flex items-center justify-between border-b border-border/10 px-4 py-3">
+              <span className="text-sm font-semibold text-foreground">Navigation</span>
               <button
                 onClick={() => setMobileNavOpen(false)}
-                className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                className="rounded-md p-1 text-muted-foreground hover:bg-accent/10 hover:text-foreground"
               >
                 <svg
                   className="h-5 w-5"

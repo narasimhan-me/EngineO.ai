@@ -57,11 +57,10 @@ export default function ProjectSideNav({ onNavigate }: ProjectSideNavProps) {
               <GuardedLink
                 href={`/projects/${projectId}/${item.path}`}
                 onClick={onNavigate}
-                className={`block rounded-md px-3 py-2 text-sm transition-colors ${
-                  active
-                    ? 'border-l-2 border-blue-700 bg-blue-50 font-medium text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`}
+                className={`block rounded px-3 py-2 text-xs font-medium uppercase tracking-wide transition-colors ${active
+                    ? 'bg-signal/10 text-signal shadow-[0_0_10px_rgba(102,252,241,0.1)]'
+                    : 'text-muted-foreground hover:bg-accent/10 hover:text-foreground'
+                  }`}
               >
                 {item.label}
               </GuardedLink>

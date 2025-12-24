@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { isAuthenticated, removeToken } from '@/lib/auth';
 import { usersApi } from '@/lib/api';
 import { useEffect, useState, useRef } from 'react';
+import { Logo } from '@/components/ui/logo';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 interface User {
   id: string;
@@ -65,7 +67,7 @@ export default function TopNav() {
   // Prevent hydration mismatch by not rendering auth-dependent UI until mounted
   if (!mounted) {
     return (
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
+      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/10">
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex">
@@ -73,13 +75,7 @@ export default function TopNav() {
                 href="/projects"
                 className="flex items-center px-2 py-2"
               >
-                <Image
-                  src="/branding/engineo/logo-light.png"
-                  alt="EngineO.ai"
-                  width={160}
-                  height={40}
-                  priority
-                />
+                <Logo withText={true} className="h-8" />
               </GuardedLink>
             </div>
           </div>
@@ -89,7 +85,7 @@ export default function TopNav() {
   }
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
+    <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/10">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex">
@@ -97,31 +93,25 @@ export default function TopNav() {
               href="/projects"
               className="flex items-center px-2 py-2"
             >
-              <Image
-                src="/branding/engineo/logo-light.png"
-                alt="EngineO.ai"
-                width={160}
-                height={40}
-                priority
-              />
+              <Logo withText={true} className="h-8" />
             </GuardedLink>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
               <GuardedLink
                 href="/projects"
-                className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900 hover:text-blue-600"
+                className="inline-flex items-center px-1 pt-1 text-sm font-medium text-foreground hover:text-signal transition-colors uppercase tracking-wide"
               >
                 Projects
               </GuardedLink>
               <GuardedLink
                 href="/settings"
-                className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900 hover:text-blue-600"
+                className="inline-flex items-center px-1 pt-1 text-sm font-medium text-foreground hover:text-signal transition-colors uppercase tracking-wide"
               >
                 Settings
               </GuardedLink>
               {user?.role === 'ADMIN' && !!user?.adminRole && (
                 <GuardedLink
                   href="/admin"
-                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-purple-700 hover:text-purple-900"
+                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-purple-400 hover:text-purple-300 transition-colors uppercase tracking-wide"
                 >
                   Admin
                 </GuardedLink>
@@ -129,13 +119,14 @@ export default function TopNav() {
             </div>
           </div>
           <div className="flex items-center space-x-4">
+            <ThemeToggle />
             {authenticated ? (
               <>
                 {/* [SELF-SERVICE-1] Account Menu Dropdown */}
                 <div className="relative" ref={accountMenuRef}>
                   <button
                     onClick={() => setAccountMenuOpen(!accountMenuOpen)}
-                    className="flex items-center text-sm font-medium text-gray-700 hover:text-blue-600"
+                    className="flex items-center text-sm font-medium text-muted-foreground hover:text-signal transition-colors uppercase tracking-wide"
                   >
                     <span className="sr-only">Open account menu</span>
                     <svg
@@ -163,60 +154,60 @@ export default function TopNav() {
                   </button>
 
                   {accountMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
+                    <div className="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-card ring-1 ring-border/10 z-50 border border-border/10">
                       <div className="py-1" role="menu">
                         {/* User info header */}
-                        <div className="px-4 py-2 border-b border-gray-100">
-                          <p className="text-sm font-medium text-gray-900 truncate">{user?.name || 'User'}</p>
-                          <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                        <div className="px-4 py-2 border-b border-border/10">
+                          <p className="text-sm font-medium text-foreground truncate">{user?.name || 'User'}</p>
+                          <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                         </div>
 
                         {/* Account menu items */}
                         <GuardedLink
                           href="/settings/profile"
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          className="block px-4 py-2 text-sm text-muted-foreground hover:bg-accent/10 hover:text-foreground transition-colors"
                           onClick={() => setAccountMenuOpen(false)}
                         >
                           Profile
                         </GuardedLink>
                         <GuardedLink
                           href="/settings/organization"
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          className="block px-4 py-2 text-sm text-muted-foreground hover:bg-accent/10 hover:text-foreground transition-colors"
                           onClick={() => setAccountMenuOpen(false)}
                         >
                           Organization / Stores
                         </GuardedLink>
                         <GuardedLink
                           href="/settings/billing"
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          className="block px-4 py-2 text-sm text-muted-foreground hover:bg-accent/10 hover:text-foreground transition-colors"
                           onClick={() => setAccountMenuOpen(false)}
                         >
                           Plan & Billing
                         </GuardedLink>
                         <GuardedLink
                           href="/settings/ai-usage"
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          className="block px-4 py-2 text-sm text-muted-foreground hover:bg-accent/10 hover:text-foreground transition-colors"
                           onClick={() => setAccountMenuOpen(false)}
                         >
                           AI Usage
                         </GuardedLink>
                         <GuardedLink
                           href="/settings/preferences"
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          className="block px-4 py-2 text-sm text-muted-foreground hover:bg-accent/10 hover:text-foreground transition-colors"
                           onClick={() => setAccountMenuOpen(false)}
                         >
                           Preferences
                         </GuardedLink>
                         <GuardedLink
                           href="/settings/security"
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          className="block px-4 py-2 text-sm text-muted-foreground hover:bg-accent/10 hover:text-foreground transition-colors"
                           onClick={() => setAccountMenuOpen(false)}
                         >
                           Security
                         </GuardedLink>
                         <GuardedLink
                           href="/settings/help"
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          className="block px-4 py-2 text-sm text-muted-foreground hover:bg-accent/10 hover:text-foreground transition-colors"
                           onClick={() => setAccountMenuOpen(false)}
                         >
                           Help & Support
@@ -225,10 +216,10 @@ export default function TopNav() {
                         {/* Admin link (gated to internal admins) */}
                         {user?.role === 'ADMIN' && !!user?.adminRole && (
                           <>
-                            <div className="border-t border-gray-100 my-1" />
+                            <div className="border-t border-border/10 my-1" />
                             <GuardedLink
                               href="/admin"
-                              className="block px-4 py-2 text-sm text-purple-700 hover:bg-purple-50"
+                              className="block px-4 py-2 text-sm text-purple-400 hover:bg-purple-900/20 transition-colors"
                               onClick={() => setAccountMenuOpen(false)}
                             >
                               Admin Dashboard
@@ -237,13 +228,13 @@ export default function TopNav() {
                         )}
 
                         {/* Sign out */}
-                        <div className="border-t border-gray-100 my-1" />
+                        <div className="border-t border-border/10 my-1" />
                         <button
                           onClick={() => {
                             setAccountMenuOpen(false);
                             handleSignOut();
                           }}
-                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          className="block w-full text-left px-4 py-2 text-sm text-muted-foreground hover:bg-accent/10 hover:text-foreground transition-colors"
                         >
                           Sign out
                         </button>
@@ -256,13 +247,13 @@ export default function TopNav() {
               <>
                 <GuardedLink
                   href="/login"
-                  className="text-sm font-medium text-gray-600 hover:text-blue-600"
+                  className="text-sm font-medium text-muted-foreground hover:text-signal transition-colors uppercase tracking-wide"
                 >
                   Sign in
                 </GuardedLink>
                 <GuardedLink
                   href="/signup"
-                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded text-primary-foreground bg-primary hover:bg-primary/90 uppercase tracking-wide transition-colors"
                 >
                   Sign up
                 </GuardedLink>

@@ -15,16 +15,15 @@ interface WorkQueueTabsProps {
  */
 export function WorkQueueTabs({ tabs, currentTab, onTabChange }: WorkQueueTabsProps) {
   return (
-    <div className="border-b border-gray-200">
+    <div className="border-b border-border/10">
       <nav className="-mb-px flex space-x-8" aria-label="Work Queue Tabs">
         {/* All tab - show when no specific tab is selected */}
         <button
           onClick={() => onTabChange(undefined)}
-          className={`whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition-colors ${
-            !currentTab
-              ? 'border-blue-500 text-blue-600'
-              : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-          }`}
+          className={`whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition-colors ${!currentTab
+              ? 'border-signal text-signal'
+              : 'border-transparent text-muted-foreground hover:border-border/30 hover:text-foreground'
+            }`}
         >
           All
         </button>
@@ -33,11 +32,10 @@ export function WorkQueueTabs({ tabs, currentTab, onTabChange }: WorkQueueTabsPr
           <button
             key={tab.key}
             onClick={() => onTabChange(tab.key)}
-            className={`whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition-colors ${
-              currentTab === tab.key
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-            }`}
+            className={`whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition-colors ${currentTab === tab.key
+                ? 'border-signal text-signal'
+                : 'border-transparent text-muted-foreground hover:border-border/30 hover:text-foreground'
+              }`}
           >
             {tab.label}
           </button>

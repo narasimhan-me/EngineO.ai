@@ -2,6 +2,9 @@
 
 import Link from 'next/link';
 import type { WorkQueueActionBundle, WorkQueueViewer } from '@/lib/work-queue';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface ActionBundleCardProps {
   bundle: WorkQueueActionBundle;
@@ -28,30 +31,21 @@ export function ActionBundleCard({
   isHighlighted,
   onRefresh: _onRefresh,
 }: ActionBundleCardProps) {
-  // Health pill styling
-  const healthStyles: Record<string, string> = {
-    CRITICAL: 'bg-red-100 text-red-700 border-red-200',
-    NEEDS_ATTENTION: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    HEALTHY: 'bg-green-100 text-green-700 border-green-200',
+  // Determine health variant
+  const getHealthVariant = (h: string) => {
+    switch (h) {
+      case 'CRITICAL': return 'destructive';
+      case 'NEEDS_ATTENTION': return 'secondary'; // using secondary as warning
+      case 'HEALTHY': return 'signal';
+      default: return 'default';
+    }
   };
 
-  // Bundle type tag styling
+  // Bundle type tag labels
   const bundleTypeLabels: Record<string, string> = {
     ASSET_OPTIMIZATION: 'Issue',
     AUTOMATION_RUN: 'Automation',
     GEO_EXPORT: 'Export',
-  };
-
-  // State badge styling
-  const stateStyles: Record<string, string> = {
-    NEW: 'bg-gray-100 text-gray-700',
-    PREVIEWED: 'bg-blue-100 text-blue-700',
-    DRAFTS_READY: 'bg-green-100 text-green-700',
-    PENDING_APPROVAL: 'bg-yellow-100 text-yellow-700',
-    APPROVED: 'bg-green-100 text-green-700',
-    APPLIED: 'bg-gray-100 text-gray-600',
-    FAILED: 'bg-red-100 text-red-700',
-    BLOCKED: 'bg-orange-100 text-orange-700',
   };
 
   // Derive CTAs based on state and bundle type
@@ -61,145 +55,134 @@ export function ActionBundleCard({
   const ctaRoute = getCTARoute(bundle, projectId);
 
   return (
-    <div
-      className={`rounded-lg border bg-white p-4 shadow-sm transition-all ${
+    <Card
+      className={cn(
+        "transition-all",
         isHighlighted
-          ? 'border-blue-400 ring-2 ring-blue-200'
-          : 'border-gray-200 hover:border-gray-300'
-      }`}
+          ? 'border-signal ring-1 ring-signal/20'
+          : 'hover:border-border/30'
+      )}
     >
-      {/* Row 1: Health pill + bundle type tag */}
-      <div className="flex items-center gap-2">
-        <span
-          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${
-            healthStyles[bundle.health]
-          }`}
-        >
-          {bundle.health === 'CRITICAL' && (
-            <svg className="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                clipRule="evenodd"
-              />
-            </svg>
-          )}
-          {bundle.health}
-        </span>
-        <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-          {bundleTypeLabels[bundle.bundleType] || bundle.bundleType}
-        </span>
-        <span
-          className={`ml-auto inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-            stateStyles[bundle.state]
-          }`}
-        >
-          {formatState(bundle.state)}
-        </span>
-      </div>
-
-      {/* Row 2: Title */}
-      <h3 className="mt-3 text-lg font-semibold text-gray-900">
-        {bundle.recommendedActionLabel}
-      </h3>
-
-      {/* Row 3: Scope line */}
-      {/* [ASSETS-PAGES-1] Updated to show correct scope type label */}
-      <p className="mt-1 text-sm text-gray-600">
-        Applies to{' '}
-        <span className="font-medium">
-          {bundle.scopeCount} {getScopeTypeLabel(bundle.scopeType, bundle.scopeCount)}
-        </span>
-        {bundle.scopePreviewList.length > 0 && (
-          <>
-            :{' '}
-            <span className="text-gray-500">
-              {bundle.scopePreviewList.slice(0, 5).join(', ')}
-              {bundle.scopePreviewList.length > 5 &&
-                ` ${bundle.scopePreviewList[bundle.scopePreviewList.length - 1]}`}
-            </span>
-          </>
-        )}
-      </p>
-
-      {/* Row 4: Badges row */}
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {/* Approval badge */}
-        {bundle.approval?.approvalRequired && (
-          <span
-            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-              bundle.approval.approvalStatus === 'APPROVED'
-                ? 'bg-green-100 text-green-700'
-                : bundle.approval.approvalStatus === 'PENDING'
-                  ? 'bg-yellow-100 text-yellow-700'
-                  : bundle.approval.approvalStatus === 'REJECTED'
-                    ? 'bg-red-100 text-red-700'
-                    : 'bg-gray-100 text-gray-600'
-            }`}
-          >
-            {bundle.approval.approvalStatus === 'APPROVED' && (
+      <CardHeader className="pb-2">
+        {/* Row 1: Health pill + bundle type tag */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge variant={getHealthVariant(bundle.health)}>
+            {bundle.health === 'CRITICAL' && (
               <svg className="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
                 <path
                   fillRule="evenodd"
-                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
                   clipRule="evenodd"
                 />
               </svg>
             )}
-            {bundle.approval.approvalStatus === 'PENDING' ? 'Pending Approval' : ''}
-            {bundle.approval.approvalStatus === 'APPROVED' ? 'Approved' : ''}
-            {bundle.approval.approvalStatus === 'REJECTED' ? 'Rejected' : ''}
-            {bundle.approval.approvalStatus === 'NOT_REQUESTED' ? 'Approval Required' : ''}
-          </span>
-        )}
+            {bundle.health}
+          </Badge>
 
-        {/* AI usage badge */}
-        <span
-          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-            bundle.aiUsage === 'NONE'
-              ? 'bg-gray-100 text-gray-600'
-              : 'bg-purple-100 text-purple-700'
-          }`}
-          title={bundle.aiDisclosureText}
-        >
-          {bundle.aiUsage === 'NONE' ? (
-            'No AI'
-          ) : (
+          <Badge variant="outline" className="text-muted-foreground border-border/20">
+            {bundleTypeLabels[bundle.bundleType] || bundle.bundleType}
+          </Badge>
+
+          <Badge variant="secondary" className="ml-auto bg-muted text-muted-foreground">
+            {formatState(bundle.state)}
+          </Badge>
+        </div>
+
+        {/* Row 2: Title */}
+        <CardTitle className="mt-2 text-lg font-semibold text-foreground">
+          {bundle.recommendedActionLabel}
+        </CardTitle>
+      </CardHeader>
+
+      <CardContent className="pb-3">
+        {/* Row 3: Scope line */}
+        <p className="text-sm text-foreground/80">
+          Applies to{' '}
+          <span className="font-mono text-signal">
+            {bundle.scopeCount} {getScopeTypeLabel(bundle.scopeType, bundle.scopeCount)}
+          </span>
+          {bundle.scopePreviewList.length > 0 && (
             <>
-              <svg className="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 14a6 6 0 110-12 6 6 0 010 12z" />
-                <path d="M10 5a1 1 0 011 1v4.586l2.707 2.707a1 1 0 01-1.414 1.414l-3-3A1 1 0 019 11V6a1 1 0 011-1z" />
-              </svg>
-              AI for Drafts
+              :{' '}
+              <span className="text-muted-foreground">
+                {bundle.scopePreviewList.slice(0, 5).join(', ')}
+                {bundle.scopePreviewList.length > 5 &&
+                  ` ${bundle.scopePreviewList[bundle.scopePreviewList.length - 1]}`}
+              </span>
             </>
           )}
-        </span>
+        </p>
 
-        {/* Draft coverage badge */}
-        {bundle.draft && bundle.draft.draftStatus !== 'NONE' && (
-          <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-            {bundle.draft.draftCount} drafts ({bundle.draft.draftCoverage}% coverage)
-          </span>
-        )}
+        {/* Row 4: Badges row */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {/* Approval badge */}
+          {bundle.approval?.approvalRequired && (
+            <Badge variant="outline" className="border-border/20">
+              {bundle.approval.approvalStatus === 'APPROVED' && (
+                <svg className="mr-1 h-3 w-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              )}
+              {bundle.approval.approvalStatus === 'PENDING' ? 'Pending Approval' : ''}
+              {bundle.approval.approvalStatus === 'APPROVED' ? 'Approved' : ''}
+              {bundle.approval.approvalStatus === 'REJECTED' ? 'Rejected' : ''}
+              {bundle.approval.approvalStatus === 'NOT_REQUESTED' ? 'Approval Required' : ''}
+            </Badge>
+          )}
 
-        {/* GEO share link status */}
-        {bundle.geoExport && (
-          <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-            Share links: {bundle.geoExport.shareLinkStatus}
-          </span>
-        )}
-      </div>
+          {/* AI usage badge */}
+          <Badge
+            variant="outline"
+            className={cn(
+              "border-border/20",
+              bundle.aiUsage !== 'NONE' && "text-purple-400 border-purple-500/20 bg-purple-500/10"
+            )}
+            title={bundle.aiDisclosureText}
+          >
+            {bundle.aiUsage === 'NONE' ? (
+              'No AI'
+            ) : (
+              <>
+                <svg className="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 14a6 6 0 110-12 6 6 0 010 12z" />
+                  <path d="M10 5a1 1 0 011 1v4.586l2.707 2.707a1 1 0 01-1.414 1.414l-3-3A1 1 0 019 11V6a1 1 0 011-1z" />
+                </svg>
+                AI for Drafts
+              </>
+            )}
+          </Badge>
+
+          {/* Draft coverage badge */}
+          {bundle.draft && bundle.draft.draftStatus !== 'NONE' && (
+            <Badge variant="secondary" className="text-blue-400 bg-blue-500/10 border border-blue-500/20">
+              {bundle.draft.draftCount} drafts ({bundle.draft.draftCoverage}% coverage)
+            </Badge>
+          )}
+
+          {/* GEO share link status */}
+          {bundle.geoExport && (
+            <Badge variant="outline" className="text-muted-foreground border-border/20">
+              Share links: {bundle.geoExport.shareLinkStatus}
+            </Badge>
+          )}
+        </div>
+      </CardContent>
 
       {/* Row 5: Footer CTAs */}
-      <div className="mt-4 flex items-center gap-3 border-t border-gray-100 pt-4">
+      <CardFooter className="pt-2 flex items-center gap-3 border-t border-border/10">
         {primaryCta && (
           <Link
             href={ctaRoute}
-            className={`inline-flex items-center rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+            className={cn(
+              "inline-flex items-center rounded-md px-4 py-2 text-sm font-medium transition-colors",
               disabledReason
-                ? 'cursor-not-allowed bg-gray-100 text-gray-400'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
-            }`}
+                ? 'cursor-not-allowed bg-muted text-muted-foreground'
+                : 'bg-signal text-obsidian hover:bg-signal/90 shadow-[0_0_10px_rgba(102,252,241,0.2)]'
+            )}
             onClick={(e) => {
               if (disabledReason) {
                 e.preventDefault();
@@ -212,16 +195,16 @@ export function ActionBundleCard({
         {secondaryCta && (
           <Link
             href={ctaRoute}
-            className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            className="inline-flex items-center rounded-md border border-border/20 bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent/10"
           >
             {secondaryCta}
           </Link>
         )}
         {disabledReason && (
-          <span className="text-sm text-gray-500">{disabledReason}</span>
+          <span className="text-sm text-muted-foreground italic">{disabledReason}</span>
         )}
-      </div>
-    </div>
+      </CardFooter>
+    </Card>
   );
 }
 

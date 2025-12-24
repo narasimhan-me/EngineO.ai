@@ -660,19 +660,19 @@ export function ProductTable({
   return (
     <div>
       {/* Command Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/10 bg-cockpit/20 px-4 py-3">
         <div className="flex items-center gap-2 text-sm">
           {needsAttentionCount > 0 ? (
             <>
-              <span className="font-medium text-gray-900">
-                {needsAttentionCount} product{needsAttentionCount !== 1 ? 's' : ''} need attention
+              <span className="font-medium text-foreground">
+                <span className="text-signal font-mono">{needsAttentionCount}</span> product{needsAttentionCount !== 1 ? 's' : ''} need attention
               </span>
               {/* Bulk action buttons - only show when sort is Impact */}
               {showBulkActions && bulkMetadataCount > 0 && !bulkSelection && (
                 <button
                   type="button"
                   onClick={handleOpenAutomationEntryFromBulk}
-                  className="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                  className="inline-flex items-center rounded bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors uppercase tracking-wide"
                 >
                   Fix missing metadata ({bulkMetadataCount} product{bulkMetadataCount !== 1 ? 's' : ''})
                 </button>
@@ -681,14 +681,14 @@ export function ProductTable({
               {(!showBulkActions || bulkMetadataCount === 0) && !bulkSelection && (
                 <Link
                   href={`/projects/${projectId}/automation/playbooks`}
-                  className="inline-flex items-center rounded-md bg-gray-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-700"
+                  className="inline-flex items-center rounded bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground hover:bg-secondary/80"
                 >
                   View playbooks
                 </Link>
               )}
             </>
           ) : (
-            <span className="font-medium text-green-700">All products are healthy</span>
+            <span className="font-medium text-green-500">All products are healthy</span>
           )}
         </div>
 
@@ -704,14 +704,13 @@ export function ProductTable({
                   key={id}
                   type="button"
                   onClick={() => setHealthFilter(id)}
-                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
-                    isActive
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
-                  }`}
+                  className={`inline-flex items-center rounded px-2.5 py-1 text-xs font-medium transition-colors border ${isActive
+                    ? 'bg-secondary border-primary/20 text-foreground shadow-[0_0_10px_rgba(102,252,241,0.1)]'
+                    : 'bg-transparent border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                    }`}
                 >
                   <span>{label}</span>
-                  <span className={`ml-1.5 ${isActive ? 'text-gray-300' : 'text-gray-500'}`}>
+                  <span className={`ml-1.5 font-mono ${isActive ? 'text-signal' : 'text-muted-foreground/60'}`}>
                     {count}
                   </span>
                 </button>
@@ -723,7 +722,7 @@ export function ProductTable({
           <select
             value={sortOption}
             onChange={(e) => setSortOption(e.target.value as SortOption)}
-            className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="rounded border border-input bg-background px-2 py-1 text-xs font-medium text-foreground focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
           >
             <option value="Impact">Sort by impact</option>
             <option value="Title">Sort by title</option>
@@ -733,9 +732,9 @@ export function ProductTable({
 
       {/* Bulk Selection Context Strip (Step 1 selected) */}
       {bulkSelection && !bulkModalOpen && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-blue-200 bg-blue-50 px-4 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-signal/20 bg-signal/10 px-4 py-2">
           <div className="flex items-center gap-2 text-sm">
-            <span className="font-medium text-blue-900">
+            <span className="font-medium text-signal">
               {bulkSelection.actionType} ({bulkSelection.productIds.length} product{bulkSelection.productIds.length !== 1 ? 's' : ''})
             </span>
           </div>
@@ -743,14 +742,14 @@ export function ProductTable({
             <button
               type="button"
               onClick={handleOpenBulkModal}
-              className="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+              className="inline-flex items-center rounded-md bg-signal px-3 py-1.5 text-xs font-medium text-obsidian hover:bg-signal/90 shadow-[0_0_10px_rgba(102,252,241,0.2)]"
             >
               Review scope
             </button>
             <button
               type="button"
               onClick={handleClearBulkSelection}
-              className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+              className="inline-flex items-center rounded-md border border-border/20 bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent/10"
             >
               Clear
             </button>
@@ -760,18 +759,18 @@ export function ProductTable({
 
       {/* Bulk Confirmation Modal (Step 2 & 3) */}
       {bulkModalOpen && bulkSelection && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="mx-4 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="mx-4 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg border border-border/10 bg-card shadow-2xl">
             {/* Modal Header */}
-            <div className="border-b border-gray-200 px-6 py-4">
+            <div className="border-b border-border/10 px-6 py-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2 className="text-lg font-semibold text-foreground">
                   {bulkModalStep === 'complete' ? 'Updates applied' : 'Review bulk action'}
                 </h2>
                 <button
                   type="button"
                   onClick={handleClearBulkSelection}
-                  className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
+                  className="rounded-md p-1 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 >
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -784,7 +783,7 @@ export function ProductTable({
             <div className="px-6 py-4">
               {/* Action Summary */}
               <div className="mb-4">
-                <p className="text-sm text-gray-700">
+                <p className="text-sm text-muted-foreground">
                   {bulkModalStep === 'complete'
                     ? `Applied updates to ${totalApplied} product${totalApplied !== 1 ? 's' : ''}`
                     : `You're about to generate draft metadata for ${bulkSelection.productIds.length} product${bulkSelection.productIds.length !== 1 ? 's' : ''}`}
@@ -794,9 +793,9 @@ export function ProductTable({
               {/* Scope Disclosure */}
               {bulkModalStep !== 'complete' && (
                 <div className="mb-4">
-                  <h3 className="mb-2 text-sm font-medium text-gray-900">Products affected</h3>
-                  <div className="max-h-40 overflow-y-auto rounded-md border border-gray-200 bg-gray-50 p-3">
-                    <ul className="space-y-1 text-xs text-gray-700">
+                  <h3 className="mb-2 text-sm font-medium text-foreground">Products affected</h3>
+                  <div className="max-h-40 overflow-y-auto rounded-md border border-border/10 bg-muted/20 p-3">
+                    <ul className="space-y-1 text-xs text-muted-foreground">
                       {bulkSelection.productNames.map((name, idx) => (
                         <li key={bulkSelection.productIds[idx]} className="truncate">
                           {name}
@@ -810,13 +809,13 @@ export function ProductTable({
               {/* Fields breakdown */}
               {bulkModalStep !== 'complete' && (
                 <div className="mb-4">
-                  <h3 className="mb-2 text-sm font-medium text-gray-900">Fields that will be touched</h3>
+                  <h3 className="mb-2 text-sm font-medium text-foreground">Fields that will be touched</h3>
                   <div className="flex flex-wrap gap-2 text-xs">
-                    <span className="rounded-full bg-gray-100 px-2 py-1 text-gray-700">Title</span>
-                    <span className="rounded-full bg-gray-100 px-2 py-1 text-gray-700">Description</span>
+                    <span className="rounded-full bg-muted px-2 py-1 text-muted-foreground">Title</span>
+                    <span className="rounded-full bg-muted px-2 py-1 text-muted-foreground">Description</span>
                   </div>
                   {(bulkSelection.missingTitleCount > 0 || bulkSelection.missingDescriptionCount > 0) && (
-                    <div className="mt-2 text-xs text-gray-600">
+                    <div className="mt-2 text-xs text-muted-foreground">
                       {bulkSelection.missingTitleCount > 0 && (
                         <span>Missing title: {bulkSelection.missingTitleCount} product{bulkSelection.missingTitleCount !== 1 ? 's' : ''}</span>
                       )}
@@ -831,8 +830,8 @@ export function ProductTable({
 
               {/* AI Usage Disclosure */}
               {bulkModalStep === 'preview' && (
-                <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3">
-                  <p className="text-xs text-amber-800">
+                <div className="mb-4 rounded-md border border-yellow-500/20 bg-yellow-500/10 p-3">
+                  <p className="text-xs text-yellow-500">
                     <span className="mr-1">⚡</span>
                     This step uses AI to generate drafts. Nothing will be applied automatically.
                   </p>
@@ -841,7 +840,7 @@ export function ProductTable({
 
               {/* Generating state */}
               {bulkModalStep === 'generating' && (
-                <div className="mb-4 flex items-center gap-2 text-sm text-gray-600">
+                <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
                   <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
@@ -852,7 +851,7 @@ export function ProductTable({
 
               {/* Applying state */}
               {bulkModalStep === 'applying' && (
-                <div className="mb-4 flex items-center gap-2 text-sm text-gray-600">
+                <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
                   <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
@@ -863,19 +862,19 @@ export function ProductTable({
 
               {/* Draft results */}
               {bulkModalStep === 'ready' && draftResults.length > 0 && (
-                <div className="mb-4 rounded-md border border-green-200 bg-green-50 p-3">
-                  <p className="text-sm font-medium text-green-800">
+                <div className="mb-4 rounded-md border border-green-500/20 bg-green-500/10 p-3">
+                  <p className="text-sm font-medium text-green-500">
                     {totalDraftsGenerated} draft{totalDraftsGenerated !== 1 ? 's' : ''} created
                     {totalNeedsAttention > 0 && (
-                      <span className="ml-1 text-amber-700">, {totalNeedsAttention} need attention</span>
+                      <span className="ml-1 text-yellow-500">, {totalNeedsAttention} need attention</span>
                     )}
                   </p>
                   {draftResults.length > 1 && (
-                    <div className="mt-2 text-xs text-green-700">
+                    <div className="mt-2 text-xs text-green-400">
                       {draftResults.map((r) => (
                         <div key={r.playbookId}>
                           {r.playbookId === 'missing_seo_title' ? 'Titles' : 'Descriptions'}: {r.draftsGenerated} generated
-                          {r.needsAttention > 0 && <span className="text-amber-600"> ({r.needsAttention} need attention)</span>}
+                          {r.needsAttention > 0 && <span className="text-yellow-500"> ({r.needsAttention} need attention)</span>}
                         </div>
                       ))}
                     </div>
@@ -885,7 +884,7 @@ export function ProductTable({
 
               {/* Apply confirmation note */}
               {bulkModalStep === 'ready' && (
-                <div className="mb-4 text-xs text-gray-600">
+                <div className="mb-4 text-xs text-muted-foreground">
                   <span className="mr-1">✓</span>
                   Apply updates does not use AI.
                 </div>
@@ -893,20 +892,20 @@ export function ProductTable({
 
               {/* Error state */}
               {bulkModalStep === 'error' && bulkError && (
-                <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3">
-                  <p className="text-sm text-red-800">{bulkError}</p>
+                <div className="mb-4 rounded-md border border-destructive/20 bg-destructive/10 p-3">
+                  <p className="text-sm text-destructive">{bulkError}</p>
                 </div>
               )}
             </div>
 
             {/* Modal Footer */}
-            <div className="border-t border-gray-200 px-6 py-4">
+            <div className="border-t border-border/10 px-6 py-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 {/* Left side - Review link when ready */}
                 {bulkModalStep === 'ready' && (
                   <Link
                     href={`/projects/${projectId}/automation/playbooks?playbookId=missing_seo_title`}
-                    className="text-sm text-blue-600 hover:text-blue-700 hover:underline"
+                    className="text-sm text-signal hover:underline"
                   >
                     Review changes
                   </Link>
@@ -919,7 +918,7 @@ export function ProductTable({
                   <button
                     type="button"
                     onClick={handleClearBulkSelection}
-                    className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    className="inline-flex items-center rounded-md border border-border/20 bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/10"
                   >
                     {bulkModalStep === 'complete' ? 'Close' : 'Cancel'}
                   </button>
@@ -929,7 +928,7 @@ export function ProductTable({
                     <button
                       type="button"
                       onClick={handleGenerateDrafts}
-                      className="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                      className="inline-flex items-center rounded-md bg-signal px-4 py-2 text-sm font-medium text-obsidian hover:bg-signal/90 shadow-[0_0_10px_rgba(102,252,241,0.2)]"
                     >
                       Generate drafts
                     </button>
@@ -940,7 +939,7 @@ export function ProductTable({
                     <button
                       type="button"
                       onClick={handleRetryDrafts}
-                      className="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                      className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
                     >
                       Retry
                     </button>
@@ -952,7 +951,7 @@ export function ProductTable({
                       type="button"
                       onClick={handleApplyDrafts}
                       disabled={draftResults.length === 0}
-                      className="inline-flex items-center rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                      className="inline-flex items-center rounded-md bg-green-500 px-4 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
                     >
                       Apply updates
                     </button>
@@ -965,7 +964,7 @@ export function ProductTable({
       )}
 
       {displayProducts.length === 0 ? (
-        <div className="px-4 py-6 text-sm text-gray-500">
+        <div className="px-4 py-6 text-sm text-muted-foreground">
           No products match this filter.
         </div>
       ) : (

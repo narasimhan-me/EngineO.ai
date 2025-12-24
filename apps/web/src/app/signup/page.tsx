@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { authApi } from '@/lib/api';
 import { setToken } from '@/lib/auth';
+import { Logo } from '@/components/ui/logo';
 import { Captcha } from '@/components/common/Captcha';
 
 // Sensitive query params that should never appear in URLs
@@ -78,49 +79,45 @@ function SignupForm() {
     }
   };
 
+  // ... imports ...
+
+  // ... inside SignupForm ...
+
   return (
     <div className="max-w-md w-full">
       {/* [DEO-UX-REFRESH-1] Premium branded header */}
       <div className="text-center mb-8">
-        {/* Logo/Wordmark */}
-        <div className="flex items-center justify-center gap-3 mb-4">
-          <svg
-            className="h-10 w-10 text-blue-600"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-          >
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-          </svg>
-          <span className="text-3xl font-bold text-gray-900">EngineO.ai</span>
+        <div className="flex justify-center mb-4">
+          <Logo withText={true} className="scale-125" />
         </div>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           Digital Engine Optimization for AI-Powered Discovery
         </p>
       </div>
 
       {/* [DEO-UX-REFRESH-1] Premium card styling */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-lg p-8">
+      <div className="bg-card rounded-xl border border-border/10 shadow-2xl shadow-black/50 p-8 backdrop-blur-sm">
         {/* Accessible heading */}
-        <h1 className="text-2xl font-semibold text-gray-900 text-center mb-6">
+        <h1 className="text-2xl font-semibold text-foreground text-center mb-6">
           Create your account
         </h1>
 
         <form className="space-y-5" onSubmit={handleSubmit}>
           {securityMessage && (
-            <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded">
+            <div className="bg-amber-900/20 border border-amber-900/50 text-amber-200 px-4 py-3 rounded text-sm">
               {securityMessage}
             </div>
           )}
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+            <div className="bg-destructive/10 border border-destructive/20 text-destructive-foreground px-4 py-3 rounded text-sm">
               {error}
             </div>
           )}
 
           <div className="space-y-4">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="name" className="block text-sm font-medium text-muted-foreground mb-1">
                 Name (optional)
               </label>
               <input
@@ -130,13 +127,13 @@ function SignupForm() {
                 autoComplete="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="mt-1 block w-full px-3 py-2 bg-cockpit/50 border border-border/10 rounded-md shadow-sm text-foreground placeholder-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-signal/20 focus:border-signal/50 transition-all"
                 placeholder="John Doe"
               />
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="email" className="block text-sm font-medium text-muted-foreground mb-1">
                 Email address
               </label>
               <input
@@ -147,13 +144,13 @@ function SignupForm() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="mt-1 block w-full px-3 py-2 bg-cockpit/50 border border-border/10 rounded-md shadow-sm text-foreground placeholder-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-signal/20 focus:border-signal/50 transition-all"
                 placeholder="you@example.com"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="password" className="block text-sm font-medium text-muted-foreground mb-1">
                 Password
               </label>
               <input
@@ -164,13 +161,13 @@ function SignupForm() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="mt-1 block w-full px-3 py-2 bg-cockpit/50 border border-border/10 rounded-md shadow-sm text-foreground placeholder-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-signal/20 focus:border-signal/50 transition-all"
                 placeholder="••••••••"
               />
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-muted-foreground mb-1">
                 Confirm Password
               </label>
               <input
@@ -181,7 +178,7 @@ function SignupForm() {
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="mt-1 block w-full px-3 py-2 bg-cockpit/50 border border-border/10 rounded-md shadow-sm text-foreground placeholder-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-signal/20 focus:border-signal/50 transition-all"
                 placeholder="••••••••"
               />
             </div>
@@ -199,7 +196,7 @@ function SignupForm() {
             <button
               type="submit"
               disabled={loading || !captchaToken}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-primary-foreground bg-signal hover:bg-signal/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-signal/50 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wide transition-colors"
             >
               {loading ? 'Creating account...' : 'Sign up'}
             </button>
@@ -207,10 +204,10 @@ function SignupForm() {
         </form>
 
         {/* Sign in link */}
-        <div className="text-center mt-6 pt-6 border-t border-gray-100">
-          <p className="text-sm text-gray-600">
+        <div className="text-center mt-6 pt-6 border-t border-border/10">
+          <p className="text-sm text-muted-foreground">
             Already have an account?{' '}
-            <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
+            <Link href="/login" className="font-medium text-signal hover:text-signal/80 transition-colors">
               Sign in
             </Link>
           </p>
@@ -222,12 +219,12 @@ function SignupForm() {
 
 export default function SignupPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-cockpit/30 to-background">
       <Suspense fallback={
         <div className="max-w-md w-full text-center">
           <div className="animate-pulse">
-            <div className="h-10 bg-gray-200 rounded w-48 mx-auto mb-4"></div>
-            <div className="h-4 bg-gray-200 rounded w-64 mx-auto"></div>
+            <div className="h-10 bg-cockpit rounded w-48 mx-auto mb-4"></div>
+            <div className="h-4 bg-cockpit rounded w-64 mx-auto"></div>
           </div>
         </div>
       }>

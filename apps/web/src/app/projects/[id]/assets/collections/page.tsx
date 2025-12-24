@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { projectsApi } from '@/lib/api';
 import { buildWorkQueueUrl } from '@/lib/work-queue';
 import type { WorkQueueRecommendedActionKey } from '@/lib/work-queue';
+import { Badge } from '@/components/ui/badge';
 
 /**
  * [ASSETS-PAGES-1] Collections Asset List
@@ -136,16 +137,13 @@ export default function CollectionsAssetListPage() {
     }));
   };
 
-  const getHealthStyles = (health: string): string => {
+  // Health pill styling
+  const getHealthVariant = (health: string) => {
     switch (health) {
-      case 'Critical':
-        return 'bg-red-100 text-red-700 border-red-200';
-      case 'Needs Attention':
-        return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      case 'Healthy':
-        return 'bg-green-100 text-green-700 border-green-200';
-      default:
-        return 'bg-gray-100 text-gray-700 border-gray-200';
+      case 'Critical': return 'destructive';
+      case 'Needs Attention': return 'secondary';
+      case 'Healthy': return 'signal';
+      default: return 'outline';
     }
   };
 
@@ -162,15 +160,15 @@ export default function CollectionsAssetListPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Collections</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-foreground">Collections</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             {collections.length} collections • {criticalCount} critical • {needsAttentionCount} need attention
           </p>
         </div>
         {selectedIds.size > 0 && (
           <button
             onClick={handleBulkFix}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
             Fix missing metadata ({selectedIds.size})
           </button>
@@ -179,7 +177,7 @@ export default function CollectionsAssetListPage() {
 
       {/* Filter indicator */}
       {actionKeyFilter && (
-        <div className="flex items-center gap-2 rounded-lg bg-blue-50 px-4 py-2 text-sm text-blue-700">
+        <div className="flex items-center gap-2 rounded-lg bg-primary/10 px-4 py-2 text-sm text-primary">
           <span>Filtered by: {actionKeyFilter.replace(/_/g, ' ').toLowerCase()}</span>
           <button
             onClick={() => router.push(`/projects/${projectId}/assets/collections`)}
@@ -193,18 +191,18 @@ export default function CollectionsAssetListPage() {
       {/* Loading state */}
       {loading && (
         <div className="flex items-center justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
-          <span className="ml-3 text-gray-500">Loading collections...</span>
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+          <span className="ml-3 text-muted-foreground">Loading collections...</span>
         </div>
       )}
 
       {/* Error state */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-          <p className="text-sm text-red-700">{error}</p>
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4">
+          <p className="text-sm text-destructive">{error}</p>
           <button
             onClick={fetchCollections}
-            className="mt-2 text-sm font-medium text-red-700 hover:text-red-800"
+            className="mt-2 text-sm font-medium text-destructive hover:underline"
           >
             Try again
           </button>
@@ -213,57 +211,55 @@ export default function CollectionsAssetListPage() {
 
       {/* Collections list */}
       {!loading && !error && (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className="overflow-hidden rounded-lg border border-border/10 bg-card">
+          <table className="min-w-full divide-y divide-border/10">
+            <thead className="bg-muted/50">
               <tr>
                 <th className="w-12 px-4 py-3">
                   <input
                     type="checkbox"
                     checked={selectedIds.size === collections.length && collections.length > 0}
                     onChange={handleSelectAll}
-                    className="h-4 w-4 rounded border-gray-300"
+                    className="h-4 w-4 rounded border-border bg-card text-signal focus:ring-signal"
                   />
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Health
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Handle
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Title
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Action
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-border/10">
               {collections.map((collection) => (
-                <tr key={collection.id} className="hover:bg-gray-50">
+                <tr key={collection.id} className="hover:bg-muted/10 transition-colors">
                   <td className="px-4 py-3">
                     <input
                       type="checkbox"
                       checked={selectedIds.has(collection.id)}
                       onChange={() => handleSelectOne(collection.id)}
-                      className="h-4 w-4 rounded border-gray-300"
+                      className="h-4 w-4 rounded border-border bg-card text-signal focus:ring-signal"
                     />
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${getHealthStyles(collection.health)}`}
-                    >
+                    <Badge variant={getHealthVariant(collection.health)}>
                       {collection.health}
-                    </span>
+                    </Badge>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">
+                  <td className="px-4 py-3 text-sm text-foreground">
+                    <code className="rounded bg-muted/50 px-1.5 py-0.5 text-xs text-muted-foreground font-mono">
                       {getCollectionHandle(collection.path)}
                     </code>
                   </td>
-                  <td className="max-w-xs truncate px-4 py-3 text-sm text-gray-900">
-                    {collection.title || <span className="italic text-gray-400">No title</span>}
+                  <td className="max-w-xs truncate px-4 py-3 text-sm text-foreground">
+                    {collection.title || <span className="italic text-muted-foreground">No title</span>}
                   </td>
                   <td className="px-4 py-3 text-sm">
                     {collection.recommendedActionLabel ? (
@@ -272,19 +268,19 @@ export default function CollectionsAssetListPage() {
                           actionKey: collection.recommendedActionKey!,
                           scopeType: 'COLLECTIONS',
                         }))}
-                        className="font-medium text-blue-600 hover:text-blue-800"
+                        className="font-medium text-signal hover:underline"
                       >
                         {collection.recommendedActionLabel}
                       </button>
                     ) : (
-                      <span className="text-gray-400">—</span>
+                      <span className="text-muted-foreground">—</span>
                     )}
                   </td>
                 </tr>
               ))}
               {collections.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
+                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">
                     No collections found
                   </td>
                 </tr>
