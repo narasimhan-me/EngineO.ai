@@ -26,7 +26,7 @@ export function ActionBundleCard({
   projectId,
   viewer,
   isHighlighted,
-  onRefresh,
+  onRefresh: _onRefresh,
 }: ActionBundleCardProps) {
   // Health pill styling
   const healthStyles: Record<string, string> = {

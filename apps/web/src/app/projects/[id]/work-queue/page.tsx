@@ -5,7 +5,6 @@ import { useEffect, useState, useCallback } from 'react';
 import { projectsApi } from '@/lib/api';
 import type {
   WorkQueueResponse,
-  WorkQueueActionBundle,
   WorkQueueTab,
 } from '@/lib/work-queue';
 import { ActionBundleCard } from '@/components/work-queue/ActionBundleCard';
