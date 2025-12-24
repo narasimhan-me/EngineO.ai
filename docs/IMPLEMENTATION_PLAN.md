@@ -733,6 +733,105 @@ Unified Work Queue page that derives action bundles from existing persisted arti
 
 ---
 
+## Phase STORE-HEALTH-1.0: Store Optimization Home COMPLETE
+
+**Status:** Complete
+**Date Completed:** 2025-12-24
+
+### Overview
+
+Calm, executive Store Health page that answers "what's wrong + what first" and routes all actions into Work Queue. Decision-only surface - no preview/generate/apply triggered from this page.
+
+### Key Constraints
+
+- **Decision-only surface**: No new engines, no new scoring, no mutations from this page
+- **No new backend models/tables**: All data derived from existing sources
+- **Click-through only**: All actions route to Work Queue with pre-filters
+
+### The 6 Cards (Fixed Order)
+
+1. **Discoverability (DEO)** - Derived from FIX_MISSING_METADATA + RESOLVE_TECHNICAL_ISSUES bundles
+2. **Generative Visibility (GEO/AEO)** - Derived from projectsApi.insights() geoInsights block
+3. **Content Quality** - Derived from OPTIMIZE_CONTENT bundles
+4. **Technical Readiness** - Derived from RESOLVE_TECHNICAL_ISSUES bundles
+5. **Trust & Compliance** - Derived from IMPROVE_SEARCH_INTENT + SHARE_LINK_GOVERNANCE bundles
+6. **AI Usage & Quota** - Derived from aiApi.getProjectAiUsageQuota()
+
+### Card Rendering Rules
+
+Each card MUST render:
+- One health pill only: Healthy | Needs Attention | Critical
+- One plain-language summary sentence (no jargon, no SEO promises)
+- Exactly one primary action label (verb-first)
+
+Prohibited on cards:
+- Counts, charts, percentages, scores
+- "SEO score" language
+- Banners or promotional content
+
+### Health Resolution
+
+Card health = worst applicable state across relevant underlying sources:
+- Critical > Needs Attention > Healthy
+- Derived from Work Queue bundle health values
+
+### Click-Through Routing
+
+Clicking a card routes to Work Queue with pre-filters only:
+- `actionKey` when applicable
+- `bundleType` when applicable
+- `tab` when applicable
+
+Special routes:
+- Generative Visibility → `/projects/:id/insights?tab=geo`
+- AI Usage & Quota → `/settings/ai-usage`
+
+### Implementation Patches (All Complete)
+
+#### PATCH 1 — Work Queue actionKey Filter Support
+- [x] Extended GET /projects/:id/work-queue to accept `actionKey` query param
+- [x] Updated work-queue.service.ts to filter by recommendedActionKey
+- [x] Extended WorkQueueQueryParams in shared types
+- [x] Updated buildWorkQueueUrl() to support bundleType
+- [x] Extended projectsApi.workQueue() with actionKey param
+- [x] Work Queue page reads and preserves actionKey, bundleType in URL
+
+#### PATCH 2 — Store Health Page
+- [x] Created `/projects/[id]/store-health/page.tsx`
+- [x] Renders exactly 6 cards in fixed order
+- [x] Derives health from Work Queue bundles + GEO insights + AI quota
+- [x] Click-through routing with no side effects
+
+#### PATCH 3 — Navigation + Default Landing
+- [x] Updated ProjectSideNav.tsx: Store Health is first nav item
+- [x] Updated project [id]/page.tsx: redirects to /store-health
+- [x] Updated projects/page.tsx: new project creation routes to /store-health
+
+#### PATCH 4 — Manual Testing
+- [x] Created docs/manual-testing/STORE-HEALTH-1.0.md
+
+#### PATCH 5 — Documentation
+- [x] Updated IMPLEMENTATION_PLAN.md (this section)
+
+### Derivation Sources
+
+| Card | Source | Health Logic |
+|------|--------|--------------|
+| Discoverability | Work Queue bundles (FIX_MISSING_METADATA, RESOLVE_TECHNICAL_ISSUES) | Worst bundle health |
+| Generative Visibility | projectsApi.insights() geoInsights.overview.productsAnswerReadyPercent | <50% Critical, <80% Needs Attention, else Healthy |
+| Content Quality | Work Queue bundles (OPTIMIZE_CONTENT) | Worst bundle health |
+| Technical Readiness | Work Queue bundles (RESOLVE_TECHNICAL_ISSUES) | Worst bundle health |
+| Trust & Compliance | Work Queue bundles (IMPROVE_SEARCH_INTENT, SHARE_LINK_GOVERNANCE) | Worst bundle health |
+| AI Usage & Quota | aiApi.getProjectAiUsageQuota() | >=90% Critical, >=70% Needs Attention, else Healthy |
+
+### Related Documents
+
+- [STORE-HEALTH-1.0.md](./manual-testing/STORE-HEALTH-1.0.md) - Manual testing guide
+- [WORK-QUEUE-1.md](./manual-testing/WORK-QUEUE-1.md) - Work Queue testing (click-through target)
+- apps/web/src/app/projects/[id]/store-health/page.tsx - Implementation
+
+---
+
 ## Document History
 
 | Version | Date | Changes |
@@ -759,3 +858,4 @@ Unified Work Queue page that derives action bundles from existing persisted arti
 | 2.9 | 2025-12-24 | ROLES-3 PENDING-1: Approval attribution UI - Playbooks Step 3 shows requester/approver identity + timestamp. Updated CP-019 Auto Tests to reflect roles-3.test.ts is present. |
 | 3.0 | 2025-12-24 | ROLES-3 PENDING-2: Docs consistency fix - marked roles-3.spec.ts as (planned) in Test Coverage section to match reality (Playwright E2E not yet implemented). |
 | 3.1 | 2025-12-24 | ROLES-3-HARDEN-1: Implemented Playwright E2E coverage (apps/web/tests/roles-3.spec.ts) and AI usage actor attribution (actorUserId) support; updated CP-019 automated test references accordingly. |
+| 3.2 | 2025-12-24 | Added STORE-HEALTH-1.0: Store Optimization Home (Complete) - Decision-only 6-card page, Work Queue actionKey filter support, navigation updates, manual testing doc |

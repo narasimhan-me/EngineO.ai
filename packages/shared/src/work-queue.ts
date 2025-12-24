@@ -195,6 +195,7 @@ export type WorkQueueTab =
 export interface WorkQueueQueryParams {
   tab?: WorkQueueTab;
   bundleType?: WorkQueueBundleType;
+  actionKey?: WorkQueueRecommendedActionKey;
   bundleId?: string;
 }
 

@@ -63,6 +63,7 @@ export class WorkQueueService {
     params?: {
       tab?: WorkQueueTab;
       bundleType?: WorkQueueBundleType;
+      actionKey?: WorkQueueRecommendedActionKey;
       bundleId?: string;
     },
   ): Promise<WorkQueueResponse> {
@@ -118,6 +119,9 @@ export class WorkQueueService {
     // Apply filters if specified
     if (params?.bundleType) {
       allBundles = allBundles.filter((b) => b.bundleType === params.bundleType);
+    }
+    if (params?.actionKey) {
+      allBundles = allBundles.filter((b) => b.recommendedActionKey === params.actionKey);
     }
     if (params?.bundleId) {
       allBundles = allBundles.filter((b) => b.bundleId === params.bundleId);

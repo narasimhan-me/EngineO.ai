@@ -196,6 +196,7 @@ export type WorkQueueTab =
 export interface WorkQueueQueryParams {
   tab?: WorkQueueTab;
   bundleType?: WorkQueueBundleType;
+  actionKey?: WorkQueueRecommendedActionKey;
   bundleId?: string;
 }
 
@@ -308,10 +309,16 @@ export const HEALTH_CARD_TO_WORK_QUEUE_MAP: Record<string, { actionKey: WorkQueu
  */
 export function buildWorkQueueUrl(
   projectId: string,
-  params?: { tab?: WorkQueueTab; actionKey?: WorkQueueRecommendedActionKey; bundleId?: string }
+  params?: {
+    tab?: WorkQueueTab;
+    bundleType?: WorkQueueBundleType;
+    actionKey?: WorkQueueRecommendedActionKey;
+    bundleId?: string;
+  }
 ): string {
   const searchParams = new URLSearchParams();
   if (params?.tab) searchParams.set('tab', params.tab);
+  if (params?.bundleType) searchParams.set('bundleType', params.bundleType);
   if (params?.actionKey) searchParams.set('actionKey', params.actionKey);
   if (params?.bundleId) searchParams.set('bundleId', params.bundleId);
 

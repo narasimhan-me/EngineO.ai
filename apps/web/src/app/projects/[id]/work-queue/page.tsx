@@ -6,6 +6,8 @@ import { projectsApi } from '@/lib/api';
 import type {
   WorkQueueResponse,
   WorkQueueTab,
+  WorkQueueBundleType,
+  WorkQueueRecommendedActionKey,
 } from '@/lib/work-queue';
 import { ActionBundleCard } from '@/components/work-queue/ActionBundleCard';
 import { WorkQueueTabs } from '@/components/work-queue/WorkQueueTabs';
@@ -15,6 +17,9 @@ import { WorkQueueTabs } from '@/components/work-queue/WorkQueueTabs';
  *
  * Displays derived action bundles with tab-based filtering.
  * Bundles are sorted by state priority, health, impact rank.
+ *
+ * [STORE-HEALTH-1.0] Supports actionKey and bundleType filters from URL
+ * for click-through routing from Store Health page.
  */
 export default function WorkQueuePage() {
   const params = useParams();
@@ -26,15 +31,21 @@ export default function WorkQueuePage() {
   const [error, setError] = useState<string | null>(null);
   const [response, setResponse] = useState<WorkQueueResponse | null>(null);
 
-  // Get current tab from URL or default
+  // Get filter params from URL
   const currentTab = (searchParams.get('tab') as WorkQueueTab) || undefined;
+  const bundleType = (searchParams.get('bundleType') as WorkQueueBundleType) || undefined;
+  const actionKey = (searchParams.get('actionKey') as WorkQueueRecommendedActionKey) || undefined;
   const highlightBundleId = searchParams.get('bundleId') || undefined;
 
   const fetchWorkQueue = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await projectsApi.workQueue(projectId, { tab: currentTab });
+      const data = await projectsApi.workQueue(projectId, {
+        tab: currentTab,
+        bundleType,
+        actionKey,
+      });
       setResponse(data);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load work queue';
@@ -42,17 +53,20 @@ export default function WorkQueuePage() {
     } finally {
       setLoading(false);
     }
-  }, [projectId, currentTab]);
+  }, [projectId, currentTab, bundleType, actionKey]);
 
   useEffect(() => {
     fetchWorkQueue();
   }, [fetchWorkQueue]);
 
   const handleTabChange = (tab: WorkQueueTab | undefined) => {
-    const params = new URLSearchParams();
-    if (tab) params.set('tab', tab);
-    if (highlightBundleId) params.set('bundleId', highlightBundleId);
-    const query = params.toString();
+    // Preserve actionKey, bundleType, and bundleId when changing tabs
+    const newParams = new URLSearchParams();
+    if (tab) newParams.set('tab', tab);
+    if (bundleType) newParams.set('bundleType', bundleType);
+    if (actionKey) newParams.set('actionKey', actionKey);
+    if (highlightBundleId) newParams.set('bundleId', highlightBundleId);
+    const query = newParams.toString();
     router.push(`/projects/${projectId}/work-queue${query ? `?${query}` : ''}`);
   };
 

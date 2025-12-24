@@ -45,7 +45,7 @@ import { GovernanceService } from './governance.service';
 import { ApprovalsService } from './approvals.service';
 import { RoleResolutionService } from '../common/role-resolution.service';
 import { WorkQueueService } from './work-queue.service';
-import type { WorkQueueTab, WorkQueueBundleType, WorkQueueResponse } from '@engineo/shared';
+import type { WorkQueueTab, WorkQueueBundleType, WorkQueueRecommendedActionKey, WorkQueueResponse } from '@engineo/shared';
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard)
@@ -825,6 +825,7 @@ export class ProjectsController {
    * Query params:
    * - tab?: 'Critical' | 'NeedsAttention' | 'PendingApproval' | 'DraftsReady' | 'AppliedRecently'
    * - bundleType?: 'ASSET_OPTIMIZATION' | 'AUTOMATION_RUN' | 'GEO_EXPORT'
+   * - actionKey?: 'FIX_MISSING_METADATA' | 'RESOLVE_TECHNICAL_ISSUES' | 'IMPROVE_SEARCH_INTENT' | 'OPTIMIZE_CONTENT' | 'SHARE_LINK_GOVERNANCE'
    * - bundleId?: string (for deep-link highlight)
    *
    * Auth: JWT guard
@@ -836,11 +837,13 @@ export class ProjectsController {
     @Param('id') projectId: string,
     @Query('tab') tab?: WorkQueueTab,
     @Query('bundleType') bundleType?: WorkQueueBundleType,
+    @Query('actionKey') actionKey?: WorkQueueRecommendedActionKey,
     @Query('bundleId') bundleId?: string,
   ): Promise<WorkQueueResponse> {
     return this.workQueueService.getWorkQueue(projectId, req.user.id, {
       tab,
       bundleType,
+      actionKey,
       bundleId,
     });
   }

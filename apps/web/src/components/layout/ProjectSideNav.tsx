@@ -6,10 +6,13 @@ import { useParams, usePathname } from 'next/navigation';
 /**
  * Project navigation items aligned with the DEO pillar-centric model.
  * Order reflects the canonical pillar hierarchy while maintaining existing routes.
+ *
+ * [STORE-HEALTH-1.0] Store Health is the primary landing page for projects.
  */
 const navItems = [
-  { label: 'Overview', path: 'overview' },
+  { label: 'Store Health', path: 'store-health' }, // [STORE-HEALTH-1.0] Primary landing
   { label: 'Work Queue', path: 'work-queue' }, // [WORK-QUEUE-1] Unified action bundle queue
+  { label: 'Overview', path: 'overview' },
   { label: 'Products', path: 'products' },
   { label: 'Insights', path: 'insights' }, // [INSIGHTS-1] Read-only analytics
   { label: 'DEO Overview', path: 'deo' },
