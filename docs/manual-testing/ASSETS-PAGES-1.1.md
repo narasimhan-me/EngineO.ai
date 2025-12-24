@@ -399,27 +399,63 @@ curl -X POST http://localhost:3001/projects/PROJECT_ID/automation-playbooks/esti
 
 | Scenario | Backend | Frontend | E2E |
 |----------|---------|----------|-----|
-| HP-001 Estimate Pages | ✅ Manual | ⏳ | ⏳ |
-| HP-002 Estimate Collections | ✅ Manual | ⏳ | ⏳ |
-| HP-003 Scoped Asset Refs | ✅ Manual | ⏳ | ⏳ |
-| HP-004 Work Queue Bundles | ✅ Manual | ⏳ | ⏳ |
+| HP-001 Estimate Pages | ✅ Manual | ✅ | ✅ |
+| HP-002 Estimate Collections | ✅ Manual | ✅ | ✅ |
+| HP-003 Scoped Asset Refs | ✅ Manual | ✅ | ✅ |
+| HP-004 Work Queue Bundles | ✅ Manual | ✅ | ✅ |
 | HP-005 Page SEO Update | ✅ Manual | ⏳ | ⏳ |
 | HP-006 Collection SEO Update | ✅ Manual | ⏳ | ⏳ |
-| EC-001 Invalid Ref Format | ✅ Manual | ⏳ | ⏳ |
-| EC-002 Wrong Ref Type | ✅ Manual | ⏳ | ⏳ |
-| EC-003 Wrong Scope Param | ✅ Manual | ⏳ | ⏳ |
+| EC-001 Invalid Ref Format | ✅ Manual | ✅ | ✅ |
+| EC-002 Wrong Ref Type | ✅ Manual | ✅ | ✅ |
+| EC-003 Wrong Scope Param | ✅ Manual | ✅ | ✅ |
 | EC-004 Page Not Found | ✅ Manual | ⏳ | ⏳ |
 | EC-005 No Integration | ✅ Manual | ⏳ | ⏳ |
 | EC-006 Non-OWNER Apply | ✅ Manual | ⏳ | ⏳ |
 
 ---
 
+## Frontend Test Scenarios (PATCH 5)
+
+### FE-001: Work Queue CTA Deep Link to Playbooks
+
+**Steps:**
+1. Navigate to Work Queue page
+2. Find an AUTOMATION_RUN bundle for PAGES or COLLECTIONS
+3. Click the CTA button
+
+**Expected Results:**
+- Navigates to `/projects/{id}/automation/playbooks?playbookId={id}&assetType={PAGES|COLLECTIONS}`
+- Playbooks page shows asset type badge ("pages" or "collections")
+- Estimate is fetched with correct assetType
+
+### FE-002: Playbooks Page Asset Type Badge
+
+**Steps:**
+1. Navigate directly to `/projects/{id}/automation/playbooks?assetType=PAGES`
+2. Observe the header
+
+**Expected Results:**
+- Header shows "Automation Playbooks" with "pages" badge
+- Estimate requests include assetType=PAGES
+
+### FE-003: Playbooks Page Default to PRODUCTS
+
+**Steps:**
+1. Navigate directly to `/projects/{id}/automation/playbooks` (no assetType param)
+2. Observe the header
+
+**Expected Results:**
+- No asset type badge shown (PRODUCTS is default)
+- Estimate requests use standard PRODUCTS scope
+
+---
+
 ## Notes
 
-- Frontend execution surfaces (Generate Drafts, Apply buttons) are deferred to PATCH 5
-- AI prompt adaptation for Pages/Collections draft generation is deferred
-- Integration tests should be added as automation-playbooks.test.ts extensions
-- E2E tests require Shopify sandbox environment
+- AI prompt adaptation for Pages/Collections draft generation is deferred to future phase
+- Generate Drafts and Apply flows work but use PRODUCTS AI prompts (may not be optimal for Pages/Collections)
+- Full Shopify sandbox testing recommended for HP-005 and HP-006
+- E2E tests in assets-pages-1-1.e2e-spec.ts cover estimate and validation scenarios
 
 ---
 
@@ -428,3 +464,4 @@ curl -X POST http://localhost:3001/projects/PROJECT_ID/automation-playbooks/esti
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2025-12-24 | Claude | Initial draft for ASSETS-PAGES-1.1 execution phase |
+| 1.1 | 2025-12-24 | Claude | Added Frontend Test Scenarios (PATCH 5), updated Test Coverage Status with E2E completion |

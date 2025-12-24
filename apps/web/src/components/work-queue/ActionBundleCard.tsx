@@ -376,6 +376,7 @@ function deriveCtas(
 /**
  * Get CTA route based on bundle type, scopeType, and action.
  * [ASSETS-PAGES-1] Routes PAGES/COLLECTIONS bundles to their respective asset lists.
+ * [ASSETS-PAGES-1.1] AUTOMATION_RUN bundles now deep-link to playbooks with assetType param.
  */
 function getCTARoute(bundle: WorkQueueActionBundle, projectId: string): string {
   const { bundleType, recommendedActionKey, scopeType } = bundle;
@@ -384,8 +385,21 @@ function getCTARoute(bundle: WorkQueueActionBundle, projectId: string): string {
     return `/projects/${projectId}/insights?tab=geo`;
   }
 
+  // [ASSETS-PAGES-1.1] Route AUTOMATION_RUN bundles to playbooks with asset-scoped deep link
   if (bundleType === 'AUTOMATION_RUN') {
-    return `/projects/${projectId}/automation`;
+    // Extract playbookId from recommendedActionKey (e.g., 'FIX_MISSING_METADATA' maps to playbook)
+    // For now, use the bundleId to determine the playbook since it contains the playbookId
+    // Bundle ID format: AUTOMATION_RUN:FIX_MISSING_METADATA:{playbookId}:{assetType}:{projectId}
+    const bundleIdParts = bundle.bundleId.split(':');
+    const playbookId = bundleIdParts.length >= 3 ? bundleIdParts[2] : 'missing_seo_title';
+    const assetType = bundleIdParts.length >= 4 ? bundleIdParts[3] : 'PRODUCTS';
+
+    const params = new URLSearchParams();
+    params.set('playbookId', playbookId);
+    if (assetType !== 'PRODUCTS') {
+      params.set('assetType', assetType);
+    }
+    return `/projects/${projectId}/automation/playbooks?${params.toString()}`;
   }
 
   // [ASSETS-PAGES-1] Route to asset-specific pages with filters

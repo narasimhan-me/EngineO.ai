@@ -538,6 +538,9 @@ async function fetchWithoutAuth(endpoint: string, options: RequestInit = {}) {
 
 export type AutomationPlaybookId = 'missing_seo_title' | 'missing_seo_description';
 
+// [ASSETS-PAGES-1.1] Asset type for automation playbooks
+export type AutomationAssetType = 'PRODUCTS' | 'PAGES' | 'COLLECTIONS';
+
 export type AutomationPlaybookApplyItemStatus =
   | 'UPDATED'
   | 'SKIPPED'
@@ -777,15 +780,30 @@ export const projectsApi = {
 
   automationSuggestions: (id: string) => fetchWithAuth(`/projects/${id}/automation-suggestions`),
 
+  /**
+   * [ASSETS-PAGES-1.1] Estimate automation playbook with optional assetType and scopeAssetRefs.
+   * - assetType: 'PRODUCTS' (default) | 'PAGES' | 'COLLECTIONS'
+   * - scopeAssetRefs: Asset refs like 'page_handle:about-us' or 'collection_handle:summer-sale'
+   */
   automationPlaybookEstimate: (
     id: string,
     playbookId: AutomationPlaybookId,
     scopeProductIds?: string[],
+    assetType?: AutomationAssetType,
+    scopeAssetRefs?: string[],
   ) => {
-    if (scopeProductIds && scopeProductIds.length > 0) {
+    // Use POST for scoped requests
+    if ((scopeProductIds && scopeProductIds.length > 0) ||
+        assetType ||
+        (scopeAssetRefs && scopeAssetRefs.length > 0)) {
       return fetchWithAuth(`/projects/${id}/automation-playbooks/estimate`, {
         method: 'POST',
-        body: JSON.stringify({ playbookId, scopeProductIds }),
+        body: JSON.stringify({
+          playbookId,
+          scopeProductIds,
+          assetType,
+          scopeAssetRefs,
+        }),
       });
     }
     return fetchWithAuth(

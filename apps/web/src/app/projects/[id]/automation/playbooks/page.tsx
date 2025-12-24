@@ -24,6 +24,7 @@ import type {
   GovernancePolicyResponse,
   ApprovalRequestResponse,
   ProjectMember,
+  AutomationAssetType,
 } from '@/lib/api';
 import type { Product } from '@/lib/products';
 import { useFeedback } from '@/components/feedback/FeedbackProvider';
@@ -145,6 +146,21 @@ const PLAYBOOKS: PlaybookDefinition[] = [
   },
 ];
 
+/**
+ * [ASSETS-PAGES-1.1] Get display labels for asset types.
+ */
+function getAssetTypeLabel(assetType: AutomationAssetType): { singular: string; plural: string } {
+  switch (assetType) {
+    case 'PAGES':
+      return { singular: 'page', plural: 'pages' };
+    case 'COLLECTIONS':
+      return { singular: 'collection', plural: 'collections' };
+    case 'PRODUCTS':
+    default:
+      return { singular: 'product', plural: 'products' };
+  }
+}
+
 export default function AutomationPlaybooksPage() {
   const router = useRouter();
   const params = useParams();
@@ -165,6 +181,13 @@ export default function AutomationPlaybooksPage() {
       ? urlPlaybookId
       : null;
 
+  // [ASSETS-PAGES-1.1] Deep-link support: read assetType from URL query params
+  const urlAssetType = searchParams.get('assetType') as AutomationAssetType | null;
+  const validUrlAssetType =
+    urlAssetType === 'PRODUCTS' || urlAssetType === 'PAGES' || urlAssetType === 'COLLECTIONS'
+      ? urlAssetType
+      : 'PRODUCTS'; // Default to PRODUCTS
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [projectName, setProjectName] = useState<string | null>(null);
@@ -174,6 +197,8 @@ export default function AutomationPlaybooksPage() {
   // Initialize from URL param if valid, otherwise default to 'missing_seo_title'
   const [selectedPlaybookId, setSelectedPlaybookId] =
     useState<PlaybookId | null>(validUrlPlaybookId ?? 'missing_seo_title');
+  // [ASSETS-PAGES-1.1] Track current asset type from URL deep link
+  const [currentAssetType, setCurrentAssetType] = useState<AutomationAssetType>(validUrlAssetType);
   const [flowState, setFlowState] = useState<PlaybookFlowState>('PREVIEW_READY');
   const [previewSamples, setPreviewSamples] = useState<PreviewSample[]>([]);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -392,14 +417,19 @@ export default function AutomationPlaybooksPage() {
   };
 
   const loadEstimate = useCallback(
-    async (playbookId: PlaybookId) => {
+    async (playbookId: PlaybookId, assetType?: AutomationAssetType) => {
       try {
         setLoadingEstimate(true);
         setError('');
         setEstimate(null);
+        // [ASSETS-PAGES-1.1] Pass assetType to estimate endpoint
+        const effectiveAssetType = assetType ?? currentAssetType;
         const data = (await projectsApi.automationPlaybookEstimate(
           projectId,
           playbookId,
+          undefined, // scopeProductIds
+          effectiveAssetType !== 'PRODUCTS' ? effectiveAssetType : undefined,
+          undefined, // scopeAssetRefs
         )) as PlaybookEstimate;
         setEstimate(data);
       } catch (err: unknown) {
@@ -414,7 +444,7 @@ export default function AutomationPlaybooksPage() {
         setLoadingEstimate(false);
       }
     },
-    [projectId],
+    [projectId, currentAssetType],
   );
 
   const loadPreview = useCallback(
@@ -1303,7 +1333,15 @@ export default function AutomationPlaybooksPage() {
       {/* Header */}
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Automation Playbooks</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Automation Playbooks
+            {/* [ASSETS-PAGES-1.1] Show asset type badge when not PRODUCTS */}
+            {currentAssetType !== 'PRODUCTS' && (
+              <span className="ml-2 inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+                {getAssetTypeLabel(currentAssetType).plural}
+              </span>
+            )}
+          </h1>
           <p className="text-gray-600">
             Safely apply AI-powered fixes to missing SEO metadata, with preview and
             token estimates before you run anything.
