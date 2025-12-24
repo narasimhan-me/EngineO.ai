@@ -393,6 +393,10 @@ model AutomationPlaybookDraft {
   updatedAt       DateTime                      @updatedAt
   expiresAt       DateTime?
 
+  // [WORK-QUEUE-1] Applied state tracking for "Applied Recently" tab derivation
+  appliedAt       DateTime?                     // When this draft was successfully applied
+  appliedByUserId String?                       // User who applied this draft
+
   @@unique([projectId, playbookId, scopeId, rulesHash])
   @@index([projectId, playbookId, updatedAt(sort: Desc)])
 }

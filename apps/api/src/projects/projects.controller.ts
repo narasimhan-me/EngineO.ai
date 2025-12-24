@@ -44,6 +44,8 @@ import { ProjectInsightsService } from './project-insights.service';
 import { GovernanceService } from './governance.service';
 import { ApprovalsService } from './approvals.service';
 import { RoleResolutionService } from '../common/role-resolution.service';
+import { WorkQueueService } from './work-queue.service';
+import type { WorkQueueTab, WorkQueueBundleType, WorkQueueResponse } from '@engineo/shared';
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard)
@@ -63,6 +65,7 @@ export class ProjectsController {
     private readonly governanceService: GovernanceService,
     private readonly approvalsService: ApprovalsService,
     private readonly roleResolutionService: RoleResolutionService,
+    private readonly workQueueService: WorkQueueService,
   ) {}
 
   /**
@@ -806,5 +809,39 @@ export class ProjectsController {
       capabilities,
       isMultiUserProject,
     };
+  }
+
+  // ===========================================================================
+  // [WORK-QUEUE-1] Unified Action Bundle Work Queue
+  // ===========================================================================
+
+  /**
+   * GET /projects/:id/work-queue
+   * Returns derived Work Queue action bundles for a project.
+   *
+   * [WORK-QUEUE-1] All bundles are derived at request time from existing
+   * persisted artifacts (issues, playbook drafts, approvals, share links).
+   *
+   * Query params:
+   * - tab?: 'Critical' | 'NeedsAttention' | 'PendingApproval' | 'DraftsReady' | 'AppliedRecently'
+   * - bundleType?: 'ASSET_OPTIMIZATION' | 'AUTOMATION_RUN' | 'GEO_EXPORT'
+   * - bundleId?: string (for deep-link highlight)
+   *
+   * Auth: JWT guard
+   * Access: Any ProjectMember (membership-readable)
+   */
+  @Get(':id/work-queue')
+  async getWorkQueue(
+    @Request() req: any,
+    @Param('id') projectId: string,
+    @Query('tab') tab?: WorkQueueTab,
+    @Query('bundleType') bundleType?: WorkQueueBundleType,
+    @Query('bundleId') bundleId?: string,
+  ): Promise<WorkQueueResponse> {
+    return this.workQueueService.getWorkQueue(projectId, req.user.id, {
+      tab,
+      bundleType,
+      bundleId,
+    });
   }
 }

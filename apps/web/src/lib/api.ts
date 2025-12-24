@@ -1184,6 +1184,30 @@ export const projectsApi = {
     fetchWithAuth(`/projects/${projectId}/members/${memberId}`, {
       method: 'DELETE',
     }),
+
+  // ===========================================================================
+  // [WORK-QUEUE-1] Unified Action Bundle Work Queue
+  // ===========================================================================
+
+  /**
+   * Get derived Work Queue action bundles for a project.
+   * [WORK-QUEUE-1] All bundles are derived at request time from existing persisted artifacts.
+   */
+  workQueue: (
+    projectId: string,
+    params?: {
+      tab?: 'Critical' | 'NeedsAttention' | 'PendingApproval' | 'DraftsReady' | 'AppliedRecently';
+      bundleType?: 'ASSET_OPTIMIZATION' | 'AUTOMATION_RUN' | 'GEO_EXPORT';
+      bundleId?: string;
+    },
+  ): Promise<import('./work-queue').WorkQueueResponse> => {
+    const searchParams = new URLSearchParams();
+    if (params?.tab) searchParams.set('tab', params.tab);
+    if (params?.bundleType) searchParams.set('bundleType', params.bundleType);
+    if (params?.bundleId) searchParams.set('bundleId', params.bundleId);
+    const qs = searchParams.toString() ? `?${searchParams.toString()}` : '';
+    return fetchWithAuth(`/projects/${projectId}/work-queue${qs}`);
+  },
 };
 
 export const integrationsApi = {

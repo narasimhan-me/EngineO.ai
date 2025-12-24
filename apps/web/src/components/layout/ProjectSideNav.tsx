@@ -9,6 +9,7 @@ import { useParams, usePathname } from 'next/navigation';
  */
 const navItems = [
   { label: 'Overview', path: 'overview' },
+  { label: 'Work Queue', path: 'work-queue' }, // [WORK-QUEUE-1] Unified action bundle queue
   { label: 'Products', path: 'products' },
   { label: 'Insights', path: 'insights' }, // [INSIGHTS-1] Read-only analytics
   { label: 'DEO Overview', path: 'deo' },

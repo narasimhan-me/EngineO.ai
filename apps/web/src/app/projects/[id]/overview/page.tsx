@@ -1227,7 +1227,7 @@ export default function ProjectOverviewPage() {
                   <h3 className="mb-3 text-sm font-semibold text-gray-900">Signals summary</h3>
                   <DeoSignalsSummary signals={deoSignals} loading={deoSignalsLoading} />
                   <div className="mt-4">
-                    <ProjectHealthCards signals={deoSignals} />
+                    <ProjectHealthCards signals={deoSignals} projectId={projectId} />
                   </div>
                 </div>
                 <div className="rounded-lg border border-gray-200 bg-white p-4">

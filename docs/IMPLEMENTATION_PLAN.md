@@ -636,6 +636,103 @@ True multi-user projects with explicit membership management, approval chains, a
 
 ---
 
+## Phase WORK-QUEUE-1: Unified Action Bundle Work Queue COMPLETE
+
+**Status:** Complete
+**Date Completed:** 2025-12-24
+
+### Overview
+
+Unified Work Queue page that derives action bundles from existing persisted artifacts without introducing new storage tables. Provides a single prioritized list of actions organized by health and state.
+
+### Schema Summary
+
+**Action Bundle Core Fields:**
+- `bundleId`: Deterministic ID (e.g., `{bundleType}:{recommendedActionKey}:{scopeId}`)
+- `bundleType`: ASSET_OPTIMIZATION | AUTOMATION_RUN | GEO_EXPORT
+- `state`: NEW | PREVIEWED | DRAFTS_READY | PENDING_APPROVAL | APPROVED | APPLIED | FAILED | BLOCKED
+- `health`: CRITICAL | NEEDS_ATTENTION | HEALTHY
+- `recommendedActionKey`: FIX_MISSING_METADATA | RESOLVE_TECHNICAL_ISSUES | IMPROVE_SEARCH_INTENT | OPTIMIZE_CONTENT | SHARE_LINK_GOVERNANCE
+- `aiUsage`: NONE | DRAFTS_ONLY
+- `scopeType`: PRODUCTS | STORE_WIDE
+- `scopeCount`, `scopePreviewList`: Affected items summary
+
+**Subschemas:**
+- `approval?`: { approvalRequired, approvalStatus, requestedBy/At, approvedBy/At }
+- `draft?`: { draftStatus, draftCount, draftCoverage, lastDraftRunId }
+- `geoExport?`: { mutationFreeView, shareLinkStatus, passcodeShownOnce }
+
+### Derivation Sources
+
+1. **Issue-derived bundles (ASSET_OPTIMIZATION)**: DeoIssuesService.getIssuesForProjectReadOnly()
+   - Groups issues by recommendedActionKey
+   - Maps severity to health (critical → CRITICAL, warning → NEEDS_ATTENTION)
+   - aiUsage = NONE
+
+2. **Automation bundles (AUTOMATION_RUN)**: AutomationPlaybooksService + drafts
+   - Includes playbooks with totalAffectedProducts > 0 OR existing draft
+   - Draft status → state mapping (PARTIAL → PREVIEWED, READY → DRAFTS_READY)
+   - Approval status from governance + ApprovalRequest
+   - aiUsage = DRAFTS_ONLY
+
+3. **GEO export bundle (GEO_EXPORT)**: GeoReportsService.listShareLinks()
+   - Single bundle per project for share link governance
+   - mutationFreeView = true (viewing doesn't trigger mutations)
+   - aiUsage = NONE
+
+### Deterministic Sorting Rules
+
+1. **State priority**: PENDING_APPROVAL (100) → APPROVED (150) → DRAFTS_READY (200) → FAILED (300) → BLOCKED (350) → NEW (400) → PREVIEWED (450) → APPLIED (900)
+2. **Health priority**: CRITICAL (100) → NEEDS_ATTENTION (200) → HEALTHY (300)
+3. **Impact rank**: FIX_MISSING_METADATA (100) → RESOLVE_TECHNICAL_ISSUES (200) → IMPROVE_SEARCH_INTENT (300) → OPTIMIZE_CONTENT (400) → SHARE_LINK_GOVERNANCE (500)
+4. **updatedAt**: Most recent first
+5. **bundleId**: Stable tie-breaker
+
+### Implementation Patches (All Complete)
+
+#### PATCH 1 — Shared Contract
+- [x] Created `packages/shared/src/work-queue.ts` with types/enums
+- [x] Exported from `packages/shared/src/index.ts`
+- [x] Created `apps/web/src/lib/work-queue.ts` mirror
+
+#### PATCH 2 — Backend
+- [x] Added `GET /projects/:id/work-queue` endpoint
+- [x] Created `work-queue.service.ts` with derivation logic
+- [x] Registered `WorkQueueService` in `projects.module.ts`
+- [x] Added `appliedAt`, `appliedByUserId` to `AutomationPlaybookDraft` schema
+- [x] Created Prisma migration
+- [x] Updated `automation-playbooks.service.ts` to set applied fields after successful apply
+
+#### PATCH 3 — Frontend
+- [x] Created `/projects/[id]/work-queue/page.tsx`
+- [x] Created `ActionBundleCard.tsx` with fixed layout
+- [x] Created `WorkQueueTabs.tsx` for tab navigation
+- [x] Updated `ProjectSideNav.tsx` with Work Queue item
+- [x] Updated `ProjectHealthCards.tsx` with routing to Work Queue
+- [x] Added `projectsApi.workQueue()` client method
+
+#### PATCH 4 — Testing
+- [x] Created `apps/api/test/integration/work-queue-1.test.ts`
+- [x] Created `tests/e2e/work-queue/work-queue.spec.ts` (Playwright scaffolding)
+
+#### PATCH 5 — Documentation
+- [x] Created `docs/manual-testing/WORK-QUEUE-1.md`
+- [x] Updated IMPLEMENTATION_PLAN.md (this section)
+
+### Critical Path Impact
+
+- **CP-018 (ROLES-2 approvals)**: Approval status reflected in Work Queue bundles
+- **ENTERPRISE-GEO-1 (GEO export)**: GEO bundle routes to export page, mutation-free view
+
+### Related Documents
+
+- [WORK-QUEUE-1.md](./manual-testing/WORK-QUEUE-1.md) - Manual testing guide
+- packages/shared/src/work-queue.ts - Type definitions
+- apps/api/test/integration/work-queue-1.test.ts - Integration tests
+- tests/e2e/work-queue/work-queue.spec.ts - E2E test scaffolding
+
+---
+
 ## Document History
 
 | Version | Date | Changes |

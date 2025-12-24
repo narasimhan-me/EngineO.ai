@@ -167,3 +167,35 @@ export {
   type PerformanceSignalStatus,
   type PerformanceForDiscoveryScorecard,
 } from './performance-signals';
+
+// WORK-QUEUE-1: Unified Action Bundle Work Queue types
+export {
+  // Core enums
+  type WorkQueueBundleType,
+  type WorkQueueRecommendedActionKey,
+  type WorkQueueHealth,
+  type WorkQueueState,
+  type WorkQueueAiUsage,
+  type WorkQueueScopeType,
+  type WorkQueueApprovalStatus,
+  type WorkQueueDraftStatus,
+  type WorkQueueShareLinkStatus,
+  // Subschemas
+  type WorkQueueApprovalInfo,
+  type WorkQueueDraftInfo,
+  type WorkQueueGeoExportInfo,
+  // Main bundle schema
+  type WorkQueueActionBundle,
+  // API types
+  type WorkQueueTab,
+  type WorkQueueQueryParams,
+  type WorkQueueViewerCapabilities,
+  type WorkQueueViewer,
+  type WorkQueueResponse,
+  // Constants
+  WORK_QUEUE_AI_DISCLOSURE_TEXT,
+  WORK_QUEUE_ACTION_LABELS,
+  WORK_QUEUE_IMPACT_RANKS,
+  WORK_QUEUE_STATE_PRIORITY,
+  WORK_QUEUE_HEALTH_PRIORITY,
+} from './work-queue';

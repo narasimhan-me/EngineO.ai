@@ -38,6 +38,7 @@ import { ApprovalsService } from './approvals.service';
 import { AuditEventsService } from './audit-events.service';
 import { GovernanceController } from './governance.controller';
 import { RoleResolutionService } from '../common/role-resolution.service';
+import { WorkQueueService } from './work-queue.service';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { RoleResolutionService } from '../common/role-resolution.service';
     ApprovalsService,
     AuditEventsService,
     RoleResolutionService,
+    WorkQueueService,
   ],
   exports: [ProjectsService, DeoScoreService, AutomationService, AnswerEngineService, AutomationPlaybookRunsService, SearchIntentService, CompetitorsService, OffsiteSignalsService, LocalDiscoveryService, MediaAccessibilityService, GovernanceService, ApprovalsService, AuditEventsService, RoleResolutionService],
 })

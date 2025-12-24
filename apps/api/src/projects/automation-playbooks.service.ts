@@ -1218,6 +1218,18 @@ export class AutomationPlaybooksService {
       aiCalled: false,
     });
 
+    // [WORK-QUEUE-1] Mark draft as applied for "Applied Recently" tab derivation
+    // Only set if at least one product was updated successfully
+    if (updatedCount > 0) {
+      await this.prisma.automationPlaybookDraft.update({
+        where: { id: latestDraft.id },
+        data: {
+          appliedAt: finishedAt,
+          appliedByUserId: userId,
+        },
+      });
+    }
+
     return {
       projectId,
       playbookId,
