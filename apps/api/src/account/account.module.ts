@@ -1,9 +1,10 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { AccountController } from './account.controller';
 import { AccountService } from './account.service';
 import { PrismaService } from '../prisma.service';
 import { AuthModule } from '../auth/auth.module';
 import { BillingModule } from '../billing/billing.module';
+import { ProjectsModule } from '../projects/projects.module';
 
 /**
  * [SELF-SERVICE-1] Account Module
@@ -16,9 +17,12 @@ import { BillingModule } from '../billing/billing.module';
  * - Session management (active sessions, sign-out-all)
  *
  * Hard rule: No AI calls, no job enqueueing from these endpoints.
+ *
+ * [ROLES-3 FIXUP-5] Imports ProjectsModule for RoleResolutionService access
+ * to support co-owner disconnect-store operations.
  */
 @Module({
-  imports: [AuthModule, BillingModule],
+  imports: [AuthModule, BillingModule, forwardRef(() => ProjectsModule)],
   controllers: [AccountController],
   providers: [AccountService, PrismaService],
   exports: [AccountService],

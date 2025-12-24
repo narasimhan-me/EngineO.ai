@@ -541,6 +541,44 @@ True multi-user projects with explicit membership management, approval chains, a
 - Backend: `apps/api/test/integration/roles-3.test.ts`
 - Frontend: `apps/web/tests/roles-3.spec.ts`
 
+### FIXUP History
+
+#### FIXUP-1: End-to-End Multi-User Support
+- Membership-aware access for governance services (approvals, policies, audit events)
+- Role resolution fixes for assertCanGenerateDrafts()
+- Draft generation blocking for VIEWER
+- Frontend role-based UI with Members management page
+
+#### FIXUP-2: Strict Matrix Enforcement
+- Multi-user OWNER cannot create approval requests (must apply directly)
+- Role simulation correctness: accountRole ignored in multi-user projects
+- isMultiUserProject in API response
+- OWNER-only for Answer Block mutations
+- Members page "Add member" wording
+
+#### FIXUP-3: Frontend Approval-Chain Correction
+- Removed ephemeral approvalRequested flag
+- Derived state from server-sourced pendingApproval object
+- EDITOR can NEVER apply, even if approval status is APPROVED
+- Button states and CTA copy derived from server truth
+- Approval status prefetch when Step 3 visible
+- Stale-state reset when switching playbooks
+
+#### FIXUP-4: Membership Enforcement Beyond projects/*
+- Eliminated legacy project.userId ownership gates in:
+  - AI controller (assertCanGenerateDrafts for drafts, assertProjectAccess for usage)
+  - ProductIssueFixService (assertOwnerRole for apply)
+  - SEO scan service (assertOwnerRole for mutations, assertProjectAccess for view)
+  - Integrations controller (assertProjectAccess for GET, assertOwnerRole for mutations)
+  - Shopify service (assertOwnerRole for updateProductSeo)
+- Added integration tests for AI usage, integrations, and SEO scan endpoints
+
+#### FIXUP-5: Co-Owner Support for Shopify Actions
+- Shopify validateProjectOwnership uses RoleResolutionService (supports co-owners)
+- Account disconnectStore uses assertOwnerRole for project-level check
+- Co-owner can perform: install, sync-products, ensure-metafield-definitions
+- Added integration tests for multi-owner Shopify actions
+
 ### Related Documents
 
 - [ROLES-3.md](./manual-testing/ROLES-3.md) - Manual testing guide
@@ -570,3 +608,4 @@ True multi-user projects with explicit membership management, approval chains, a
 | 2.3 | 2025-12-23 | ROLES-3 FIXUP-2: Strict matrix enforcement - OWNER cannot create approval requests in multi-user projects, role simulation correctness (accountRole ignored in multi-user), isMultiUserProject in API response, OWNER-only for Answer Block mutations, updated documentation |
 | 2.4 | 2025-12-24 | ROLES-3 FIXUP-3: Frontend correction for strict approval-chain matrix - removed ephemeral approvalRequested flag, derived state from server-sourced pendingApproval, EDITOR can NEVER apply even if approved, button states and CTA copy derived from server truth |
 | 2.5 | 2025-12-24 | ROLES-3 FIXUP-4: Membership + Role Enforcement Beyond projects/* - eliminated legacy project.userId ownership gates in AI controller, ProductIssueFixService, SEO scan, Integrations, and Shopify services; replaced with RoleResolutionService assertions (assertProjectAccess, assertOwnerRole, assertCanGenerateDrafts); added integration tests |
+| 2.6 | 2025-12-24 | ROLES-3 FIXUP-5: Co-Owner Support for Shopify Actions - Shopify validateProjectOwnership uses RoleResolutionService (supports co-owners), Account disconnectStore uses assertOwnerRole for project-level check, co-owner can perform install/sync-products/ensure-metafield-definitions, added integration tests for multi-owner Shopify actions |

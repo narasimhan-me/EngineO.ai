@@ -611,3 +611,75 @@ Run the following scenarios to verify FIXUP-4:
 - `apps/api/src/integrations/integrations.module.ts`
 - `apps/api/src/shopify/shopify.service.ts`
 - `apps/api/test/integration/roles-3.test.ts`
+
+---
+
+## ROLES-3 FIXUP-5: Co-Owner Support for Shopify Actions (December 2025)
+
+This fixup enables co-owners (any ProjectMember with OWNER role) to perform Shopify OWNER-only actions, not just the legacy `Project.userId` owner.
+
+### Key Changes
+
+**PATCH 1: Shopify OWNER Gate**
+- `shopify.service.ts`: Updated `validateProjectOwnership()` to use `RoleResolutionService.resolveEffectiveRole()`
+  - Returns `true` if user's effective role is OWNER
+  - Supports co-owners (multiple OWNER members)
+  - Removed legacy Prisma query for `{ id: projectId, userId }`
+
+**PATCH 3: Account Disconnect Store**
+- `account.service.ts`: Injected `RoleResolutionService`
+  - `disconnectStore()` uses `assertOwnerRole()` instead of `project.userId === userId`
+  - Preserves account-level restriction (`userAccountRole === 'OWNER'`)
+  - Supports co-owner disconnect operations
+
+**PATCH 3.1: Account Module Wiring**
+- `account.module.ts`: Added `forwardRef(() => ProjectsModule)` import
+  - Enables RoleResolutionService injection via ProjectsModule exports
+
+**PATCH 4: Integration Tests**
+- `roles-3.test.ts`: Added FIXUP-5 test block for co-owner Shopify actions
+  - Creates multi-owner project (primary + secondary OWNER)
+  - Tests secondary OWNER can call ensure-metafield-definitions
+  - Tests secondary OWNER can call sync-products
+  - Tests EDITOR/VIEWER remain blocked
+
+### Endpoints Now Supporting Co-Owners
+
+| Endpoint | Access | Notes |
+|----------|--------|-------|
+| `GET /shopify/install` | Any project OWNER | Initiates Shopify OAuth |
+| `POST /shopify/sync-products` | Any project OWNER | Syncs products from Shopify |
+| `POST /shopify/ensure-metafield-definitions` | Any project OWNER | Creates Answer Block metafield definitions |
+| `DELETE /account/stores/:projectId` | Account OWNER + Project OWNER | Disconnects Shopify store |
+
+### Test Verification
+
+Run the following scenarios to verify FIXUP-5:
+
+1. **Co-owner can ensure metafield definitions**:
+   - Add a second OWNER to the project
+   - As secondary OWNER, call `POST /shopify/ensure-metafield-definitions?projectId=X`
+   - Should succeed (201)
+
+2. **Co-owner can sync products**:
+   - As secondary OWNER, call `POST /shopify/sync-products?projectId=X`
+   - Should succeed (201)
+
+3. **EDITOR cannot perform Shopify OWNER actions**:
+   - As EDITOR, call `POST /shopify/ensure-metafield-definitions?projectId=X`
+   - Should fail (401)
+
+4. **Co-owner can disconnect store**:
+   - As secondary OWNER (with account OWNER role), call `DELETE /account/stores/:projectId`
+   - Should succeed
+
+5. **Legacy owner still works**:
+   - As primary OWNER (Project.userId), all Shopify endpoints still work
+   - Backward compatibility preserved
+
+### Files Modified
+
+- `apps/api/src/shopify/shopify.service.ts`
+- `apps/api/src/account/account.service.ts`
+- `apps/api/src/account/account.module.ts`
+- `apps/api/test/integration/roles-3.test.ts`

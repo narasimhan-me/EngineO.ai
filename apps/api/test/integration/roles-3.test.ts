@@ -888,4 +888,155 @@ describe('ROLES-3 – Membership-Aware Access Control', () => {
         .expect(403);
     });
   });
+
+  // ============================================================================
+  // [ROLES-3 FIXUP-5] Co-Owner Support for Shopify OWNER Actions
+  // ============================================================================
+
+  describe('[FIXUP-5] Shopify OWNER Actions – Co-Owner Support', () => {
+    /**
+     * Helper to create a multi-user project with two OWNERs.
+     */
+    async function seedMultiOwnerProject() {
+      // Create primary OWNER via seedConnectedStoreProject
+      const { user: primaryOwner, project, shopifyIntegration } =
+        await seedConnectedStoreProject(testPrisma, { plan: 'pro' });
+
+      // Create secondary OWNER
+      const { user: secondaryOwner } = await createTestUser(testPrisma, {
+        plan: 'pro',
+      });
+
+      // Add secondary OWNER as ProjectMember with OWNER role
+      await testPrisma.projectMember.create({
+        data: {
+          projectId: project.id,
+          userId: secondaryOwner.id,
+          role: ProjectMemberRole.OWNER,
+        },
+      });
+
+      // Create EDITOR for comparison
+      const { user: editor } = await createTestUser(testPrisma, {
+        plan: 'pro',
+      });
+
+      await testPrisma.projectMember.create({
+        data: {
+          projectId: project.id,
+          userId: editor.id,
+          role: ProjectMemberRole.EDITOR,
+        },
+      });
+
+      // Create VIEWER for comparison
+      const { user: viewer } = await createTestUser(testPrisma, {
+        plan: 'pro',
+      });
+
+      await testPrisma.projectMember.create({
+        data: {
+          projectId: project.id,
+          userId: viewer.id,
+          role: ProjectMemberRole.VIEWER,
+        },
+      });
+
+      return {
+        primaryOwner,
+        secondaryOwner,
+        editor,
+        viewer,
+        project,
+        shopifyIntegration,
+      };
+    }
+
+    it('Secondary OWNER can call ensure-metafield-definitions', async () => {
+      const { secondaryOwner, project } = await seedMultiOwnerProject();
+
+      // Secondary OWNER should be able to call this OWNER-only endpoint
+      // In E2E mode, Shopify calls are mocked, so we expect success
+      const res = await request(server)
+        .post(`/shopify/ensure-metafield-definitions?projectId=${project.id}`)
+        .set(authHeader(secondaryOwner.id))
+        .expect(201);
+
+      expect(res.body).toHaveProperty('projectId', project.id);
+    });
+
+    it('Primary OWNER can still call ensure-metafield-definitions', async () => {
+      const { primaryOwner, project } = await seedMultiOwnerProject();
+
+      const res = await request(server)
+        .post(`/shopify/ensure-metafield-definitions?projectId=${project.id}`)
+        .set(authHeader(primaryOwner.id))
+        .expect(201);
+
+      expect(res.body).toHaveProperty('projectId', project.id);
+    });
+
+    it('EDITOR cannot call ensure-metafield-definitions (401)', async () => {
+      const { editor, project } = await seedMultiOwnerProject();
+
+      // EDITOR should be blocked (endpoint returns 401 for non-owner)
+      await request(server)
+        .post(`/shopify/ensure-metafield-definitions?projectId=${project.id}`)
+        .set(authHeader(editor.id))
+        .expect(401);
+    });
+
+    it('VIEWER cannot call ensure-metafield-definitions (401)', async () => {
+      const { viewer, project } = await seedMultiOwnerProject();
+
+      await request(server)
+        .post(`/shopify/ensure-metafield-definitions?projectId=${project.id}`)
+        .set(authHeader(viewer.id))
+        .expect(401);
+    });
+
+    it('Secondary OWNER can call sync-products', async () => {
+      const { secondaryOwner, project } = await seedMultiOwnerProject();
+
+      // Secondary OWNER should be able to sync products
+      // Note: In E2E mode, actual Shopify sync is mocked
+      const res = await request(server)
+        .post(`/shopify/sync-products?projectId=${project.id}`)
+        .set(authHeader(secondaryOwner.id))
+        .expect(201);
+
+      expect(res.body).toHaveProperty('projectId', project.id);
+    });
+
+    it('EDITOR cannot call sync-products (400)', async () => {
+      const { editor, project } = await seedMultiOwnerProject();
+
+      // EDITOR should be blocked
+      await request(server)
+        .post(`/shopify/sync-products?projectId=${project.id}`)
+        .set(authHeader(editor.id))
+        .expect(400);
+    });
+
+    it('Both OWNERs can view project role as OWNER', async () => {
+      const { primaryOwner, secondaryOwner, project } =
+        await seedMultiOwnerProject();
+
+      // Primary OWNER
+      const primaryRes = await request(server)
+        .get(`/projects/${project.id}/user-role`)
+        .set(authHeader(primaryOwner.id))
+        .expect(200);
+
+      expect(primaryRes.body.effectiveRole).toBe('OWNER');
+
+      // Secondary OWNER
+      const secondaryRes = await request(server)
+        .get(`/projects/${project.id}/user-role`)
+        .set(authHeader(secondaryOwner.id))
+        .expect(200);
+
+      expect(secondaryRes.body.effectiveRole).toBe('OWNER');
+    });
+  });
 });

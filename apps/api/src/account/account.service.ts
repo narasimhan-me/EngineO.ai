@@ -2,6 +2,7 @@ import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/commo
 import { PrismaService } from '../prisma.service';
 import { AuthService } from '../auth/auth.service';
 import { EntitlementsService } from '../billing/entitlements.service';
+import { RoleResolutionService } from '../common/role-resolution.service';
 
 /**
  * [SELF-SERVICE-1] Profile data transfer objects
@@ -113,6 +114,7 @@ export class AccountService {
     private readonly prisma: PrismaService,
     private readonly authService: AuthService,
     private readonly entitlementsService: EntitlementsService,
+    private readonly roleResolution: RoleResolutionService,
   ) {}
 
   // ==========================================================================
@@ -364,23 +366,26 @@ export class AccountService {
     projectId: string,
     userAccountRole: string,
   ): Promise<{ success: boolean }> {
-    // Only OWNER can disconnect stores
+    // Only account OWNER can disconnect stores (account-level restriction)
     if (userAccountRole !== 'OWNER') {
       throw new ForbiddenException('Only account owners can disconnect stores');
     }
 
-    // Verify project ownership
+    // Verify project exists
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },
-      select: { userId: true, name: true },
+      select: { name: true },
     });
 
     if (!project) {
       throw new NotFoundException('Project not found');
     }
 
-    if (project.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this project');
+    // [ROLES-3 FIXUP-5] Verify user has OWNER role on project (supports co-owners)
+    try {
+      await this.roleResolution.assertOwnerRole(projectId, userId);
+    } catch {
+      throw new ForbiddenException('You do not have owner access to this project');
     }
 
     // Delete the Shopify integration (does NOT trigger AI work)

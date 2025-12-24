@@ -687,16 +687,18 @@ export class ShopifyService {
   }
 
   /**
-   * Check project ownership
+   * Check project ownership (OWNER role required).
+   * [ROLES-3 FIXUP-5] Uses RoleResolutionService as source of truth.
+   * Supports co-owners (any ProjectMember with OWNER role), not just legacy Project.userId.
    */
   async validateProjectOwnership(projectId: string, userId: string): Promise<boolean> {
-    const project = await this.prisma.project.findFirst({
-      where: {
-        id: projectId,
-        userId,
-      },
-    });
-    return !!project;
+    try {
+      const role = await this.roleResolution.resolveEffectiveRole(projectId, userId);
+      return role === 'OWNER';
+    } catch {
+      // User is not a project member at all
+      return false;
+    }
   }
 
   /**
